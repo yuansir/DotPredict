@@ -1,6 +1,7 @@
 import React from 'react';
 import { DotColor } from '../types';
 import { RuleDisplay } from './RuleDisplay';
+import { BiUndo } from 'react-icons/bi';
 
 interface ControlPanelProps {
   onColorSelect: (color: DotColor) => void;
@@ -31,56 +32,60 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             onClick={onUndo}
             disabled={!canUndo}
             className={`
-              p-2 rounded-lg transition-all duration-200
+              p-2 rounded-lg transition-all duration-200 flex items-center
               ${
                 canUndo
-                  ? 'text-blue-600 hover:bg-blue-50'
-                  : 'text-gray-400 cursor-not-allowed'
+                  ? 'text-blue-600 hover:bg-blue-50 hover:scale-110'
+                  : 'text-gray-400 cursor-not-allowed opacity-50'
               }
               focus:outline-none focus:ring-2 focus:ring-blue-500
             `}
             title="撤销上一步 (Ctrl+Z)"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 10h10a4 4 0 0 1 4 4v2m-6-6l-3-3m0 0L5 4m3 3H3"
-              />
-            </svg>
+            <BiUndo className="w-6 h-6" />
           </button>
         </div>
         <div className="flex items-center justify-center space-x-4">
           <button
             onClick={() => onColorSelect('red')}
-            className={`group relative flex items-center justify-center w-16 h-16 rounded-lg transition-all duration-200 ${
-              selectedColor === 'red'
-                ? 'ring-4 ring-red-300 scale-105'
-                : 'hover:scale-105'
-            }`}
+            className={`
+              group relative flex items-center justify-center w-16 h-16 
+              rounded-lg transition-all duration-200
+              ${
+                selectedColor === 'red'
+                  ? 'bg-red-50'
+                  : 'hover:bg-red-50'
+              }
+              focus:outline-none focus:ring-2 focus:ring-red-300
+            `}
             aria-label="选择红色"
           >
-            <div className="w-8 h-8 rounded-full bg-red-500" />
+            <div className={`
+              w-8 h-8 rounded-full bg-red-500 transition-transform duration-200
+              ${selectedColor === 'red' ? 'scale-110 shadow-lg' : 'hover:scale-110'}
+            `} />
             <span className="absolute -bottom-6 text-sm text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
               红点
             </span>
           </button>
           <button
             onClick={() => onColorSelect('black')}
-            className={`group relative flex items-center justify-center w-16 h-16 rounded-lg transition-all duration-200 ${
-              selectedColor === 'black'
-                ? 'ring-4 ring-gray-300 scale-105'
-                : 'hover:scale-105'
-            }`}
+            className={`
+              group relative flex items-center justify-center w-16 h-16 
+              rounded-lg transition-all duration-200
+              ${
+                selectedColor === 'black'
+                  ? 'bg-gray-50'
+                  : 'hover:bg-gray-50'
+              }
+              focus:outline-none focus:ring-2 focus:ring-gray-300
+            `}
             aria-label="选择黑色"
           >
-            <div className="w-8 h-8 rounded-full bg-gray-900" />
+            <div className={`
+              w-8 h-8 rounded-full bg-gray-900 transition-transform duration-200
+              ${selectedColor === 'black' ? 'scale-110 shadow-lg' : 'hover:scale-110'}
+            `} />
             <span className="absolute -bottom-6 text-sm text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
               黑点
             </span>
