@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dot Pattern Predictor</title>
+    <style>
+        .grid-container {
+            display: flex;
+            gap: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(8, 50px);
+            gap: 2px;
+        }
+        .cell {
+            width: 50px;
+            height: 50px;
+            border: 1px solid #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        .selected {
+            background-color: #e0e0e0;
+        }
+        .dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+        .red-dot {
+            background-color: red;
+        }
+        .black-dot {
+            background-color: black;
+        }
+        .predicted-dot {
+            animation: blink 1s infinite;
+            opacity: 0.7;
+        }
+        @keyframes blink {
+            0% { opacity: 0.2; }
+            50% { opacity: 0.8; }
+            100% { opacity: 0.2; }
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        .rule-box {
+            width: 160px;
+            height: 140px;
+            border: 1px solid #ccc;
+            margin: 10px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+        }
+        .rule-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 25px);
+            grid-template-rows: repeat(3, 25px);
+            gap: 2px;
+            margin-top: 10px;
+        }
+        .rule-cell {
+            width: 25px;
+            height: 25px;
+            border: 1px solid #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .prediction {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f0f0f0;
+        }
+        .statistics {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        .stat-result {
+            margin-top: 10px;
+            font-family: monospace;
+            white-space: pre-line;
+        }
+        .stat-pattern {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            gap: 5px;
+        }
+        .stat-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 2px;
+        }
+        .stat-section {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: white;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-container">
+        <div>
+            <div class="grid" id="mainGrid"></div>
+            <div class="controls">
+                <button onclick="placeDot('red')">放置红点</button>
+                <button onclick="placeDot('black')">放置黑点</button>
+                <button onclick="calculateStatistics()">胜率规则统计</button>
+            </div>
+            <div class="prediction" id="prediction">
+                预测: <span id="predictedColor"></span>
+            </div>
+            <div class="statistics" id="statistics">
+            </div>
+        </div>
+        <div>
+            <div class="rule-box">
+                25% 规则
+                <div class="rule-grid">
+                    <!-- Column 1: 红红红 -->
+                    <div class="rule-cell"><div class="dot red-dot"></div></div>
+                    <div class="rule-cell"><div class="dot red-dot"></div></div>
+                    <div class="rule-cell"><div class="dot red-dot"></div></div>
+                    
+                    <!-- Column 2: 黑黑黑 -->
+                    <div class="rule-cell"><div class="dot black-dot"></div></div>
+                    <div class="rule-cell"><div class="dot black-dot"></div></div>
+                    <div class="rule-cell"><div class="dot black-dot"></div></div>
+                    
+                    <!-- Column 3: 红黑红 -->
+                    <div class="rule-cell"><div class="dot red-dot"></div></div>
+                    <div class="rule-cell"><div class="dot black-dot"></div></div>
+                    <div class="rule-cell"><div class="dot red-dot"></div></div>
+                    
+                    <!-- Column 4: 黑红黑 -->
+                    <div class="rule-cell"><div class="dot black-dot"></div></div>
+                    <div class="rule-cell"><div class="dot red-dot"></div></div>
+                    <div class="rule-cell"><div class="dot black-dot"></div></div>
+                </div>
+            </div>
+            <div class="rule-box">
+                75% 规则
+                <div class="rule-grid">
+                    <!-- Column 1: 黑黑红 -->
+                    <div class="rule-cell"><div class="dot black-dot"></div></div>
+                    <div class="rule-cell"><div class="dot black-dot"></div></div>
+                    <div class="rule-cell"><div class="dot red-dot"></div></div>
+                    
+                    <!-- Column 2: 红红黑 -->
+                    <div class="rule-cell"><div class="dot red-dot"></div></div>
+                    <div class="rule-cell"><div class="dot red-dot"></div></div>
+                    <div class="rule-cell"><div class="dot black-dot"></div></div>
+                    
+                    <!-- Column 3: 黑红黑 -->
+                    <div class="rule-cell"><div class="dot black-dot"></div></div>
+                    <div class="rule-cell"><div class="dot red-dot"></div></div>
+                    <div class="rule-cell"><div class="dot black-dot"></div></div>
+                    
+                    <!-- Column 4: 红黑黑 -->
+                    <div class="rule-cell"><div class="dot red-dot"></div></div>
+                    <div class="rule-cell"><div class="dot black-dot"></div></div>
+                    <div class="rule-cell"><div class="dot black-dot"></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GRID_SIZE = 8;
+        let selectedCell = { row: 0, col: 0 };
+        let grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+
+        // Define the rule patterns
+        const PATTERNS_75 = [
+            ['black', 'black', 'red'],    // Column 1
+            ['red', 'red', 'black'],      // Column 2
+            ['black', 'red', 'black'],    // Column 3
+            ['red', 'black', 'black']     // Column 4
+        ];
+
+        const PATTERNS_25 = [
+            ['red', 'red', 'red'],        // Column 1
+            ['black', 'black', 'black'],  // Column 2
+            ['red', 'black', 'red'],      // Column 3
+            ['black', 'red', 'black']     // Column 4
+        ];
+
+        function createGrid() {
+            const gridElement = document.getElementById('mainGrid');
+            gridElement.innerHTML = '';
+            
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    
+                    if (row === selectedCell.row && col === selectedCell.col) {
+                        cell.classList.add('selected');
+                    }
+                    
+                    if (grid[row][col]) {
+                        const dot = document.createElement('div');
+                        dot.className = `dot ${grid[row][col]}-dot`;
+                        cell.appendChild(dot);
+                    }
+                    
+                    gridElement.appendChild(cell);
+                }
+            }
+        }
+
+        function placeDot(color) {
+            const previousCol = selectedCell.col;
+            grid[selectedCell.row][selectedCell.col] = color;
+            
+            // Find and move to next empty cell
+            const nextCell = getNextEmptyCell();
+            if (nextCell) {
+                selectedCell.row = nextCell.row;
+                selectedCell.col = nextCell.col;
+            }
+            
+            createGrid();
+            predictNextColor();
+        }
+
+        function moveSelection(direction) {
+            const newRow = selectedCell.row + (direction === 'ArrowDown' ? 1 : direction === 'ArrowUp' ? -1 : 0);
+            const newCol = selectedCell.col + (direction === 'ArrowRight' ? 1 : direction === 'ArrowLeft' ? -1 : 0);
+            
+            if (newRow >= 0 && newRow < GRID_SIZE && newCol >= 0 && newCol < GRID_SIZE) {
+                selectedCell.row = newRow;
+                selectedCell.col = newCol;
+                createGrid();
+                predictNextColor(); // Update prediction when moving selection
+            }
+        }
+
+        function getLastTwoDots() {
+            let dots = [];
+            let currentCol = selectedCell.col;
+            let currentRow = selectedCell.row;
+            
+            // Get dots from current column
+            for (let row = 0; row < GRID_SIZE; row++) {
+                if (grid[row][currentCol]) {
+                    dots.push({
+                        color: grid[row][currentCol],
+                        row: row,
+                        col: currentCol
+                    });
+                }
+            }
+
+            // If we're at the bottom of current column, include last two dots of current column
+            // Otherwise, if we're not in first column, get last dot from previous column
+            if (currentRow === GRID_SIZE - 1 || !grid[currentRow + 1][currentCol]) {
+                if (dots.length >= 2) {
+                    return dots.slice(-2).map(d => d.color);
+                } else if (currentCol > 0) {
+                    // Get dots from previous column
+                    let prevColDots = [];
+                    for (let row = 0; row < GRID_SIZE; row++) {
+                        if (grid[row][currentCol - 1]) {
+                            prevColDots.push({
+                                color: grid[row][currentCol - 1],
+                                row: row,
+                                col: currentCol - 1
+                            });
+                        }
+                    }
+                    // Combine dots from both columns
+                    const combined = [...prevColDots, ...dots];
+                    return combined.slice(-2).map(d => d.color);
+                }
+            } else {
+                // Not at bottom of column, just return last two dots
+                return dots.slice(-2).map(d => d.color);
+            }
+            
+            return dots.slice(-2).map(d => d.color);
+        }
+
+        function predictNextColor() {
+            const lastDots = getLastTwoDots();
+            if (lastDots.length < 2) {
+                document.getElementById('predictedColor').textContent = '需要至少放置两个点';
+                removePredictedDot();
+                return;
+            }
+
+            // First check 75% patterns
+            for (let pattern of PATTERNS_75) {
+                if (lastDots[0] === pattern[0] && lastDots[1] === pattern[1]) {
+                    let message = selectedCell.row === GRID_SIZE - 1 || !grid[selectedCell.row + 1][selectedCell.col] ?
+                        `75% 规则匹配: 当前列末尾 ${pattern[0]}-${pattern[1]} → ${pattern[2]}，下一列第一个应该是 ${pattern[2] === 'red' ? '红色' : '黑色'}` :
+                        `75% 规则匹配: 跨列模式 ${pattern[0]}-${pattern[1]} → ${pattern[2]}，下一个应该是 ${pattern[2] === 'red' ? '红色' : '黑色'}`;
+                    
+                    document.getElementById('predictedColor').textContent = message;
+                    showPredictedDot(pattern[2]);
+                    return;
+                }
+            }
+
+            // Then check 25% patterns
+            for (let pattern of PATTERNS_25) {
+                if (lastDots[0] === pattern[0] && lastDots[1] === pattern[1]) {
+                    let message = selectedCell.row === GRID_SIZE - 1 || !grid[selectedCell.row + 1][selectedCell.col] ?
+                        `25% 规则匹配: 当前列末尾 ${pattern[0]}-${pattern[1]} → ${pattern[2]}，下一列第一个应该是 ${pattern[2] === 'red' ? '红色' : '黑色'}` :
+                        `25% 规则匹配: 跨列模式 ${pattern[0]}-${pattern[1]} → ${pattern[2]}，下一个应该是 ${pattern[2] === 'red' ? '红色' : '黑色'}`;
+                    
+                    document.getElementById('predictedColor').textContent = message;
+                    showPredictedDot(pattern[2]);
+                    return;
+                }
+            }
+
+            document.getElementById('predictedColor').textContent = '没有匹配的模式';
+            removePredictedDot();
+        }
+
+        function getNextEmptyCell() {
+            // First try the selected cell
+            if (!grid[selectedCell.row][selectedCell.col]) {
+                return { row: selectedCell.row, col: selectedCell.col };
+            }
+            
+            // First try to find an empty cell in the current column
+            const currentCol = selectedCell.col;
+            for (let row = 0; row < GRID_SIZE; row++) {
+                if (!grid[row][currentCol]) {
+                    return { row, col: currentCol };
+                }
+            }
+            
+            // If current column is full, find the next empty cell column by column
+            for (let col = 0; col < GRID_SIZE; col++) {
+                for (let row = 0; row < GRID_SIZE; row++) {
+                    if (!grid[row][col]) {
+                        return { row, col };
+                    }
+                }
+            }
+            return null;
+        }
+
+        function removePredictedDot() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                const predictedDot = cell.querySelector('.predicted-dot');
+                if (predictedDot) {
+                    cell.removeChild(predictedDot);
+                }
+            });
+        }
+
+        function showPredictedDot(color) {
+            removePredictedDot(); // Remove any existing predicted dots
+            
+            const nextCell = getNextEmptyCell();
+            if (!nextCell) return; // No empty cells available
+            
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                const row = parseInt(cell.dataset.row);
+                const col = parseInt(cell.dataset.col);
+                
+                if (row === nextCell.row && col === nextCell.col) {
+                    const dot = document.createElement('div');
+                    dot.className = `dot ${color}-dot predicted-dot`;
+                    cell.appendChild(dot);
+                }
+            });
+        }
+
+        function getAllDotsFromCursor() {
+            let dots = [];
+            let foundCursor = false;
+            
+            // Collect all dots from cursor position onwards
+            for (let col = 0; col < GRID_SIZE; col++) {
+                for (let row = 0; row < GRID_SIZE; row++) {
+                    if (row === selectedCell.row && col === selectedCell.col) {
+                        foundCursor = true;
+                    }
+                    if (foundCursor && grid[row][col]) {
+                        dots.push(grid[row][col]);
+                    }
+                }
+            }
+            
+            return dots;
+        }
+
+        function calculateStatistics() {
+            const dots = getAllDotsFromCursor();
+            if (dots.length < 3) {
+                document.getElementById('statistics').innerHTML = '需要从光标位置开始至少有3个点才能进行统计';
+                return;
+            }
+
+            let totalPatterns = 0;
+            let patterns75 = [];
+            let patterns25 = [];
+
+            // Use sliding window to check each group of three dots
+            for (let i = 0; i <= dots.length - 3; i++) {
+                const pattern = dots.slice(i, i + 3);
+                totalPatterns++;
+
+                // Check if pattern exists in 75% rules
+                let found75 = false;
+                for (let rule of PATTERNS_75) {
+                    if (pattern[0] === rule[0] && 
+                        pattern[1] === rule[1] && 
+                        pattern[2] === rule[2]) {
+                        patterns75.push(pattern);
+                        found75 = true;
+                        break;
+                    }
+                }
+
+                // Check if pattern exists in 25% rules
+                if (!found75) {
+                    for (let rule of PATTERNS_25) {
+                        if (pattern[0] === rule[0] && 
+                            pattern[1] === rule[1] && 
+                            pattern[2] === rule[2]) {
+                            patterns25.push(pattern);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Generate HTML report
+            let html = `<div class="stat-result">`;
+            html += `<div>总共找到 ${totalPatterns} 个三点组合</div>`;
+            
+            // 75% patterns section
+            html += `<div class="stat-section">`;
+            html += `<div>75% 规则匹配：${patterns75.length} 次 (${((patterns75.length/totalPatterns)*100).toFixed(1)}%)</div>`;
+            patterns75.forEach((pattern, index) => {
+                html += `<div class="stat-pattern">组合${index + 1}：`;
+                pattern.forEach(dot => {
+                    html += `<span class="stat-dot" style="background-color: ${dot}"></span>`;
+                });
+                html += '</div>';
+            });
+            html += '</div>';
+            
+            // 25% patterns section
+            html += `<div class="stat-section">`;
+            html += `<div>25% 规则匹配：${patterns25.length} 次 (${((patterns25.length/totalPatterns)*100).toFixed(1)}%)</div>`;
+            patterns25.forEach((pattern, index) => {
+                html += `<div class="stat-pattern">组合${index + 1}：`;
+                pattern.forEach(dot => {
+                    html += `<span class="stat-dot" style="background-color: ${dot}"></span>`;
+                });
+                html += '</div>';
+            });
+            html += '</div>';
+            
+            // Unmatched patterns
+            const unmatchedCount = totalPatterns - patterns75.length - patterns25.length;
+            html += `<div>未匹配任何规则：${unmatchedCount} 次 (${((unmatchedCount/totalPatterns)*100).toFixed(1)}%)</div>`;
+            
+            html += '</div>';
+
+            document.getElementById('statistics').innerHTML = html;
+        }
+
+        // Initialize the grid
+        createGrid();
+
+        // Handle keyboard events
+        document.addEventListener('keydown', (event) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+                event.preventDefault();
+                moveSelection(event.key);
+            }
+        });
+    </script>
+</body>
+</html>
