@@ -1,6 +1,7 @@
 import React from 'react';
 import { DotColor, Position } from '../types';
 import { Cell } from './Cell';
+import { Timeline } from './Timeline';
 
 interface GameBoardProps {
   grid: (DotColor | null)[][];
@@ -10,7 +11,14 @@ interface GameBoardProps {
   predictedColor: DotColor | null;
   nextPosition: Position | null;
   lastPosition: Position | null;
+  windowStart: number;
+  totalMoves: number;
+  onWindowChange: (start: number) => void;
+  onReturnToLatest: () => void;
+  isViewingHistory: boolean;
 }
+
+const GRID_SIZE = 8;
 
 export const GameBoard: React.FC<GameBoardProps> = ({
   grid,
@@ -20,9 +28,24 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   predictedColor,
   nextPosition,
   lastPosition,
+  windowStart,
+  totalMoves,
+  onWindowChange,
+  onReturnToLatest,
+  isViewingHistory,
 }) => {
   return (
-    <div className="w-full bg-white rounded-xl shadow-lg p-4 md:p-6">
+    <div className="w-full bg-white rounded-xl shadow-lg p-4 md:p-6 space-y-4">
+      {/* 时间轴 */}
+      <Timeline
+        totalMoves={totalMoves}
+        windowStart={windowStart}
+        windowSize={GRID_SIZE * GRID_SIZE}
+        onWindowChange={onWindowChange}
+        onReturnToLatest={onReturnToLatest}
+        isViewingHistory={isViewingHistory}
+      />
+
       <div className="relative aspect-square">
         {/* 背景网格 */}
         <div className="absolute inset-0 grid grid-cols-8 grid-rows-8">
@@ -60,7 +83,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   }
                   isNext={isNextPos}
                   position={position}
-                  canDelete={color !== null && !isNextPos}
+                  canDelete={color !== null && !isNextPos && !isViewingHistory}
                 />
               );
             })

@@ -5,24 +5,22 @@ export interface Position {
   col: number;
 }
 
-export interface Pattern {
-  sequence: DotColor[];
-  probability: number;
+export interface Move {
+  position: Position;
+  color: DotColor;
+  timestamp?: number;
 }
 
 export interface GameState {
   grid: (DotColor | null)[][];
-  history: Array<{
-    position: Position;
-    color: DotColor;
-  }>;
+  history: Move[];
+  windowStart: number;
   totalPredictions: number;
   correctPredictions: number;
+  isViewingHistory: boolean;
 }
 
-export interface PredictionResult {
-  color: DotColor;
+export interface Prediction {
   position: Position;
-  probability: number;
-  pattern: Pattern;
+  color: DotColor;
 }

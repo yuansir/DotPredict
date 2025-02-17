@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { DotColor, Position, GameState } from './types';
+import { DotColor, Position, GameState, Move } from './types';
 import { GameBoard } from './components/GameBoard';
 import { ControlPanel } from './components/ControlPanel';
 import { StatsPanel } from './components/StatsPanel';
@@ -7,6 +7,7 @@ import { storageService } from './services/storage';
 import { predictNextColor } from './utils/gameLogic';
 
 const GRID_SIZE = 8;
+const WINDOW_SIZE = GRID_SIZE * GRID_SIZE;
 
 const createEmptyGrid = () =>
   Array(GRID_SIZE)
@@ -17,8 +18,10 @@ const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
     grid: createEmptyGrid(),
     history: [],
+    windowStart: 0,
     totalPredictions: 0,
     correctPredictions: 0,
+    isViewingHistory: false,
   });
 
   const [selectedColor, setSelectedColor] = useState<DotColor>('red');
@@ -36,6 +39,13 @@ const App: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         handleUndo();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleWindowChange(Math.max(0, gameState.windowStart - GRID_SIZE));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
+        handleWindowChange(Math.min(maxStart, gameState.windowStart + GRID_SIZE));
       }
     };
 
@@ -105,6 +115,23 @@ const App: React.FC = () => {
     }
   }, [gameState, isLoading]);
 
+  // 更新显示的网格
+  const updateDisplayGrid = useCallback((history: Move[], windowStart: number) => {
+    const newGrid = createEmptyGrid();
+    const windowEnd = Math.min(windowStart + WINDOW_SIZE, history.length);
+    const displayMoves = history.slice(windowStart, windowEnd);
+
+    displayMoves.forEach((move, index) => {
+      const col = Math.floor(index / GRID_SIZE);
+      const row = index % GRID_SIZE;
+      if (col < GRID_SIZE) {
+        newGrid[row][col] = move.color;
+      }
+    });
+
+    return newGrid;
+  }, []);
+
   const findNextEmptyPosition = (grid: (DotColor | null)[][]): Position | null => {
     // 从左往右，每列从上往下遍历
     for (let col = 0; col < GRID_SIZE; col++) {
@@ -118,14 +145,11 @@ const App: React.FC = () => {
   };
 
   const handleColorSelect = async (color: DotColor) => {
-    if (!nextPosition) return;
-
-    const newGrid = gameState.grid.map((row) => [...row]);
-    newGrid[nextPosition.row][nextPosition.col] = color;
+    if (!nextPosition || gameState.isViewingHistory) return;
 
     const newHistory = [
       ...gameState.history,
-      { position: nextPosition, color },
+      { position: nextPosition, color, timestamp: Date.now() },
     ];
 
     let newTotalPredictions = gameState.totalPredictions;
@@ -143,11 +167,20 @@ const App: React.FC = () => {
       newTotalPredictions++;
     }
 
+    // 如果当前窗口已满，自动向前滚动
+    const newWindowStart = newHistory.length > WINDOW_SIZE 
+      ? newHistory.length - WINDOW_SIZE 
+      : 0;
+
+    const newGrid = updateDisplayGrid(newHistory, newWindowStart);
+
     const newGameState = {
       grid: newGrid,
       history: newHistory,
+      windowStart: newWindowStart,
       totalPredictions: newTotalPredictions,
       correctPredictions: newCorrectPredictions,
+      isViewingHistory: false,
     };
 
     setGameState(newGameState);
@@ -181,20 +214,22 @@ const App: React.FC = () => {
   };
 
   const handleUndo = useCallback(() => {
-    if (gameState.history.length === 0) return;
+    if (gameState.history.length === 0 || gameState.isViewingHistory) return;
 
     const newHistory = [...gameState.history];
     const lastMove = newHistory.pop();
     if (!lastMove) return;
 
-    const newGrid = gameState.grid.map(row => [...row]);
-    newGrid[lastMove.position.row][lastMove.position.col] = null;
+    const newWindowStart = Math.max(0, gameState.windowStart - 1);
+    const newGrid = updateDisplayGrid(newHistory, newWindowStart);
 
     const newGameState = {
       grid: newGrid,
       history: newHistory,
+      windowStart: newWindowStart,
       totalPredictions: gameState.totalPredictions,
       correctPredictions: gameState.correctPredictions,
+      isViewingHistory: false,
     };
 
     setGameState(newGameState);
@@ -215,9 +250,11 @@ const App: React.FC = () => {
       setPredictedColor(null);
       setPredictedPosition(null);
     }
-  }, [gameState]);
+  }, [gameState, updateDisplayGrid]);
 
   const handleCellDelete = useCallback((position: Position) => {
+    if (gameState.isViewingHistory) return;
+
     const index = gameState.history.findIndex(
       move => move.position.row === position.row && move.position.col === position.col
     );
@@ -225,18 +262,16 @@ const App: React.FC = () => {
     if (index === -1) return;
 
     const newHistory = gameState.history.slice(0, index);
-    const newGrid = createEmptyGrid();
-
-    // 重新构建网格
-    newHistory.forEach(move => {
-      newGrid[move.position.row][move.position.col] = move.color;
-    });
+    const newWindowStart = Math.max(0, Math.min(gameState.windowStart, newHistory.length - WINDOW_SIZE));
+    const newGrid = updateDisplayGrid(newHistory, newWindowStart);
 
     const newGameState = {
       grid: newGrid,
       history: newHistory,
+      windowStart: newWindowStart,
       totalPredictions: gameState.totalPredictions,
       correctPredictions: gameState.correctPredictions,
+      isViewingHistory: false,
     };
 
     setGameState(newGameState);
@@ -257,7 +292,33 @@ const App: React.FC = () => {
       setPredictedColor(null);
       setPredictedPosition(null);
     }
-  }, [gameState]);
+  }, [gameState, updateDisplayGrid]);
+
+  const handleWindowChange = useCallback((newStart: number) => {
+    const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
+    const validStart = Math.max(0, Math.min(newStart, maxStart));
+    
+    const newGrid = updateDisplayGrid(gameState.history, validStart);
+    
+    setGameState(prev => ({
+      ...prev,
+      grid: newGrid,
+      windowStart: validStart,
+      isViewingHistory: validStart < maxStart,
+    }));
+  }, [gameState.history, updateDisplayGrid]);
+
+  const handleReturnToLatest = useCallback(() => {
+    const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
+    const newGrid = updateDisplayGrid(gameState.history, maxStart);
+    
+    setGameState(prev => ({
+      ...prev,
+      grid: newGrid,
+      windowStart: maxStart,
+      isViewingHistory: false,
+    }));
+  }, [gameState.history, updateDisplayGrid]);
 
   const accuracy =
     gameState.totalPredictions > 0
@@ -281,7 +342,7 @@ const App: React.FC = () => {
             选择颜色，点击按钮自动填充下一个位置！从左边第一列开始，从上往下依次填充。
             <br />
             <span className="text-sm text-gray-500">
-              提示：点击已放置的点可以删除，或使用撤销按钮（Ctrl+Z）撤销上一步
+              提示：点击已放置的点可以删除，或使用撤销按钮（Ctrl+Z）撤销上一步。使用方向键或时间轴查看历史记录。
             </span>
           </p>
         </header>
@@ -299,6 +360,11 @@ const App: React.FC = () => {
                   predictedColor={predictedColor}
                   nextPosition={nextPosition}
                   lastPosition={lastPosition}
+                  windowStart={gameState.windowStart}
+                  totalMoves={gameState.history.length}
+                  onWindowChange={handleWindowChange}
+                  onReturnToLatest={handleReturnToLatest}
+                  isViewingHistory={gameState.isViewingHistory}
                 />
               </div>
             </div>
@@ -311,7 +377,7 @@ const App: React.FC = () => {
                   selectedColor={selectedColor}
                   onShowStats={() => setShowStats(true)}
                   onUndo={handleUndo}
-                  canUndo={gameState.history.length > 0}
+                  canUndo={gameState.history.length > 0 && !gameState.isViewingHistory}
                   accuracy={accuracy}
                   totalPredictions={gameState.totalPredictions}
                 />
