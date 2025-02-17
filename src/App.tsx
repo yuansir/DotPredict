@@ -122,8 +122,10 @@ const App: React.FC = () => {
     const displayMoves = history.slice(windowStart, windowEnd);
 
     displayMoves.forEach((move, index) => {
-      const col = Math.floor(index / GRID_SIZE);
-      const row = index % GRID_SIZE;
+      // 在页面内计算位置
+      const positionInPage = index;
+      const row = positionInPage % GRID_SIZE;
+      const col = Math.floor(positionInPage / GRID_SIZE);
       if (col < GRID_SIZE) {
         newGrid[row][col] = move.color;
       }
@@ -141,7 +143,9 @@ const App: React.FC = () => {
         }
       }
     }
-    return null;
+
+    // 如果当前页面已满，返回新页面的第一个位置
+    return { row: 0, col: 0 };
   };
 
   const handleColorSelect = async (color: DotColor) => {
@@ -167,10 +171,17 @@ const App: React.FC = () => {
       newTotalPredictions++;
     }
 
-    // 如果当前窗口已满，自动向前滚动
-    const newWindowStart = newHistory.length > WINDOW_SIZE 
-      ? newHistory.length - WINDOW_SIZE 
-      : 0;
+    // 计算当前页号和页内位置
+    const currentPage = Math.floor(newHistory.length / WINDOW_SIZE);
+    const positionInPage = newHistory.length % WINDOW_SIZE;
+    
+    // 只有当前页完全填满时才切换到新页面
+    const isPageFull = positionInPage === 0 && newHistory.length > 0;
+    
+    // 设置窗口起始位置
+    const newWindowStart = isPageFull
+      ? currentPage * WINDOW_SIZE
+      : Math.floor(newHistory.length / WINDOW_SIZE) * WINDOW_SIZE;
 
     const newGrid = updateDisplayGrid(newHistory, newWindowStart);
 
@@ -220,7 +231,10 @@ const App: React.FC = () => {
     const lastMove = newHistory.pop();
     if (!lastMove) return;
 
-    const newWindowStart = Math.max(0, gameState.windowStart - 1);
+    // 计算应该显示的页面
+    const currentPage = Math.floor((newHistory.length - 1) / WINDOW_SIZE);
+    const newWindowStart = currentPage * WINDOW_SIZE;
+    
     const newGrid = updateDisplayGrid(newHistory, newWindowStart);
 
     const newGameState = {

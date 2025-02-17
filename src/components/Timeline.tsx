@@ -19,8 +19,9 @@ export const Timeline: React.FC<TimelineProps> = ({
   onReturnToLatest,
   isViewingHistory,
 }) => {
+  const totalPages = Math.ceil(totalMoves / windowSize);
+  const currentPage = Math.floor(windowStart / windowSize) + 1;
   const maxStart = Math.max(0, totalMoves - windowSize);
-  const progress = totalMoves === 0 ? 0 : (windowStart / maxStart) * 100;
 
   const handlePrevious = () => {
     const newStart = Math.max(0, windowStart - windowSize);
@@ -34,8 +35,10 @@ export const Timeline: React.FC<TimelineProps> = ({
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
-    const newStart = Math.round((maxStart * value) / 100);
-    onWindowChange(newStart);
+    const newStart = Math.floor((maxStart * value) / 100);
+    // 确保 newStart 是 windowSize 的整数倍
+    const alignedStart = Math.floor(newStart / windowSize) * windowSize;
+    onWindowChange(alignedStart);
   };
 
   return (
@@ -49,7 +52,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               ? 'text-gray-400 cursor-not-allowed'
               : 'text-blue-600 hover:bg-blue-50'
           }`}
-          title="查看前面的历史"
+          title="查看前一页"
         >
           <BiChevronLeft className="w-6 h-6" />
         </button>
@@ -59,7 +62,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             type="range"
             min="0"
             max="100"
-            value={progress}
+            value={(windowStart / maxStart) * 100 || 0}
             onChange={handleSliderChange}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
           />
@@ -73,7 +76,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               ? 'text-gray-400 cursor-not-allowed'
               : 'text-blue-600 hover:bg-blue-50'
           }`}
-          title="查看后面的历史"
+          title="查看后一页"
         >
           <BiChevronRight className="w-6 h-6" />
         </button>
@@ -92,10 +95,14 @@ export const Timeline: React.FC<TimelineProps> = ({
       <div className="text-center text-sm text-gray-500">
         {isViewingHistory ? (
           <span>
-            正在查看历史记录 ({windowStart + 1} - {Math.min(windowStart + windowSize, totalMoves)}/{totalMoves})
+            第 {currentPage} 页，共 {totalPages} 页 
+            ({windowStart + 1} - {Math.min(windowStart + windowSize, totalMoves)}/{totalMoves})
           </span>
         ) : (
-          <span>当前显示最新状态</span>
+          <span>
+            {totalPages > 1 ? `第 ${totalPages} 页` : ''} 
+            {totalMoves === windowSize ? ' (即将开始新页面)' : ''}
+          </span>
         )}
       </div>
     </div>
