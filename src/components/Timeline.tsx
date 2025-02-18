@@ -24,21 +24,24 @@ export const Timeline: React.FC<TimelineProps> = ({
   const maxStart = Math.max(0, totalMoves - windowSize);
 
   const handlePrevious = () => {
-    const newStart = Math.max(0, windowStart - windowSize);
-    onWindowChange(newStart);
+    if (windowStart > 0) {
+      const newStart = windowStart - windowSize;
+      onWindowChange(Math.max(0, newStart));
+    }
   };
 
   const handleNext = () => {
-    const newStart = Math.min(maxStart, windowStart + windowSize);
-    onWindowChange(newStart);
+    const nextStart = windowStart + windowSize;
+    if (nextStart < totalMoves) {
+      onWindowChange(nextStart);
+    }
   };
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
-    const newStart = Math.floor((maxStart * value) / 100);
-    // 确保 newStart 是 windowSize 的整数倍
-    const alignedStart = Math.floor(newStart / windowSize) * windowSize;
-    onWindowChange(alignedStart);
+    const targetPage = Math.floor((totalPages - 1) * value / 100);
+    const newStart = targetPage * windowSize;
+    onWindowChange(newStart);
   };
 
   return (
@@ -50,60 +53,35 @@ export const Timeline: React.FC<TimelineProps> = ({
           className={`p-1 rounded-lg transition-all duration-200 ${
             windowStart === 0
               ? 'text-gray-400 cursor-not-allowed'
-              : 'text-blue-600 hover:bg-blue-50'
+              : 'hover:bg-gray-100'
           }`}
-          title="查看前一页"
         >
           <BiChevronLeft className="w-6 h-6" />
         </button>
-
-        <div className="flex-1 mx-4">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={(windowStart / maxStart) * 100 || 0}
-            onChange={handleSliderChange}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-          />
+        <div className="text-sm text-gray-500">
+          第 {currentPage} 页, 共 {totalPages} 页 ({windowStart + 1}-{Math.min(windowStart + windowSize, totalMoves)}/{totalMoves})
         </div>
-
-        <button
-          onClick={handleNext}
-          disabled={windowStart >= maxStart}
-          className={`p-1 rounded-lg transition-all duration-200 ${
-            windowStart >= maxStart
-              ? 'text-gray-400 cursor-not-allowed'
-              : 'text-blue-600 hover:bg-blue-50'
-          }`}
-          title="查看后一页"
-        >
-          <BiChevronRight className="w-6 h-6" />
-        </button>
-
-        {isViewingHistory && (
+        <div className="flex gap-2">
+          {isViewingHistory && (
+            <button
+              onClick={onReturnToLatest}
+              className="p-1 rounded-lg hover:bg-gray-100 transition-all duration-200"
+            >
+              <IoReturnDownBack className="w-6 h-6" />
+            </button>
+          )}
           <button
-            onClick={onReturnToLatest}
-            className="ml-2 p-1 rounded-lg transition-all duration-200 text-green-600 hover:bg-green-50"
-            title="返回到最新状态"
+            onClick={handleNext}
+            disabled={windowStart + windowSize >= totalMoves}
+            className={`p-1 rounded-lg transition-all duration-200 ${
+              windowStart + windowSize >= totalMoves
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'hover:bg-gray-100'
+            }`}
           >
-            <IoReturnDownBack className="w-6 h-6" />
+            <BiChevronRight className="w-6 h-6" />
           </button>
-        )}
-      </div>
-
-      <div className="text-center text-sm text-gray-500">
-        {isViewingHistory ? (
-          <span>
-            第 {currentPage} 页，共 {totalPages} 页 
-            ({windowStart + 1} - {Math.min(windowStart + windowSize, totalMoves)}/{totalMoves})
-          </span>
-        ) : (
-          <span>
-            {totalPages > 1 ? `第 ${totalPages} 页` : ''} 
-            {totalMoves === windowSize ? ' (即将开始新页面)' : ''}
-          </span>
-        )}
+        </div>
       </div>
     </div>
   );

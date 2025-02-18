@@ -17,6 +17,39 @@ const createEmptyGrid = () =>
     .fill(null)
     .map(() => Array(GRID_SIZE).fill(null));
 
+const calculateGrid = (history: Move[], windowStart: number) => {
+  const newGrid = createEmptyGrid();
+  
+  // 获取当前页的移动记录
+  const displayMoves = history.slice(windowStart, windowStart + WINDOW_SIZE);
+  console.log('Display moves:', {
+    totalMoves: history.length,
+    windowStart,
+    displayMovesLength: displayMoves.length
+  });
+  
+  // 处理当前页的移动记录
+  displayMoves.forEach((move, index) => {
+    // 计算在网格中的位置（纵向填充）
+    const col = Math.floor(index / GRID_SIZE);  // 先确定在第几列
+    const row = index % GRID_SIZE;              // 再确定在这列的第几行
+    
+    console.log('Processing move:', {
+      globalIndex: windowStart + index,
+      localIndex: index,
+      row,
+      col,
+      color: move.color
+    });
+
+    if (row < GRID_SIZE && col < GRID_SIZE) {
+      newGrid[row][col] = move.color;
+    }
+  });
+
+  return newGrid;
+};
+
 const App: React.FC = () => {
   const today = new Date().toISOString().slice(0, 10);
   
@@ -82,6 +115,15 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [gameState]);
 
+  const updateDisplayGrid = useCallback((history: Move[], windowStart: number) => {
+    console.log('updateDisplayGrid called:', {
+      historyLength: history.length,
+      windowStart,
+      windowSize: WINDOW_SIZE
+    });
+    return calculateGrid(history, windowStart);
+  }, []);
+
   useEffect(() => {
     const loadState = async () => {
       try {
@@ -93,12 +135,20 @@ const App: React.FC = () => {
         savedState = await storage.loadGameStateByDate(selectedDate);
 
         if (savedState) {
+          // 确保 windowStart 是从第一页开始
+          const initialWindowStart = 0;
+          
           const stateWithStats = {
             ...savedState,
+            windowStart: initialWindowStart,  // 强制从第一页开始
             predictionStats: savedState.predictionStats || [],
+            // 使用独立函数计算初始网格
+            grid: calculateGrid(savedState.history, initialWindowStart)
           };
+
           setGameState(stateWithStats);
-          const nextEmpty = findNextEmptyPosition(savedState.grid);
+          
+          const nextEmpty = findNextEmptyPosition(stateWithStats.grid);
           if (nextEmpty) {
             setNextPosition(nextEmpty);
           }
@@ -150,23 +200,6 @@ const App: React.FC = () => {
     }
     return { row: 0, col: 0 };
   };
-
-  const updateDisplayGrid = useCallback((history: Move[], windowStart: number) => {
-    const newGrid = createEmptyGrid();
-    const windowEnd = Math.min(windowStart + WINDOW_SIZE, history.length);
-    const displayMoves = history.slice(windowStart, windowEnd);
-
-    displayMoves.forEach((move, index) => {
-      const positionInPage = index;
-      const row = positionInPage % GRID_SIZE;
-      const col = Math.floor(positionInPage / GRID_SIZE);
-      if (col < GRID_SIZE) {
-        newGrid[row][col] = move.color;
-      }
-    });
-
-    return newGrid;
-  }, []);
 
   const updatePrediction = useCallback((history: Move[]) => {
     if (history.length >= 2) {
@@ -340,7 +373,7 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('Failed to save game state after undo:', error);
     }
-  }, [gameState, updateDisplayGrid, updatePrediction, selectedDate]);
+  }, [gameState, updateDisplayGrid, selectedDate]);
 
   const handleCellDelete = useCallback(async (position: Position) => {
     if (gameState.isViewingHistory) return;
@@ -389,21 +422,37 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('Failed to save game state after cell delete:', error);
     }
-  }, [gameState, updateDisplayGrid, updatePrediction, selectedDate]);
+  }, [gameState, updateDisplayGrid, selectedDate]);
 
   const handleWindowChange = useCallback((newStart: number) => {
-    const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
-    const validStart = Math.max(0, Math.min(newStart, maxStart));
+    // 计算总页数
+    const totalPages = Math.ceil(gameState.history.length / WINDOW_SIZE);
     
-    const newGrid = updateDisplayGrid(gameState.history, validStart);
+    // 计算目标页码
+    const targetPage = Math.floor(newStart / WINDOW_SIZE);
     
+    // 确保页码在有效范围内
+    const validPage = Math.min(targetPage, totalPages - 1);
+    
+    // 计算实际的起始位置
+    const validStart = validPage * WINDOW_SIZE;
+    
+    console.log('Page change:', {
+      historyLength: gameState.history.length,
+      totalPages,
+      targetPage,
+      validPage,
+      validStart
+    });
+    
+    // 更新游戏状态
     setGameState(prev => ({
       ...prev,
-      grid: newGrid,
       windowStart: validStart,
-      isViewingHistory: validStart < maxStart,
+      grid: updateDisplayGrid(prev.history, validStart),
+      isViewingHistory: validStart < prev.history.length - WINDOW_SIZE
     }));
-  }, [gameState.history, updateDisplayGrid]);
+  }, [gameState.history.length]);
 
   const handleReturnToLatest = useCallback(() => {
     const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
@@ -492,6 +541,7 @@ const App: React.FC = () => {
                   onWindowChange={handleWindowChange}
                   onReturnToLatest={handleReturnToLatest}
                   isViewingHistory={gameState.isViewingHistory}
+                  isRecordMode={isRecordMode}
                   className="w-full aspect-square"
                 />
               </div>
