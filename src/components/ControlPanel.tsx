@@ -2,6 +2,8 @@ import React from 'react';
 import { DotColor } from '../types';
 import { BiUndo } from 'react-icons/bi';
 import { MdOutlineLeaderboard } from 'react-icons/md';
+import { FiTrash2 } from 'react-icons/fi';
+import { ConfirmDialog } from './ConfirmDialog';
 import { RuleDisplay } from './RuleDisplay';
 
 interface ControlPanelProps {
@@ -9,6 +11,7 @@ interface ControlPanelProps {
   selectedColor: DotColor;
   onShowStats: () => void;
   onUndo: () => void;
+  onClearData: () => void;
   canUndo: boolean;
   accuracy: number;
   totalPredictions: number;
@@ -21,12 +24,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   selectedColor,
   onShowStats,
   onUndo,
+  onClearData,
   canUndo,
   accuracy,
   totalPredictions,
   predictedColor,
   probability,
 }) => {
+  const [showClearConfirm, setShowClearConfirm] = React.useState(false);
+
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl p-6 space-y-6">
@@ -118,6 +124,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <MdOutlineLeaderboard className="w-5 h-5" />
             <span>查看统计</span>
           </button>
+
+          {/* 清空数据按钮 */}
+          <button
+            onClick={() => setShowClearConfirm(true)}
+            className="w-full py-3 px-4 rounded-lg bg-gradient-to-r from-red-500 to-red-600 
+              hover:from-red-600 hover:to-red-700 text-white flex items-center justify-center space-x-2 
+              transition-all duration-200 transform hover:scale-[1.02] active:scale-95"
+          >
+            <FiTrash2 className="w-5 h-5" />
+            <span>清空数据</span>
+          </button>
         </div>
 
         {/* 状态显示 */}
@@ -163,6 +180,18 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
         <RuleDisplay />
       </div>
+
+      {/* 确认对话框 */}
+      <ConfirmDialog
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={onClearData}
+        title="确认清空数据"
+        message="这将清空所有游戏数据，包括历史记录和统计信息。此操作不可撤销，是否确认继续？"
+        confirmText="清空数据"
+        cancelText="取消"
+        type="danger"
+      />
     </div>
   );
 };

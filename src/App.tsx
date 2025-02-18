@@ -398,6 +398,36 @@ const App: React.FC = () => {
     }));
   }, [gameState.history, updateDisplayGrid]);
 
+  const handleClearData = useCallback(async () => {
+    // 重置所有状态
+    const initialState: GameState = {
+      grid: createEmptyGrid(),
+      history: [],
+      windowStart: 0,
+      totalPredictions: 0,
+      correctPredictions: 0,
+      isViewingHistory: false,
+      predictionStats: [],
+    };
+
+    setGameState(initialState);
+    setSelectedColor('red');
+    setPredictedColor(null);
+    setPredictedPosition(null);
+    setProbability(null);
+    setShowStats(false);
+    setGameHistory([]);
+    setNextPosition({ row: 0, col: 0 });
+    setLastPosition(null);
+
+    // 清除本地存储
+    try {
+      await storageService.clearAllData();
+    } catch (error) {
+      console.error('Failed to clear storage:', error);
+    }
+  }, []);
+
   const accuracy =
     gameState.totalPredictions > 0
       ? (gameState.correctPredictions / gameState.totalPredictions) * 100
@@ -455,6 +485,7 @@ const App: React.FC = () => {
                   selectedColor={selectedColor}
                   onShowStats={() => setShowStats(true)}
                   onUndo={handleUndo}
+                  onClearData={handleClearData}
                   canUndo={gameState.history.length > 0 && !gameState.isViewingHistory}
                   accuracy={accuracy}
                   totalPredictions={gameState.totalPredictions}

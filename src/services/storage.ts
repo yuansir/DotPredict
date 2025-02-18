@@ -198,6 +198,46 @@ class StorageService {
       }
     });
   }
+
+  async clearAllData(): Promise<void> {
+    try {
+      localStorage.removeItem('gameState');
+      localStorage.removeItem('gameHistory');
+      await this.clearIndexedDB();
+    } catch (error) {
+      console.error('Failed to clear storage:', error);
+      throw error;
+    }
+  }
+
+  private async clearIndexedDB(): Promise<void> {
+    await this.ensureInitialized();
+    const transaction = this.db!.transaction(['gameState', 'gameHistory'], 'readwrite');
+    const gameStateStore = transaction.objectStore('gameState');
+    const gameHistoryStore = transaction.objectStore('gameHistory');
+    await new Promise((resolve, reject) => {
+      const request = gameStateStore.clear();
+      request.onerror = () => {
+        console.error('Failed to clear game state:', request.error);
+        reject(request.error);
+      };
+      request.onsuccess = () => {
+        console.log('Game state cleared');
+        resolve();
+      };
+    });
+    await new Promise((resolve, reject) => {
+      const request = gameHistoryStore.clear();
+      request.onerror = () => {
+        console.error('Failed to clear game history:', request.error);
+        reject(request.error);
+      };
+      request.onsuccess = () => {
+        console.log('Game history cleared');
+        resolve();
+      };
+    });
+  }
 }
 
 export const storageService = new StorageService();
