@@ -18,6 +18,8 @@ interface GameBoardProps {
   isViewingHistory: boolean;
 }
 
+const WINDOW_SIZE = 64; // 8x8 网格
+
 export const GameBoard: React.FC<GameBoardProps> = ({
   grid,
   onCellClick,
@@ -25,7 +27,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   predictedPosition,
   predictedColor,
   nextPosition,
-  lastPosition,
   windowStart,
   totalMoves,
   onWindowChange,
@@ -34,11 +35,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 }) => {
   const renderCell = (row: number, col: number) => {
     const color = grid[row][col];
-    const isPredicted =
+    const isPredicted = Boolean(
       predictedPosition &&
       predictedPosition.row === row &&
-      predictedPosition.col === col;
-    const isNext = nextPosition && nextPosition.row === row && nextPosition.col === col;
+      predictedPosition.col === col
+    );
+    const isNext = Boolean(nextPosition && nextPosition.row === row && nextPosition.col === col);
     const canDelete = !isViewingHistory && color !== null && !isNext;
 
     return (
@@ -61,6 +63,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       <Timeline
         windowStart={windowStart}
         totalMoves={totalMoves}
+        windowSize={WINDOW_SIZE}
         onWindowChange={onWindowChange}
         onReturnToLatest={onReturnToLatest}
         isViewingHistory={isViewingHistory}
