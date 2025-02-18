@@ -18,8 +18,6 @@ interface GameBoardProps {
   isViewingHistory: boolean;
 }
 
-const GRID_SIZE = 8;
-
 export const GameBoard: React.FC<GameBoardProps> = ({
   grid,
   onCellClick,
@@ -41,7 +39,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       predictedPosition.row === row &&
       predictedPosition.col === col;
     const isNext = nextPosition && nextPosition.row === row && nextPosition.col === col;
-    const canDelete = !isViewingHistory && color !== null;
+    const canDelete = !isViewingHistory && color !== null && !isNext;
 
     return (
       <Cell
@@ -52,7 +50,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         isPredicted={isPredicted}
         predictedColor={predictedColor}
         isNext={isNext}
-        position={{ row, col }}
         canDelete={canDelete}
       />
     );
@@ -62,21 +59,21 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     <div className="w-full bg-white rounded-xl shadow-lg p-4 md:p-6 space-y-4">
       {/* 时间轴 */}
       <Timeline
-        totalMoves={totalMoves}
         windowStart={windowStart}
-        windowSize={GRID_SIZE * GRID_SIZE}
+        totalMoves={totalMoves}
         onWindowChange={onWindowChange}
         onReturnToLatest={onReturnToLatest}
         isViewingHistory={isViewingHistory}
       />
 
-      <div className="relative aspect-square">
+      {/* 游戏面板 */}
+      <div className="relative aspect-square w-full">
         {/* 背景网格 */}
         <div className="absolute inset-0 grid grid-cols-8 grid-rows-8">
-          {Array.from({ length: 64 }).map((_, index) => (
+          {Array.from({ length: 64 }).map((_, i) => (
             <div
-              key={`grid-${index}`}
-              className="border border-gray-200"
+              key={i}
+              className="border border-gray-100"
             />
           ))}
         </div>

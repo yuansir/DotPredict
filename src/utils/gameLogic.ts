@@ -1,4 +1,9 @@
-import { DotColor, Pattern, PredictionResult, Position } from '../types';
+import { DotColor, Position, PredictionResult } from '../types';
+
+interface Pattern {
+  colors: DotColor[];
+  probability: number;
+}
 
 const PATTERNS_75: Pattern[] = [
   { colors: ['black', 'black', 'red'], probability: 0.75 },
@@ -14,10 +19,7 @@ const PATTERNS_25: Pattern[] = [
   { colors: ['black', 'red', 'black'], probability: 0.25 }
 ];
 
-export const getLastTwoDots = (
-  grid: (DotColor | null)[][],
-  history: { position: Position; color: DotColor }[]
-): { color: DotColor; position: Position }[] => {
+export const getLastTwoDots = (history: { position: Position; color: DotColor }[]): { color: DotColor; position: Position }[] => {
   return history.slice(-2);
 };
 
