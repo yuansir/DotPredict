@@ -3,9 +3,11 @@ import { DotColor, Position, GameState, Move } from './types';
 import { GameBoard } from './components/GameBoard';
 import { ControlPanel } from './components/ControlPanel';
 import { StatsPanel } from './components/StatsPanel';
-import { storageService } from './services/storage';
+import { SupabaseStorageService } from './services/supabase-storage';
 import { predictNextColor } from './utils/gameLogic';
 import { DateSelector } from './components/DateSelector';
+import LoadingScreen from './components/LoadingScreen';
+import AlertDialog from './components/AlertDialog';
 
 const GRID_SIZE = 8;
 const WINDOW_SIZE = GRID_SIZE * GRID_SIZE;
@@ -43,6 +45,11 @@ const App: React.FC = () => {
   const [nextPosition, setNextPosition] = useState<Position>({ row: 0, col: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [lastPosition, setLastPosition] = useState<Position | null>(null);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState<'info' | 'warning' | 'error'>('warning');
+
+  const storage = new SupabaseStorageService();
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
@@ -83,7 +90,7 @@ const App: React.FC = () => {
         let savedState;
         
         // 根据日期加载游戏状态
-        savedState = await storageService.loadGameStateByDate(selectedDate);
+        savedState = await storage.loadGameStateByDate(selectedDate);
 
         if (savedState) {
           const stateWithStats = {
@@ -123,7 +130,9 @@ const App: React.FC = () => {
 
   const handleCellClick = (position: Position) => {
     if (!isRecordMode) {
-      alert('当前处于浏览模式，无法录入');
+      setAlertMessage('当前处于浏览模式，无法录入');
+      setAlertType('warning');
+      setShowAlert(true);
       return;
     }
     // 如果处于录入模式，执行录入逻辑（此处调用原有录入逻辑，比如 handleRecordCell(position)）
@@ -204,7 +213,9 @@ const App: React.FC = () => {
   const handleColorSelect = async (color: DotColor) => {
     if (!nextPosition || !isRecordMode) {
       if (!isRecordMode) {
-        alert('当前处于预览模式，无法录入数据');
+        setAlertMessage('当前处于预览模式，无法录入数据');
+        setAlertType('warning');
+        setShowAlert(true);
       }
       return;
     }
@@ -271,12 +282,12 @@ const App: React.FC = () => {
 
     try {
       // 使用新的按日期保存方法
-      await storageService.saveGameStateByDate(newGameState, selectedDate);
+      await storage.saveGameStateByDate(newGameState, selectedDate);
       
       // 如果是今天的数据，同时更新游戏历史
       if (selectedDate === today && newTotalPredictions > 0 && newTotalPredictions % 10 === 0) {
-        await storageService.saveGameHistory(newGameState);
-        const history = await storageService.getGameHistory();
+        await storage.saveGameHistory(newGameState);
+        const history = await storage.getGameHistory();
         setGameHistory(history);
       }
     } catch (error) {
@@ -284,7 +295,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUndo = useCallback(() => {
+  const handleUndo = useCallback(async () => {
     if (gameState.history.length === 0 || gameState.isViewingHistory) return;
 
     const newHistory = [...gameState.history];
@@ -322,9 +333,16 @@ const App: React.FC = () => {
     setLastPosition(newHistory.length > 0 ? newHistory[newHistory.length - 1].position : null);
 
     updatePrediction(newHistory);
-  }, [gameState, updateDisplayGrid, updatePrediction]);
 
-  const handleCellDelete = useCallback((position: Position) => {
+    try {
+      // 保存更新后的状态到数据库
+      await storage.saveGameStateByDate(newGameState, selectedDate);
+    } catch (error) {
+      console.error('Failed to save game state after undo:', error);
+    }
+  }, [gameState, updateDisplayGrid, updatePrediction, selectedDate]);
+
+  const handleCellDelete = useCallback(async (position: Position) => {
     if (gameState.isViewingHistory) return;
 
     const index = gameState.history.findIndex(
@@ -357,7 +375,6 @@ const App: React.FC = () => {
       totalPredictions: newTotalPredictions,
       correctPredictions: newCorrectPredictions,
       isViewingHistory: false,
-      predictionStats: gameState.predictionStats.slice(0, index), // 移除被删除点之后的统计记录
     };
 
     setGameState(newGameState);
@@ -365,7 +382,14 @@ const App: React.FC = () => {
     setLastPosition(newHistory.length > 0 ? newHistory[newHistory.length - 1].position : null);
 
     updatePrediction(newHistory);
-  }, [gameState, updateDisplayGrid, updatePrediction]);
+
+    try {
+      // 保存更新后的状态到数据库
+      await storage.saveGameStateByDate(newGameState, selectedDate);
+    } catch (error) {
+      console.error('Failed to save game state after cell delete:', error);
+    }
+  }, [gameState, updateDisplayGrid, updatePrediction, selectedDate]);
 
   const handleWindowChange = useCallback((newStart: number) => {
     const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
@@ -415,7 +439,7 @@ const App: React.FC = () => {
     setLastPosition(null);
 
     try {
-      await storageService.clearAllData();
+      await storage.clearAllData();
     } catch (error) {
       console.error('Failed to clear storage:', error);
     }
@@ -426,11 +450,7 @@ const App: React.FC = () => {
     : (gameState.correctPredictions / gameState.totalPredictions) * 100;
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="text-gray-600">加载游戏数据中...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (
@@ -501,6 +521,12 @@ const App: React.FC = () => {
         isOpen={showStats}
         onClose={() => setShowStats(false)}
         history={gameState.history}
+      />
+      <AlertDialog
+        isOpen={showAlert}
+        message={alertMessage}
+        type={alertType}
+        onClose={() => setShowAlert(false)}
       />
     </div>
   );
