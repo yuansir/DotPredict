@@ -18,6 +18,7 @@ interface ControlPanelProps {
   totalPredictions: number;
   predictedColor: DotColor | null;
   probability: number | null;
+  className?: string;
 }
 
 const RULES_EXPANDED_KEY = 'dotPredict_rulesExpanded';
@@ -33,6 +34,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   totalPredictions,
   predictedColor,
   probability,
+  className = ''
 }) => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isRulesExpanded, setIsRulesExpanded] = useState(() => {
@@ -45,7 +47,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   }, [isRulesExpanded]);
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${className}`}>
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl p-6 space-y-6">
         {/* 标题和说明 */}
         <div className="text-center space-y-2">
@@ -185,7 +187,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       </span>
                     </div>
                   </div>
-                  {probability && (
+                  {probability !== null && (
                     <div className="bg-gray-700/50 px-3 py-2 rounded-lg border border-gray-600">
                       <div className="flex items-center space-x-2">
                         <span className="text-gray-400 text-sm">概率</span>
@@ -194,7 +196,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                           probability >= 0.4 ? 'text-yellow-400' : 
                           'text-red-400'
                         }`}>
-                          {(probability * 100).toFixed(0)}%
+                          {Math.round(probability * 100)}%
                         </span>
                       </div>
                     </div>

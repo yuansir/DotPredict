@@ -1,66 +1,107 @@
 import React from 'react';
 import { IoCalendarOutline } from 'react-icons/io5';
+import { FiEdit3, FiEye } from 'react-icons/fi';
 
 interface DateSelectorProps {
-  selectedDate: Date;
-  onDateChange: (date: Date) => void;
+  selectedDate: string;
+  onDateChange: (date: string) => void;
+  isRecordMode: boolean;
+  onModeChange: (mode: boolean) => void;
   className?: string;
 }
 
 export const DateSelector: React.FC<DateSelectorProps> = ({
   selectedDate,
   onDateChange,
+  isRecordMode,
+  onModeChange,
   className = ''
 }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const isToday = selectedDate === today;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onDateChange(e.target.value);
+  };
+
   return (
-    <div className={`${className}`}>
-      <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2 mb-6">
-        <IoCalendarOutline className="text-blue-500" />
-        选择日期
-      </h2>
+    <div className={`bg-white rounded-xl shadow-lg p-4 ${className}`}>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+          <IoCalendarOutline className="w-6 h-6 text-blue-500" />
+          日期选择
+        </h2>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onModeChange(!isRecordMode)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200
+              ${isRecordMode 
+                ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            {isRecordMode ? (
+              <>
+                <FiEdit3 className="w-4 h-4" />
+                <span>录入模式</span>
+              </>
+            ) : (
+              <>
+                <FiEye className="w-4 h-4" />
+                <span>预览模式</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
 
       <div className="flex items-center gap-4">
         <button
-          className="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white transition-colors flex-shrink-0"
+          className="px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
           onClick={() => {
             const prevDate = new Date(selectedDate);
             prevDate.setDate(prevDate.getDate() - 1);
-            onDateChange(prevDate);
+            onDateChange(prevDate.toISOString().split('T')[0]);
           }}
         >
           前一天
         </button>
 
-        <input
-          type="date"
-          value={selectedDate instanceof Date ? selectedDate.toISOString().split('T')[0] : ''}
-          onChange={(e) => {
-            const newDate = new Date(e.target.value);
-            onDateChange(newDate);
-          }}
-          className="flex-grow px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <div className="flex-grow relative">
+          <div className="flex items-center">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {isToday && (
+              <span className="ml-2 text-green-500 font-medium text-sm whitespace-nowrap">
+                今天
+              </span>
+            )}
+          </div>
+        </div>
 
         <button
-          className="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white transition-colors flex-shrink-0"
+          className="px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
           onClick={() => {
             const nextDate = new Date(selectedDate);
             nextDate.setDate(nextDate.getDate() + 1);
-            onDateChange(nextDate);
+            onDateChange(nextDate.toISOString().split('T')[0]);
           }}
         >
           后一天
         </button>
       </div>
 
-      <p className="mt-4 text-sm text-gray-500 text-center">
-        当前日期：{selectedDate instanceof Date ? selectedDate.toLocaleDateString('zh-CN', {
+      <div className="mt-3 text-sm text-gray-500">
+        {new Date(selectedDate).toLocaleDateString('zh-CN', {
           year: 'numeric',
           month: 'long',
           day: 'numeric',
           weekday: 'long'
-        }) : ''}
-      </p>
+        })}
+      </div>
     </div>
   );
 };

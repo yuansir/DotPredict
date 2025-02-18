@@ -5,6 +5,7 @@ import { ControlPanel } from './components/ControlPanel';
 import { StatsPanel } from './components/StatsPanel';
 import { storageService } from './services/storage';
 import { predictNextColor } from './utils/gameLogic';
+import { DateSelector } from './components/DateSelector';
 
 const GRID_SIZE = 8;
 const WINDOW_SIZE = GRID_SIZE * GRID_SIZE;
@@ -15,6 +16,11 @@ const createEmptyGrid = () =>
     .map(() => Array(GRID_SIZE).fill(null));
 
 const App: React.FC = () => {
+  const today = new Date().toISOString().slice(0, 10);
+  
+  const [selectedDate, setSelectedDate] = useState<string>(today);
+  const [isRecordMode, setIsRecordMode] = useState<boolean>(selectedDate === today);
+
   const [gameState, setGameState] = useState<GameState>(() => {
     const initialState: GameState = {
       grid: createEmptyGrid(),
@@ -23,7 +29,7 @@ const App: React.FC = () => {
       totalPredictions: 0,
       correctPredictions: 0,
       isViewingHistory: false,
-      predictionStats: [], // 确保初始化为空数组
+      predictionStats: [],
     };
     return initialState;
   });
@@ -38,7 +44,18 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [lastPosition, setLastPosition] = useState<Position | null>(null);
 
-  // 键盘快捷键处理
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date);
+  };
+
+  useEffect(() => {
+    if (selectedDate === today) {
+      setIsRecordMode(true);
+    } else {
+      setIsRecordMode(false);
+    }
+  }, [selectedDate, today]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -58,31 +75,41 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [gameState]);
 
-  // 加载游戏状态
   useEffect(() => {
     const loadState = async () => {
       try {
         setIsLoading(true);
-        const savedState = await storageService.loadGameState();
-        console.log('Loaded game state:', savedState);
+        const todayStr = today;
+        let savedState;
         
+        // 根据日期加载游戏状态
+        savedState = await storageService.loadGameStateByDate(selectedDate);
+
         if (savedState) {
-          // 确保 predictionStats 存在
           const stateWithStats = {
             ...savedState,
             predictionStats: savedState.predictionStats || [],
           };
           setGameState(stateWithStats);
-          
-          // 找到下一个空位置
           const nextEmpty = findNextEmptyPosition(savedState.grid);
           if (nextEmpty) {
             setNextPosition(nextEmpty);
           }
-          // 设置最后一个位置
           if (savedState.history.length > 0) {
             setLastPosition(savedState.history[savedState.history.length - 1].position);
           }
+        } else {
+          setGameState({
+            grid: createEmptyGrid(),
+            history: [],
+            windowStart: 0,
+            totalPredictions: 0,
+            correctPredictions: 0,
+            isViewingHistory: false,
+            predictionStats: [],
+          });
+          setNextPosition({ row: 0, col: 0 });
+          setLastPosition(null);
         }
       } catch (error) {
         console.error('Failed to load game state:', error);
@@ -92,48 +119,35 @@ const App: React.FC = () => {
     };
 
     loadState();
-  }, []);
+  }, [selectedDate, today]);
 
-  // 加载游戏历史
-  useEffect(() => {
-    const loadHistory = async () => {
-      try {
-        const history = await storageService.getGameHistory();
-        console.log('Loaded game history:', history);
-        setGameHistory(history);
-      } catch (error) {
-        console.error('Failed to load game history:', error);
-      }
-    };
-
-    loadHistory();
-  }, []);
-
-  // 自动保存游戏状态
-  useEffect(() => {
-    const saveState = async () => {
-      try {
-        console.log('Saving game state:', gameState);
-        await storageService.saveGameState(gameState);
-      } catch (error) {
-        console.error('Failed to save game state:', error);
-      }
-    };
-
-    // 只有在游戏状态加载完成后才开始保存
-    if (!isLoading) {
-      saveState();
+  const handleCellClick = (position: Position) => {
+    if (!isRecordMode) {
+      alert('当前处于浏览模式，无法录入');
+      return;
     }
-  }, [gameState, isLoading]);
+    // 如果处于录入模式，执行录入逻辑（此处调用原有录入逻辑，比如 handleRecordCell(position)）
+    // 这里只是示例代码
+    console.log('录入小球 at position', position, '日期:', selectedDate);
+  };
 
-  // 更新显示的网格
+  const findNextEmptyPosition = (grid: (DotColor | null)[][]): Position | null => {
+    for (let col = 0; col < GRID_SIZE; col++) {
+      for (let row = 0; row < GRID_SIZE; row++) {
+        if (grid[row][col] === null) {
+          return { row, col };
+        }
+      }
+    }
+    return { row: 0, col: 0 };
+  };
+
   const updateDisplayGrid = useCallback((history: Move[], windowStart: number) => {
     const newGrid = createEmptyGrid();
     const windowEnd = Math.min(windowStart + WINDOW_SIZE, history.length);
     const displayMoves = history.slice(windowStart, windowEnd);
 
     displayMoves.forEach((move, index) => {
-      // 在页面内计算位置
       const positionInPage = index;
       const row = positionInPage % GRID_SIZE;
       const col = Math.floor(positionInPage / GRID_SIZE);
@@ -144,20 +158,6 @@ const App: React.FC = () => {
 
     return newGrid;
   }, []);
-
-  const findNextEmptyPosition = (grid: (DotColor | null)[][]): Position | null => {
-    // 从左往右，每列从上往下遍历
-    for (let col = 0; col < GRID_SIZE; col++) {
-      for (let row = 0; row < GRID_SIZE; row++) {
-        if (grid[row][col] === null) {
-          return { row, col };
-        }
-      }
-    }
-
-    // 如果当前页面已满，返回新页面的第一个位置
-    return { row: 0, col: 0 };
-  };
 
   const updatePrediction = useCallback((history: Move[]) => {
     if (history.length >= 2) {
@@ -179,7 +179,6 @@ const App: React.FC = () => {
     }
   }, [nextPosition]);
 
-  // 更新预测统计
   const updatePredictionStats = useCallback((
     totalPredictions: number,
     correctPredictions: number
@@ -203,19 +202,22 @@ const App: React.FC = () => {
   }, []);
 
   const handleColorSelect = async (color: DotColor) => {
-    if (!nextPosition || gameState.isViewingHistory) return;
+    if (!nextPosition || !isRecordMode) {
+      if (!isRecordMode) {
+        alert('当前处于预览模式，无法录入数据');
+      }
+      return;
+    }
 
     let newTotalPredictions = gameState.totalPredictions;
     let newCorrectPredictions = gameState.correctPredictions;
 
-    // 创建新的移动记录
     const newMove: Move = {
       position: nextPosition,
       color,
       timestamp: Date.now(),
     };
 
-    // 如果有预测，记录预测结果
     if (
       predictedPosition &&
       predictedColor &&
@@ -236,7 +238,6 @@ const App: React.FC = () => {
 
     const newHistory = [...gameState.history, newMove];
 
-    // 计算当前页号和页内位置
     const currentPage = Math.floor(newHistory.length / WINDOW_SIZE);
     const positionInPage = newHistory.length % WINDOW_SIZE;
     const isPageFull = positionInPage === 0 && newHistory.length > 0;
@@ -260,27 +261,26 @@ const App: React.FC = () => {
     setGameState(newGameState);
     setLastPosition(nextPosition);
 
-    // 更新下一个位置
     const nextEmpty = findNextEmptyPosition(newGrid);
     if (nextEmpty) {
       setNextPosition(nextEmpty);
     }
 
-    // 更新预测
     updatePrediction(newHistory);
-
-    // 更新预测统计
     updatePredictionStats(newTotalPredictions, newCorrectPredictions);
 
-    // 保存游戏历史
-    if (newTotalPredictions > 0 && newTotalPredictions % 10 === 0) {
-      try {
+    try {
+      // 使用新的按日期保存方法
+      await storageService.saveGameStateByDate(newGameState, selectedDate);
+      
+      // 如果是今天的数据，同时更新游戏历史
+      if (selectedDate === today && newTotalPredictions > 0 && newTotalPredictions % 10 === 0) {
         await storageService.saveGameHistory(newGameState);
         const history = await storageService.getGameHistory();
         setGameHistory(history);
-      } catch (error) {
-        console.error('Failed to save game history:', error);
       }
+    } catch (error) {
+      console.error('Failed to save game state:', error);
     }
   };
 
@@ -291,7 +291,6 @@ const App: React.FC = () => {
     const lastMove = newHistory.pop();
     if (!lastMove) return;
 
-    // 更新预测统计
     let newTotalPredictions = gameState.totalPredictions;
     let newCorrectPredictions = gameState.correctPredictions;
 
@@ -322,7 +321,6 @@ const App: React.FC = () => {
     setNextPosition(lastMove.position);
     setLastPosition(newHistory.length > 0 ? newHistory[newHistory.length - 1].position : null);
 
-    // 更新预测
     updatePrediction(newHistory);
   }, [gameState, updateDisplayGrid, updatePrediction]);
 
@@ -337,11 +335,9 @@ const App: React.FC = () => {
 
     const newHistory = gameState.history.slice(0, index);
     
-    // 更新预测统计
     let newTotalPredictions = gameState.totalPredictions;
     let newCorrectPredictions = gameState.correctPredictions;
 
-    // 如果删除的点有预测记录，更新统计
     const deletedMove = gameState.history[index];
     if (deletedMove.prediction) {
       newTotalPredictions--;
@@ -368,7 +364,6 @@ const App: React.FC = () => {
     setNextPosition(position);
     setLastPosition(newHistory.length > 0 ? newHistory[newHistory.length - 1].position : null);
 
-    // 更新预测
     updatePrediction(newHistory);
   }, [gameState, updateDisplayGrid, updatePrediction]);
 
@@ -399,7 +394,6 @@ const App: React.FC = () => {
   }, [gameState.history, updateDisplayGrid]);
 
   const handleClearData = useCallback(async () => {
-    // 重置所有状态
     const initialState: GameState = {
       grid: createEmptyGrid(),
       history: [],
@@ -420,7 +414,6 @@ const App: React.FC = () => {
     setNextPosition({ row: 0, col: 0 });
     setLastPosition(null);
 
-    // 清除本地存储
     try {
       await storageService.clearAllData();
     } catch (error) {
@@ -428,14 +421,13 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const accuracy =
-    gameState.totalPredictions > 0
-      ? (gameState.correctPredictions / gameState.totalPredictions) * 100
-      : 0;
+  const accuracy = gameState.totalPredictions === 0 
+    ? 0 
+    : (gameState.correctPredictions / gameState.totalPredictions) * 100;
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 py-8">
         <div className="text-gray-600">加载游戏数据中...</div>
       </div>
     );
@@ -450,19 +442,26 @@ const App: React.FC = () => {
             选择颜色，点击按钮自动填充下一个位置！从左边第一列开始，从上往下依次填充。
             <br />
             <span className="text-sm text-gray-500">
-              提示：点击已放置的点可以删除，或使用撤销按钮（Ctrl+Z）撤销上一步。使用方向键或时间轴查看历史记录。
+              提示：点击已放置的点可以删除，或使用撤销按钮撤销上一步。
             </span>
           </p>
         </header>
 
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-            {/* 游戏面板 */}
             <div className="xl:col-span-2">
               <div className="max-w-2xl mx-auto">
+                <div className="p-4">
+                  <DateSelector
+                    selectedDate={selectedDate}
+                    onDateChange={handleDateChange}
+                    isRecordMode={isRecordMode}
+                    onModeChange={setIsRecordMode}
+                  />
+                </div>
                 <GameBoard
                   grid={gameState.grid}
-                  onCellClick={() => {}} // 禁用直接点击
+                  onCellClick={handleCellClick}
                   onCellDelete={handleCellDelete}
                   predictedPosition={predictedPosition}
                   predictedColor={predictedColor}
@@ -473,11 +472,11 @@ const App: React.FC = () => {
                   onWindowChange={handleWindowChange}
                   onReturnToLatest={handleReturnToLatest}
                   isViewingHistory={gameState.isViewingHistory}
+                  className="w-full aspect-square"
                 />
               </div>
             </div>
 
-            {/* 控制面板 */}
             <div className="xl:col-span-1">
               <div className="sticky top-8">
                 <ControlPanel
@@ -486,23 +485,23 @@ const App: React.FC = () => {
                   onShowStats={() => setShowStats(true)}
                   onUndo={handleUndo}
                   onClearData={handleClearData}
-                  canUndo={gameState.history.length > 0 && !gameState.isViewingHistory}
+                  canUndo={gameState.history.length > 0}
                   accuracy={accuracy}
                   totalPredictions={gameState.totalPredictions}
                   predictedColor={predictedColor}
                   probability={probability}
+                  className="w-full"
                 />
               </div>
             </div>
           </div>
         </div>
-
-        <StatsPanel
-          isOpen={showStats}
-          onClose={() => setShowStats(false)}
-          history={gameHistory}
-        />
       </div>
+      <StatsPanel
+        isOpen={showStats}
+        onClose={() => setShowStats(false)}
+        history={gameState.history}
+      />
     </div>
   );
 };
