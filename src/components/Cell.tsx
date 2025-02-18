@@ -28,26 +28,12 @@ export const Cell: React.FC<CellProps> = ({
       `}
       onClick={onClick}
     >
-      {/* 预测提示 */}
-      {isPredicted && predictedColor && !color && (
+      {/* 下一个位置指示器 */}
+      {isNext && predictedColor && !color && (
         <div className="absolute inset-0 flex items-center justify-center">
-          {/* 预测背景光晕 */}
-          <div className={`absolute inset-2 rounded-full blur-sm transition-opacity duration-300
-            ${predictedColor === 'red' ? 'bg-red-200' : 'bg-gray-200'} opacity-30`}
-          />
-          
-          {/* 预测点 */}
-          <div className="relative w-3/4 h-3/4 flex items-center justify-center">
-            <div
-              className={`w-full h-full rounded-full transition-all duration-300
-                ${predictedColor === 'red' ? 'bg-red-500' : 'bg-gray-900'}
-                opacity-25 hover:opacity-40
-                ${isNext ? 'animate-pulse' : ''}
-              `}
-            >
-              {/* 高光效果 */}
-              <div className="absolute top-1 left-2 w-2 h-2 bg-white rounded-full opacity-30"></div>
-            </div>
+          <div className={`absolute inset-2 rounded-full blur-sm transition-opacity duration-300 ${predictedColor === 'red' ? 'bg-red-200' : 'bg-gray-200'} opacity-30`} />
+          <div className="relative w-3/4 h-3/4">
+            <div className={`w-full h-full rounded-full transition-all duration-300 ${predictedColor === 'red' ? 'bg-red-500' : 'bg-gray-900'} animate-pulse`} />
           </div>
         </div>
       )}
