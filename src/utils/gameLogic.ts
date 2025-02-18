@@ -3,7 +3,7 @@ import { DotColor, Pattern, PredictionResult, Position } from '../types';
 const PATTERNS_75: Pattern[] = [
   { colors: ['black', 'black', 'red'], probability: 0.75 },
   { colors: ['red', 'red', 'black'], probability: 0.75 },
-  { colors: ['black', 'red', 'black'], probability: 0.75 },
+  { colors: ['black', 'red', 'red'], probability: 0.75 },
   { colors: ['red', 'black', 'black'], probability: 0.75 }
 ];
 
@@ -38,7 +38,7 @@ export const predictNextColor = (
   );
 
   if (pattern75Match) {
-    const predictedColor = Math.random() < 0.75 ? dot1.color : (dot1.color === 'red' ? 'black' : 'red');
+    const predictedColor = Math.random() < 0.75 ? pattern75Match.colors[2] : (pattern75Match.colors[2] === 'red' ? 'black' : 'red');
     return {
       color: predictedColor,
       probability: 0.75,
@@ -47,7 +47,7 @@ export const predictNextColor = (
   }
 
   if (pattern25Match) {
-    const predictedColor = Math.random() < 0.25 ? dot1.color : (dot1.color === 'red' ? 'black' : 'red');
+    const predictedColor = Math.random() < 0.25 ? pattern25Match.colors[2] : (pattern25Match.colors[2] === 'red' ? 'black' : 'red');
     return {
       color: predictedColor,
       probability: 0.25,

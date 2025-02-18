@@ -77,9 +77,14 @@ class StorageService {
         const transaction = this.db!.transaction('gameState', 'readwrite');
         const store = transaction.objectStore('gameState');
         
+        const stateToSave = {
+          ...state,
+          predictionStats: Array.isArray(state.predictionStats) ? state.predictionStats : [],
+        };
+
         const request = store.put({
           id: 'current',
-          ...state,
+          ...stateToSave,
           timestamp: Date.now()
         });
 
@@ -115,7 +120,17 @@ class StorageService {
 
         request.onsuccess = () => {
           console.log('Game state loaded:', request.result);
-          resolve(request.result ? request.result : null);
+          if (request.result) {
+            const parsedState = request.result as GameState;
+            resolve({
+              ...parsedState,
+              predictionStats: Array.isArray(parsedState.predictionStats) 
+                ? parsedState.predictionStats 
+                : [],
+            });
+          } else {
+            resolve(null);
+          }
         };
       } catch (error) {
         console.error('Error in loadGameState:', error);

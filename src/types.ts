@@ -8,7 +8,12 @@ export interface Position {
 export interface Move {
   position: Position;
   color: DotColor;
-  timestamp?: number;
+  timestamp: number;
+  prediction?: {
+    color: DotColor;
+    isCorrect: boolean;
+    probability: number;
+  };
 }
 
 export interface GameState {
@@ -18,9 +23,15 @@ export interface GameState {
   totalPredictions: number;
   correctPredictions: number;
   isViewingHistory: boolean;
+  predictionStats: {
+    timestamp: number;
+    accuracy: number;
+    totalPredictions: number;
+  }[];
 }
 
 export interface Prediction {
   position: Position;
   color: DotColor;
+  probability: number;
 }

@@ -15,18 +15,23 @@ const createEmptyGrid = () =>
     .map(() => Array(GRID_SIZE).fill(null));
 
 const App: React.FC = () => {
-  const [gameState, setGameState] = useState<GameState>({
-    grid: createEmptyGrid(),
-    history: [],
-    windowStart: 0,
-    totalPredictions: 0,
-    correctPredictions: 0,
-    isViewingHistory: false,
+  const [gameState, setGameState] = useState<GameState>(() => {
+    const initialState: GameState = {
+      grid: createEmptyGrid(),
+      history: [],
+      windowStart: 0,
+      totalPredictions: 0,
+      correctPredictions: 0,
+      isViewingHistory: false,
+      predictionStats: [], // 确保初始化为空数组
+    };
+    return initialState;
   });
 
   const [selectedColor, setSelectedColor] = useState<DotColor>('red');
   const [predictedPosition, setPredictedPosition] = useState<Position | null>(null);
   const [predictedColor, setPredictedColor] = useState<DotColor | null>(null);
+  const [probability, setProbability] = useState<number | null>(null);
   const [showStats, setShowStats] = useState(false);
   const [gameHistory, setGameHistory] = useState<any[]>([]);
   const [nextPosition, setNextPosition] = useState<Position>({ row: 0, col: 0 });
@@ -62,7 +67,13 @@ const App: React.FC = () => {
         console.log('Loaded game state:', savedState);
         
         if (savedState) {
-          setGameState(savedState);
+          // 确保 predictionStats 存在
+          const stateWithStats = {
+            ...savedState,
+            predictionStats: savedState.predictionStats || [],
+          };
+          setGameState(stateWithStats);
+          
           // 找到下一个空位置
           const nextEmpty = findNextEmptyPosition(savedState.grid);
           if (nextEmpty) {
@@ -148,37 +159,88 @@ const App: React.FC = () => {
     return { row: 0, col: 0 };
   };
 
+  const updatePrediction = useCallback((history: Move[]) => {
+    if (history.length >= 2) {
+      const lastTwo = history.slice(-2);
+      const prediction = predictNextColor(lastTwo);
+      if (prediction) {
+        setPredictedColor(prediction.color);
+        setPredictedPosition(nextPosition);
+        setProbability(prediction.probability);
+      } else {
+        setPredictedColor(null);
+        setPredictedPosition(null);
+        setProbability(null);
+      }
+    } else {
+      setPredictedColor(null);
+      setPredictedPosition(null);
+      setProbability(null);
+    }
+  }, [nextPosition]);
+
+  // 更新预测统计
+  const updatePredictionStats = useCallback((
+    totalPredictions: number,
+    correctPredictions: number
+  ) => {
+    const accuracy = totalPredictions > 0
+      ? (correctPredictions / totalPredictions) * 100
+      : 0;
+
+    const newStats = {
+      timestamp: Date.now(),
+      accuracy,
+      totalPredictions,
+    };
+
+    setGameState(prev => ({
+      ...prev,
+      predictionStats: Array.isArray(prev.predictionStats) 
+        ? [...prev.predictionStats, newStats]
+        : [newStats],
+    }));
+  }, []);
+
   const handleColorSelect = async (color: DotColor) => {
     if (!nextPosition || gameState.isViewingHistory) return;
-
-    const newHistory = [
-      ...gameState.history,
-      { position: nextPosition, color, timestamp: Date.now() },
-    ];
 
     let newTotalPredictions = gameState.totalPredictions;
     let newCorrectPredictions = gameState.correctPredictions;
 
+    // 创建新的移动记录
+    const newMove: Move = {
+      position: nextPosition,
+      color,
+      timestamp: Date.now(),
+    };
+
+    // 如果有预测，记录预测结果
     if (
       predictedPosition &&
       predictedColor &&
       nextPosition.row === predictedPosition.row &&
       nextPosition.col === predictedPosition.col
     ) {
+      newTotalPredictions++;
       if (color === predictedColor) {
         newCorrectPredictions++;
       }
-      newTotalPredictions++;
+
+      newMove.prediction = {
+        color: predictedColor,
+        isCorrect: color === predictedColor,
+        probability: probability || 0,
+      };
     }
+
+    const newHistory = [...gameState.history, newMove];
 
     // 计算当前页号和页内位置
     const currentPage = Math.floor(newHistory.length / WINDOW_SIZE);
     const positionInPage = newHistory.length % WINDOW_SIZE;
-    
-    // 只有当前页完全填满时才切换到新页面
     const isPageFull = positionInPage === 0 && newHistory.length > 0;
     
-    // 设置窗口起始位置
     const newWindowStart = isPageFull
       ? currentPage * WINDOW_SIZE
       : Math.floor(newHistory.length / WINDOW_SIZE) * WINDOW_SIZE;
@@ -186,6 +248,7 @@ const App: React.FC = () => {
     const newGrid = updateDisplayGrid(newHistory, newWindowStart);
 
     const newGameState = {
+      ...gameState,
       grid: newGrid,
       history: newHistory,
       windowStart: newWindowStart,
@@ -197,20 +260,17 @@ const App: React.FC = () => {
     setGameState(newGameState);
     setLastPosition(nextPosition);
 
-    // 预测下一个位置和颜色
-    if (newHistory.length >= 2) {
-      const prediction = predictNextColor(newHistory.slice(-2));
-      if (prediction) {
-        setPredictedColor(prediction.color);
-        setPredictedPosition(prediction.position);
-      }
-    }
-
     // 更新下一个位置
     const nextEmpty = findNextEmptyPosition(newGrid);
     if (nextEmpty) {
       setNextPosition(nextEmpty);
     }
+
+    // 更新预测
+    updatePrediction(newHistory);
+
+    // 更新预测统计
+    updatePredictionStats(newTotalPredictions, newCorrectPredictions);
 
     // 保存游戏历史
     if (newTotalPredictions > 0 && newTotalPredictions % 10 === 0) {
@@ -231,19 +291,31 @@ const App: React.FC = () => {
     const lastMove = newHistory.pop();
     if (!lastMove) return;
 
-    // 计算应该显示的页面
+    // 更新预测统计
+    let newTotalPredictions = gameState.totalPredictions;
+    let newCorrectPredictions = gameState.correctPredictions;
+
+    if (lastMove.prediction) {
+      newTotalPredictions--;
+      if (lastMove.prediction.isCorrect) {
+        newCorrectPredictions--;
+      }
+    }
+
     const currentPage = Math.floor((newHistory.length - 1) / WINDOW_SIZE);
     const newWindowStart = currentPage * WINDOW_SIZE;
     
     const newGrid = updateDisplayGrid(newHistory, newWindowStart);
 
     const newGameState = {
+      ...gameState,
       grid: newGrid,
       history: newHistory,
       windowStart: newWindowStart,
-      totalPredictions: gameState.totalPredictions,
-      correctPredictions: gameState.correctPredictions,
+      totalPredictions: newTotalPredictions,
+      correctPredictions: newCorrectPredictions,
       isViewingHistory: false,
+      predictionStats: gameState.predictionStats.slice(0, -1), // 移除最后一个统计记录
     };
 
     setGameState(newGameState);
@@ -251,20 +323,8 @@ const App: React.FC = () => {
     setLastPosition(newHistory.length > 0 ? newHistory[newHistory.length - 1].position : null);
 
     // 更新预测
-    if (newHistory.length >= 2) {
-      const prediction = predictNextColor(newHistory.slice(-2));
-      if (prediction) {
-        setPredictedColor(prediction.color);
-        setPredictedPosition(prediction.position);
-      } else {
-        setPredictedColor(null);
-        setPredictedPosition(null);
-      }
-    } else {
-      setPredictedColor(null);
-      setPredictedPosition(null);
-    }
-  }, [gameState, updateDisplayGrid]);
+    updatePrediction(newHistory);
+  }, [gameState, updateDisplayGrid, updatePrediction]);
 
   const handleCellDelete = useCallback((position: Position) => {
     if (gameState.isViewingHistory) return;
@@ -276,16 +336,32 @@ const App: React.FC = () => {
     if (index === -1) return;
 
     const newHistory = gameState.history.slice(0, index);
+    
+    // 更新预测统计
+    let newTotalPredictions = gameState.totalPredictions;
+    let newCorrectPredictions = gameState.correctPredictions;
+
+    // 如果删除的点有预测记录，更新统计
+    const deletedMove = gameState.history[index];
+    if (deletedMove.prediction) {
+      newTotalPredictions--;
+      if (deletedMove.prediction.isCorrect) {
+        newCorrectPredictions--;
+      }
+    }
+
     const newWindowStart = Math.max(0, Math.min(gameState.windowStart, newHistory.length - WINDOW_SIZE));
     const newGrid = updateDisplayGrid(newHistory, newWindowStart);
 
     const newGameState = {
+      ...gameState,
       grid: newGrid,
       history: newHistory,
       windowStart: newWindowStart,
-      totalPredictions: gameState.totalPredictions,
-      correctPredictions: gameState.correctPredictions,
+      totalPredictions: newTotalPredictions,
+      correctPredictions: newCorrectPredictions,
       isViewingHistory: false,
+      predictionStats: gameState.predictionStats.slice(0, index), // 移除被删除点之后的统计记录
     };
 
     setGameState(newGameState);
@@ -293,20 +369,8 @@ const App: React.FC = () => {
     setLastPosition(newHistory.length > 0 ? newHistory[newHistory.length - 1].position : null);
 
     // 更新预测
-    if (newHistory.length >= 2) {
-      const prediction = predictNextColor(newHistory.slice(-2));
-      if (prediction) {
-        setPredictedColor(prediction.color);
-        setPredictedPosition(prediction.position);
-      } else {
-        setPredictedColor(null);
-        setPredictedPosition(null);
-      }
-    } else {
-      setPredictedColor(null);
-      setPredictedPosition(null);
-    }
-  }, [gameState, updateDisplayGrid]);
+    updatePrediction(newHistory);
+  }, [gameState, updateDisplayGrid, updatePrediction]);
 
   const handleWindowChange = useCallback((newStart: number) => {
     const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
@@ -394,6 +458,8 @@ const App: React.FC = () => {
                   canUndo={gameState.history.length > 0 && !gameState.isViewingHistory}
                   accuracy={accuracy}
                   totalPredictions={gameState.totalPredictions}
+                  predictedColor={predictedColor}
+                  probability={probability}
                 />
               </div>
             </div>
