@@ -19,7 +19,7 @@ const createEmptyGrid = () =>
 
 const calculateGrid = (history: Move[], windowStart: number) => {
   const newGrid = createEmptyGrid();
-  
+
   // 获取当前页的移动记录
   const displayMoves = history.slice(windowStart, windowStart + WINDOW_SIZE);
   console.log('Display moves:', {
@@ -27,20 +27,12 @@ const calculateGrid = (history: Move[], windowStart: number) => {
     windowStart,
     displayMovesLength: displayMoves.length
   });
-  
+
   // 处理当前页的移动记录
   displayMoves.forEach((move, index) => {
     // 计算在网格中的位置（纵向填充）
     const col = Math.floor(index / GRID_SIZE);  // 先确定在第几列
     const row = index % GRID_SIZE;              // 再确定在这列的第几行
-    
-    console.log('Processing move:', {
-      globalIndex: windowStart + index,
-      localIndex: index,
-      row,
-      col,
-      color: move.color
-    });
 
     if (row < GRID_SIZE && col < GRID_SIZE) {
       newGrid[row][col] = move.color;
@@ -52,9 +44,9 @@ const calculateGrid = (history: Move[], windowStart: number) => {
 
 const App: React.FC = () => {
   const today = new Date().toISOString().slice(0, 10);
-  
+
   const [selectedDate, setSelectedDate] = useState<string>(today);
-  const [isRecordMode, setIsRecordMode] = useState<boolean>(selectedDate === today);
+  const [isRecordMode, setIsRecordMode] = useState<boolean>(selectedDate === today);  // 今天是录入模式，其他日期是预览模式
 
   const [gameState, setGameState] = useState<GameState>(() => {
     const initialState: GameState = {
@@ -86,15 +78,22 @@ const App: React.FC = () => {
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
+    // 切换到今天时是录入模式，其他日期是预览模式
+    setIsRecordMode(date === today);
   };
 
-  useEffect(() => {
-    if (selectedDate === today) {
-      setIsRecordMode(true);
-    } else {
-      setIsRecordMode(false);
+  const handleModeChange = (mode: boolean) => {
+    setIsRecordMode(mode);
+    if (mode) {
+      const nextEmpty = findNextEmptyPosition(gameState.grid);
+      if (nextEmpty) {
+        setNextPosition(nextEmpty);
+      }
+      if (gameState.isViewingHistory) {
+        handleReturnToLatest();
+      }
     }
-  }, [selectedDate, today]);
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -130,14 +129,14 @@ const App: React.FC = () => {
         setIsLoading(true);
         const todayStr = today;
         let savedState;
-        
+
         // 根据日期加载游戏状态
         savedState = await storage.loadGameStateByDate(selectedDate);
 
         if (savedState) {
           // 确保 windowStart 是从第一页开始
           const initialWindowStart = 0;
-          
+
           const stateWithStats = {
             ...savedState,
             windowStart: initialWindowStart,  // 强制从第一页开始
@@ -147,7 +146,7 @@ const App: React.FC = () => {
           };
 
           setGameState(stateWithStats);
-          
+
           const nextEmpty = findNextEmptyPosition(stateWithStats.grid);
           if (nextEmpty) {
             setNextPosition(nextEmpty);
@@ -237,7 +236,7 @@ const App: React.FC = () => {
 
     setGameState(prev => ({
       ...prev,
-      predictionStats: Array.isArray(prev.predictionStats) 
+      predictionStats: Array.isArray(prev.predictionStats)
         ? [...prev.predictionStats, newStats]
         : [newStats],
     }));
@@ -285,7 +284,7 @@ const App: React.FC = () => {
     const currentPage = Math.floor(newHistory.length / WINDOW_SIZE);
     const positionInPage = newHistory.length % WINDOW_SIZE;
     const isPageFull = positionInPage === 0 && newHistory.length > 0;
-    
+
     const newWindowStart = isPageFull
       ? currentPage * WINDOW_SIZE
       : Math.floor(newHistory.length / WINDOW_SIZE) * WINDOW_SIZE;
@@ -316,7 +315,7 @@ const App: React.FC = () => {
     try {
       // 使用新的按日期保存方法
       await storage.saveGameStateByDate(newGameState, selectedDate);
-      
+
       // 如果是今天的数据，同时更新游戏历史
       if (selectedDate === today && newTotalPredictions > 0 && newTotalPredictions % 10 === 0) {
         await storage.saveGameHistory(newGameState);
@@ -347,7 +346,7 @@ const App: React.FC = () => {
 
     const currentPage = Math.floor((newHistory.length - 1) / WINDOW_SIZE);
     const newWindowStart = currentPage * WINDOW_SIZE;
-    
+
     const newGrid = updateDisplayGrid(newHistory, newWindowStart);
 
     const newGameState = {
@@ -385,7 +384,7 @@ const App: React.FC = () => {
     if (index === -1) return;
 
     const newHistory = gameState.history.slice(0, index);
-    
+
     let newTotalPredictions = gameState.totalPredictions;
     let newCorrectPredictions = gameState.correctPredictions;
 
@@ -427,16 +426,16 @@ const App: React.FC = () => {
   const handleWindowChange = useCallback((newStart: number) => {
     // 计算总页数
     const totalPages = Math.ceil(gameState.history.length / WINDOW_SIZE);
-    
+
     // 计算目标页码
     const targetPage = Math.floor(newStart / WINDOW_SIZE);
-    
+
     // 确保页码在有效范围内
     const validPage = Math.min(targetPage, totalPages - 1);
-    
+
     // 计算实际的起始位置
     const validStart = validPage * WINDOW_SIZE;
-    
+
     console.log('Page change:', {
       historyLength: gameState.history.length,
       totalPages,
@@ -444,7 +443,7 @@ const App: React.FC = () => {
       validPage,
       validStart
     });
-    
+
     // 更新游戏状态
     setGameState(prev => ({
       ...prev,
@@ -457,7 +456,7 @@ const App: React.FC = () => {
   const handleReturnToLatest = useCallback(() => {
     const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
     const newGrid = updateDisplayGrid(gameState.history, maxStart);
-    
+
     setGameState(prev => ({
       ...prev,
       grid: newGrid,
@@ -494,8 +493,8 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const accuracy = gameState.totalPredictions === 0 
-    ? 0 
+  const accuracy = gameState.totalPredictions === 0
+    ? 0
     : (gameState.correctPredictions / gameState.totalPredictions) * 100;
 
   if (isLoading) {
@@ -525,7 +524,7 @@ const App: React.FC = () => {
                     selectedDate={selectedDate}
                     onDateChange={handleDateChange}
                     isRecordMode={isRecordMode}
-                    onModeChange={setIsRecordMode}
+                    onModeChange={handleModeChange}
                   />
                 </div>
                 <GameBoard

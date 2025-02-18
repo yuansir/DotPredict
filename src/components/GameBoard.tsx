@@ -43,12 +43,13 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       predictedPosition.col === col
     );
     const isNext = Boolean(
-      isRecordMode &&
-      nextPosition &&
-      nextPosition.row === row &&
-      nextPosition.col === col
+      isRecordMode &&                  // 必须是录入模式
+      !color &&                       // 当前格子没有颜色
+      nextPosition &&                 // 有下一个位置
+      nextPosition.row === row &&     // 行匹配
+      nextPosition.col === col        // 列匹配
     );
-    const canDelete = !isViewingHistory && color !== null && !isNext;
+    const canDelete = !isViewingHistory && color !== null && (!isNext || !isRecordMode);
 
     return (
       <Cell
