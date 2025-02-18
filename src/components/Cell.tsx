@@ -1,5 +1,5 @@
 import React from 'react';
-import { DotColor, Position } from '../types';
+import { DotColor } from '../types';
 import { FiX } from 'react-icons/fi';
 
 interface CellProps {
@@ -9,7 +9,6 @@ interface CellProps {
   isPredicted: boolean;
   predictedColor: DotColor | null;
   isNext: boolean;
-  position: Position;
   canDelete: boolean;
 }
 
@@ -20,7 +19,6 @@ export const Cell: React.FC<CellProps> = ({
   isPredicted,
   predictedColor,
   isNext,
-  position,
   canDelete,
 }) => {
   return (

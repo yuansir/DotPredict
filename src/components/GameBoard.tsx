@@ -34,6 +34,30 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   onReturnToLatest,
   isViewingHistory,
 }) => {
+  const renderCell = (row: number, col: number) => {
+    const color = grid[row][col];
+    const isPredicted =
+      predictedPosition &&
+      predictedPosition.row === row &&
+      predictedPosition.col === col;
+    const isNext = nextPosition && nextPosition.row === row && nextPosition.col === col;
+    const canDelete = !isViewingHistory && color !== null;
+
+    return (
+      <Cell
+        key={`${row}-${col}`}
+        color={color}
+        onClick={() => onCellClick({ row, col })}
+        onDelete={() => onCellDelete({ row, col })}
+        isPredicted={isPredicted}
+        predictedColor={predictedColor}
+        isNext={isNext}
+        position={{ row, col }}
+        canDelete={canDelete}
+      />
+    );
+  };
+
   return (
     <div className="w-full bg-white rounded-xl shadow-lg p-4 md:p-6 space-y-4">
       {/* 时间轴 */}
@@ -60,33 +84,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         {/* 点阵内容 */}
         <div className="relative grid grid-cols-8 grid-rows-8 gap-0">
           {grid.map((row, rowIndex) =>
-            row.map((color, colIndex) => {
-              const position = { row: rowIndex, col: colIndex };
-              const isLast = lastPosition?.row === rowIndex && lastPosition?.col === colIndex;
-              const isNextPos = nextPosition?.row === rowIndex && nextPosition?.col === colIndex;
-              
-              return (
-                <Cell
-                  key={`${rowIndex}-${colIndex}`}
-                  color={color}
-                  onClick={() => onCellClick(position)}
-                  onDelete={() => onCellDelete(position)}
-                  isPredicted={
-                    predictedPosition?.row === rowIndex &&
-                    predictedPosition?.col === colIndex
-                  }
-                  predictedColor={
-                    predictedPosition?.row === rowIndex &&
-                    predictedPosition?.col === colIndex
-                      ? predictedColor
-                      : null
-                  }
-                  isNext={isNextPos}
-                  position={position}
-                  canDelete={color !== null && !isNextPos && !isViewingHistory}
-                />
-              );
-            })
+            row.map((_, colIndex) => renderCell(rowIndex, colIndex))
           )}
         </div>
       </div>

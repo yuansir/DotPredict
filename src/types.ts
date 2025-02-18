@@ -30,6 +30,17 @@ export interface GameState {
   }[];
 }
 
+export interface Pattern {
+  colors: DotColor[];
+  probability: number;
+}
+
+export interface PredictionResult {
+  color: DotColor;
+  probability: number;
+  pattern: string;
+}
+
 export interface Prediction {
   position: Position;
   color: DotColor;
