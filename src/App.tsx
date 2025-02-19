@@ -76,10 +76,16 @@ const App: React.FC = () => {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'info' | 'warning' | 'error'>('warning');
 
+  // 序列配置状态
+  const [currentSequenceConfig, setCurrentSequenceConfig] = useState<SequenceConfig>({
+    length: 3,
+    isEnabled: true
+  });
+
   const storage = new SupabaseStorageService();
 
   // 初始化序列预测器
-  const [predictor] = useState(() => new SequencePredictor());
+  const [predictor] = useState(() => new SequencePredictor(currentSequenceConfig));
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
@@ -254,7 +260,7 @@ const App: React.FC = () => {
       setNextPosition(nextEmpty);
       
       // 更新预测
-      if (newHistory.length >= 2) {
+      if (newHistory.length >= predictor.config.length && predictor.config.isEnabled) {
         const prediction = predictor.predictNextColor();
         if (prediction) {
           setPredictedColor(prediction.color);
@@ -606,16 +612,32 @@ const App: React.FC = () => {
     return (gameState.correctPredictions / gameState.totalPredictions) * 100;
   }, [gameState.correctPredictions, gameState.totalPredictions]);
 
-  // 更新序列预测器配置
+  // 处理序列配置变更
   const handleSequenceConfigChange = useCallback((config: Partial<SequenceConfig>) => {
+    // 更新 predictor 配置
     predictor.updateConfig(config);
-    // 更新预测结果
-    const prediction = predictor.predictNextColor();
-    if (prediction && nextPosition) {
-      setPredictedColor(prediction.color);
-      setPredictedPosition(nextPosition);
+    
+    // 更新 UI 状态
+    setCurrentSequenceConfig(prev => ({
+      ...prev,
+      ...config
+    }));
+    
+    // 如果禁用了预测，清除预测状态
+    if (config.isEnabled === false) {
+      setPredictedColor(null);
+      setPredictedPosition(null);
+      setPredictedProbability(null);
+    } else if (config.isEnabled === true && gameState.history.length >= predictor.config.length) {
+      // 如果启用预测，且有足够的历史记录，立即进行预测
+      const prediction = predictor.predictNextColor();
+      if (prediction && nextPosition) {
+        setPredictedColor(prediction.color);
+        setPredictedPosition(nextPosition);
+        setPredictedProbability(prediction.probability);
+      }
     }
-  }, [predictor, nextPosition]);
+  }, [gameState.history.length, nextPosition, predictor]);
 
   // 在历史记录更新时更新预测器
   useEffect(() => {
@@ -697,7 +719,7 @@ const App: React.FC = () => {
                   probability={predictedProbability}
                   isRecordMode={!gameState.isViewingHistory}
                   onSequenceConfigChange={handleSequenceConfigChange}
-                  sequenceConfig={predictor.config}
+                  sequenceConfig={currentSequenceConfig}
                   className="mb-4"
                 />
               </div>

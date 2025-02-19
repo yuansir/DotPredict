@@ -155,75 +155,72 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </button>
         </div>
 
-        {/* 序列预测配置 */}
-        {isRecordMode && onSequenceConfigChange && (
-          <div className="space-y-4">
-            <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-4 transition-all duration-200 hover:bg-gray-700/50">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold text-gray-100">序列预测设置</h3>
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="flex items-center space-x-3 text-gray-200 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={sequenceConfig.isEnabled}
-                    onChange={(e) => onSequenceConfigChange({ isEnabled: e.target.checked })}
-                    className="form-checkbox h-5 w-5 text-blue-500 rounded border-gray-600 bg-gray-700 
-                      focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
-                  />
-                  <span>启用预测</span>
-                </label>
-                <div className="flex items-center space-x-3">
-                  <span className="text-gray-300">序列长度:</span>
-                  <select
-                    value={sequenceConfig.length}
-                    onChange={(e) => onSequenceConfigChange({ length: Number(e.target.value) })}
-                    className="form-select h-9 pl-3 pr-8 py-1 text-gray-200 bg-gray-700 border border-gray-600 
-                      rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                      disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                    disabled={!sequenceConfig.isEnabled}
-                    aria-label="选择序列长度"
-                  >
-                    {[2, 3, 4, 5].map(n => (
-                      <option key={n} value={n} className="bg-gray-700 text-gray-200">{n}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+        {/* 序列预测设置 */}
+        <div className="bg-gray-700 rounded-lg p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-200">序列预测设置</h3>
+          </div>
+          
+          {/* 启用预测开关 */}
+          <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30">
+            <span className="text-gray-300">启用预测</span>
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={sequenceConfig.isEnabled}
+                onChange={() => onSequenceConfigChange?.({ 
+                  isEnabled: !sequenceConfig.isEnabled 
+                })}
+                className="form-checkbox h-5 w-5 text-blue-500 rounded border-gray-600 bg-gray-700
+                          focus:ring-blue-500 focus:ring-offset-gray-800"
+              />
             </div>
+          </div>
 
-            {/* 预测信息 */}
-            {sequenceConfig.isEnabled && (
-              <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-4 transition-all duration-200 hover:bg-gray-700/50">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-100">预测信息</h3>
+          {/* 序列长度设置 */}
+          <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30">
+            <span className="text-gray-300">序列长度</span>
+            <select
+              value={sequenceConfig.length}
+              onChange={(e) => onSequenceConfigChange?.({ 
+                length: parseInt(e.target.value) 
+              })}
+              className="bg-gray-700 text-gray-300 rounded px-3 py-1 border border-gray-600
+                        focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {[3,4,5,6,7,8,9].map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* 预测信息显示 */}
+        {isRecordMode && (
+          <div className="bg-gray-700 rounded-lg p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-200">预测信息</h3>
+            </div>
+            
+            {predictedColor ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30">
+                  <span className="text-gray-300">下一个预测</span>
+                  <div className={`w-6 h-6 rounded-full ${
+                    predictedColor === 'red' ? 'bg-red-500' : 'bg-gray-900'
+                  }`} />
                 </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-300">准确率</span>
-                    <span className="text-gray-100 font-medium">{accuracy.toFixed(1)}%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-300">总预测次数</span>
-                    <span className="text-gray-100 font-medium">{totalPredictions}</span>
-                  </div>
-                  {predictedColor && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-300">下一个预测</span>
-                      <div className="flex items-center space-x-2">
-                        <div
-                          className={`w-4 h-4 rounded-full ${
-                            predictedColor === 'red' ? 'bg-red-500' : 'bg-gray-100'
-                          } shadow-sm`}
-                          aria-label={`预测颜色: ${predictedColor === 'red' ? '红色' : '黑色'}`}
-                        />
-                        <span className="text-gray-100 font-medium">
-                          {probability ? `${(probability * 100).toFixed(1)}%` : 'N/A'}
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30">
+                  <span className="text-gray-300">置信度</span>
+                  <span className="text-blue-400">
+                    {Math.round((probability || 0) * 100)}%
+                  </span>
                 </div>
+              </div>
+            ) : (
+              <div className="text-center py-2">
+                <span className="text-gray-500 italic">暂无预测</span>
               </div>
             )}
           </div>
