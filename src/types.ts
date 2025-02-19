@@ -39,6 +39,7 @@ export interface PredictionResult {
   color: DotColor;
   probability: number;
   pattern: string;
+  matchCount: number;  // 添加匹配次数字段
 }
 
 export interface Prediction {
