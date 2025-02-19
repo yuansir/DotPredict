@@ -81,23 +81,21 @@ export class SupabaseStorageService {
 
   async loadGameStateByDate(date: string): Promise<GameState | null> {
     try {
-      // 1. 加载日期记录
+      // 1. 获取日期记录
       const { data: record, error: recordError } = await supabase
         .from('daily_records')
         .select('*')
         .eq('date', date)
-        .single();
+        .maybeSingle();
 
-      if (recordError && recordError.code !== 'PGRST116') { // PGRST116 是"没有找到数据"的错误
-        throw recordError;
-      }
+      if (recordError) throw recordError;
 
-      // 2. 加载移动记录
+      // 2. 获取移动记录
       const { data: moves, error: movesError } = await supabase
         .from('moves')
         .select('*')
         .eq('date', date)
-        .order('sequence_number');
+        .order('sequence_number', { ascending: true });
 
       if (movesError) throw movesError;
 

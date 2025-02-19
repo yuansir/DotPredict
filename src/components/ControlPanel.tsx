@@ -1,39 +1,44 @@
 import React, { useEffect, useState } from 'react';
-import { DotColor } from '../types';
+import { DotColor, Position } from '../types';
 import { BiUndo } from 'react-icons/bi';
 import { MdOutlineLeaderboard } from 'react-icons/md';
 import { FiTrash2, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { ConfirmDialog } from './ConfirmDialog';
 import { RuleDisplay } from './RuleDisplay';
 import { Transition } from '@headlessui/react';
+import { SequenceConfig } from '../utils/sequencePredictor';
 
 interface ControlPanelProps {
-  onColorSelect: (color: DotColor) => void;
   selectedColor: DotColor;
-  onShowStats: () => void;
+  onColorSelect: (color: DotColor) => void;
   onUndo: () => void;
-  onClearData: () => void;
-  canUndo: boolean;
+  onClear: () => void;
+  onShowStats: () => void;
   accuracy: number;
   totalPredictions: number;
   predictedColor: DotColor | null;
   probability: number | null;
+  isRecordMode: boolean;
+  onSequenceConfigChange?: (config: Partial<SequenceConfig>) => void;
+  sequenceConfig?: SequenceConfig;
   className?: string;
 }
 
 const RULES_EXPANDED_KEY = 'dotPredict_rulesExpanded';
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({
-  onColorSelect,
   selectedColor,
-  onShowStats,
+  onColorSelect,
   onUndo,
-  onClearData,
-  canUndo,
+  onClear,
+  onShowStats,
   accuracy,
   totalPredictions,
   predictedColor,
   probability,
+  isRecordMode,
+  onSequenceConfigChange,
+  sequenceConfig = { length: 3, isEnabled: true },
   className = ''
 }) => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -115,15 +120,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           {/* 撤销按钮 */}
           <button
             onClick={onUndo}
-            disabled={!canUndo}
+            disabled={!true}
             className={`w-full py-3 px-4 rounded-lg flex items-center justify-center space-x-2 transition-all duration-200 
               ${
-                canUndo
+                true
                   ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
                   : 'bg-gray-700 text-gray-400 cursor-not-allowed'
               }`}
           >
-            <BiUndo className={`w-5 h-5 ${canUndo ? 'animate-pulse' : ''}`} />
+            <BiUndo className={`w-5 h-5 ${true ? 'animate-pulse' : ''}`} />
             <span>撤销</span>
           </button>
 
@@ -150,66 +155,83 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </button>
         </div>
 
-        {/* 状态显示 */}
-        <div className="bg-gray-700 rounded-lg p-4 space-y-4">
-          {/* 预测信息 */}
-          <div className="relative p-3 rounded-lg bg-gray-800/50 border border-gray-600">
-            <div className="flex flex-col space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-300 font-medium flex items-center space-x-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-                  <span>当前预测</span>
-                </span>
+        {/* 序列预测配置 */}
+        {isRecordMode && onSequenceConfigChange && (
+          <div className="space-y-4">
+            <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-4 transition-all duration-200 hover:bg-gray-700/50">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-gray-100">序列预测设置</h3>
               </div>
-              
-              {predictedColor ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg
-                      ${predictedColor === 'red' 
-                        ? 'bg-red-500/10 border border-red-500/30' 
-                        : 'bg-gray-700/50 border border-gray-600'
-                      }`}
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full shadow-lg ${
-                          predictedColor === 'red' 
-                            ? 'bg-gradient-to-br from-red-400 to-red-600 shadow-red-500/50' 
-                            : 'bg-gradient-to-br from-gray-700 to-gray-900 shadow-white/10'
-                        }`}
-                      >
-                        <div className="absolute top-1 left-1 w-2 h-2 bg-white rounded-full opacity-30"></div>
-                      </div>
-                      <span className={`font-medium ${
-                        predictedColor === 'red' ? 'text-red-400' : 'text-gray-300'
-                      }`}>
-                        {predictedColor === 'red' ? '红色' : '黑色'}
-                      </span>
-                    </div>
+              <div className="flex items-center justify-between">
+                <label className="flex items-center space-x-3 text-gray-200 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={sequenceConfig.isEnabled}
+                    onChange={(e) => onSequenceConfigChange({ isEnabled: e.target.checked })}
+                    className="form-checkbox h-5 w-5 text-blue-500 rounded border-gray-600 bg-gray-700 
+                      focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                  />
+                  <span>启用预测</span>
+                </label>
+                <div className="flex items-center space-x-3">
+                  <span className="text-gray-300">序列长度:</span>
+                  <select
+                    value={sequenceConfig.length}
+                    onChange={(e) => onSequenceConfigChange({ length: Number(e.target.value) })}
+                    className="form-select h-9 pl-3 pr-8 py-1 text-gray-200 bg-gray-700 border border-gray-600 
+                      rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                      disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    disabled={!sequenceConfig.isEnabled}
+                    aria-label="选择序列长度"
+                  >
+                    {[2, 3, 4, 5].map(n => (
+                      <option key={n} value={n} className="bg-gray-700 text-gray-200">{n}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* 预测信息 */}
+            {sequenceConfig.isEnabled && (
+              <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-4 transition-all duration-200 hover:bg-gray-700/50">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-gray-100">预测信息</h3>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">准确率</span>
+                    <span className="text-gray-100 font-medium">{accuracy.toFixed(1)}%</span>
                   </div>
-                  {probability !== null && (
-                    <div className="bg-gray-700/50 px-3 py-2 rounded-lg border border-gray-600">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">总预测次数</span>
+                    <span className="text-gray-100 font-medium">{totalPredictions}</span>
+                  </div>
+                  {predictedColor && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-300">下一个预测</span>
                       <div className="flex items-center space-x-2">
-                        <span className="text-gray-400 text-sm">概率</span>
-                        <span className={`font-medium text-lg ${
-                          probability >= 0.7 ? 'text-green-400' : 
-                          probability >= 0.4 ? 'text-yellow-400' : 
-                          'text-red-400'
-                        }`}>
-                          {Math.round(probability * 100)}%
+                        <div
+                          className={`w-4 h-4 rounded-full ${
+                            predictedColor === 'red' ? 'bg-red-500' : 'bg-gray-100'
+                          } shadow-sm`}
+                          aria-label={`预测颜色: ${predictedColor === 'red' ? '红色' : '黑色'}`}
+                        />
+                        <span className="text-gray-100 font-medium">
+                          {probability ? `${(probability * 100).toFixed(1)}%` : 'N/A'}
                         </span>
                       </div>
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="text-center py-2">
-                  <span className="text-gray-500 italic">暂无预测</span>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
+        )}
 
+        {/* 状态显示 */}
+        <div className="bg-gray-700 rounded-lg p-4 space-y-4">
+          {/* 预测准确率 */}
           <div className="flex justify-between items-center p-3 rounded-lg bg-gray-800/30">
             <span className="text-gray-400">预测准确率</span>
             <div className="flex items-center space-x-2">
@@ -223,6 +245,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             </div>
           </div>
 
+          {/* 预测次数 */}
           <div className="flex justify-between items-center p-3 rounded-lg bg-gray-800/30">
             <span className="text-gray-400">预测次数</span>
             <span className="text-blue-400 font-medium">{totalPredictions}</span>
@@ -268,7 +291,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       <ConfirmDialog
         isOpen={showClearConfirm}
         onClose={() => setShowClearConfirm(false)}
-        onConfirm={onClearData}
+        onConfirm={onClear}
         title="确认清空数据"
         message="这将清空所有游戏数据，包括历史记录和统计信息。此操作不可撤销，是否确认继续？"
         confirmText="清空数据"
