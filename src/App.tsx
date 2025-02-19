@@ -10,6 +10,7 @@ import LoadingScreen from './components/LoadingScreen';
 import AlertDialog from './components/AlertDialog';
 import { SequencePredictor, SequenceConfig } from './utils/sequencePredictor';
 import { supabase, testConnection } from './lib/supabase';
+import { PredictionSequenceDisplay } from './components/PredictionSequenceDisplay';
 
 const GRID_SIZE = 8;
 const WINDOW_SIZE = GRID_SIZE * GRID_SIZE;
@@ -67,6 +68,15 @@ const App: React.FC = () => {
   const [predictedPosition, setPredictedPosition] = useState<Position | null>(null);
   const [predictedColor, setPredictedColor] = useState<DotColor | null>(null);
   const [predictedProbability, setPredictedProbability] = useState<number | null>(null);
+  const [predictionDetails, setPredictionDetails] = useState<{
+    color: DotColor | null;
+    probability: number;
+    matchCount: number;
+  }>({
+    color: null,
+    probability: 0,
+    matchCount: 0
+  });
   const [showStats, setShowStats] = useState(false);
   const [gameHistory, setGameHistory] = useState<any[]>([]);
   const [nextPosition, setNextPosition] = useState<Position>({ row: 0, col: 0 });
@@ -260,13 +270,23 @@ const App: React.FC = () => {
       setNextPosition(nextEmpty);
       
       // 更新预测
-      if (newHistory.length >= predictor.config.length && predictor.config.isEnabled) {
+      if (newHistory.length >= currentSequenceConfig.length && currentSequenceConfig.isEnabled) {
         const prediction = predictor.predictNextColor();
         if (prediction) {
+          setPredictionDetails({
+            color: prediction.color,
+            probability: prediction.probability,
+            matchCount: prediction.matchCount
+          });
           setPredictedColor(prediction.color);
           setPredictedPosition(nextEmpty);
           setPredictedProbability(prediction.probability);
         } else {
+          setPredictionDetails({
+            color: null,
+            probability: 0,
+            matchCount: 0
+          });
           setPredictedColor(null);
           setPredictedPosition(null);
           setPredictedProbability(null);
@@ -296,25 +316,28 @@ const App: React.FC = () => {
     return { row: 0, col: 0 };
   };
 
-  const updatePrediction = useCallback((history: Move[]) => {
-    if (history.length >= 2) {
-      const lastTwo = history.slice(-2);
-      const prediction = predictNextColor(lastTwo);
+  const updatePrediction = useCallback(() => {
+    if (gameState.history.length >= currentSequenceConfig.length - 1 && currentSequenceConfig.isEnabled) {
+      const prediction = predictor.predictNextColor();
       if (prediction) {
+        setPredictionDetails({
+          color: prediction.color,
+          probability: prediction.probability,
+          matchCount: prediction.matchCount
+        });
         setPredictedColor(prediction.color);
-        setPredictedPosition(nextPosition);
         setPredictedProbability(prediction.probability);
       } else {
+        setPredictionDetails({
+          color: null,
+          probability: 0,
+          matchCount: 0
+        });
         setPredictedColor(null);
-        setPredictedPosition(null);
         setPredictedProbability(null);
       }
-    } else {
-      setPredictedColor(null);
-      setPredictedPosition(null);
-      setPredictedProbability(null);
     }
-  }, [nextPosition]);
+  }, [gameState.history.length, currentSequenceConfig.isEnabled, predictor]);
 
   const updatePredictionStats = useCallback((
     totalPredictions: number,
@@ -401,13 +424,23 @@ const App: React.FC = () => {
           setNextPosition(nextEmpty);
           
           // 更新预测
-          if (newHistory.length >= 2) {
+          if (newHistory.length >= currentSequenceConfig.length && currentSequenceConfig.isEnabled) {
             const prediction = predictor.predictNextColor();
             if (prediction) {
+              setPredictionDetails({
+                color: prediction.color,
+                probability: prediction.probability,
+                matchCount: prediction.matchCount
+              });
               setPredictedColor(prediction.color);
               setPredictedPosition(nextEmpty);
               setPredictedProbability(prediction.probability);
             } else {
+              setPredictionDetails({
+                color: null,
+                probability: 0,
+                matchCount: 0
+              });
               setPredictedColor(null);
               setPredictedPosition(null);
               setPredictedProbability(null);
@@ -612,32 +645,86 @@ const App: React.FC = () => {
     return (gameState.correctPredictions / gameState.totalPredictions) * 100;
   }, [gameState.correctPredictions, gameState.totalPredictions]);
 
-  // 处理序列配置变更
-  const handleSequenceConfigChange = useCallback((config: Partial<SequenceConfig>) => {
-    // 更新 predictor 配置
-    predictor.updateConfig(config);
-    
-    // 更新 UI 状态
-    setCurrentSequenceConfig(prev => ({
-      ...prev,
+  // 验证配置是否完整
+  const isValidConfig = (config: SequenceConfig): boolean => {
+    return typeof config.isEnabled === 'boolean' && 
+           typeof config.length === 'number' && 
+           config.length > 0;
+  };
+
+  // 更新序列配置
+  const handleSequenceConfigChange = (config: Partial<SequenceConfig>) => {
+    // 保持现有配置的其他字段
+    const newConfig = {
+      ...currentSequenceConfig,
       ...config
-    }));
+    };
     
-    // 如果禁用了预测，清除预测状态
-    if (config.isEnabled === false) {
+    if (!isValidConfig(newConfig)) {
+      console.error('Invalid sequence config:', newConfig);
+      return;
+    }
+
+    setCurrentSequenceConfig(newConfig);
+    predictor.updateConfig(newConfig);
+
+    // 每次配置改变都重新计算预测
+    if (gameState.history.length >= newConfig.length - 1) {
+      const prediction = predictor.predictNextColor();
+      if (prediction) {
+        setPredictionDetails({
+          color: prediction.color,
+          probability: prediction.probability,
+          matchCount: prediction.matchCount
+        });
+        setPredictedColor(prediction.color);
+        setPredictedPosition(nextPosition);
+        setPredictedProbability(prediction.probability);
+      } else {
+        // 清除预测状态
+        setPredictionDetails({
+          color: null,
+          probability: 0,
+          matchCount: 0
+        });
+        setPredictedColor(null);
+        setPredictedPosition(null);
+        setPredictedProbability(null);
+      }
+    } else {
+      // 历史记录不足，清除预测状态
+      setPredictionDetails({
+        color: null,
+        probability: 0,
+        matchCount: 0
+      });
       setPredictedColor(null);
       setPredictedPosition(null);
       setPredictedProbability(null);
-    } else if (config.isEnabled === true && gameState.history.length >= predictor.config.length) {
-      // 如果启用预测，且有足够的历史记录，立即进行预测
+    }
+  };
+
+  // 监听配置变化
+  useEffect(() => {
+    if (!isValidConfig(currentSequenceConfig)) {
+      return;
+    }
+
+    // 配置改变时重新计算预测
+    if (currentSequenceConfig.isEnabled && gameState.history.length >= currentSequenceConfig.length - 1) {
       const prediction = predictor.predictNextColor();
-      if (prediction && nextPosition) {
+      if (prediction) {
+        setPredictionDetails({
+          color: prediction.color,
+          probability: prediction.probability,
+          matchCount: prediction.matchCount
+        });
         setPredictedColor(prediction.color);
         setPredictedPosition(nextPosition);
         setPredictedProbability(prediction.probability);
       }
     }
-  }, [gameState.history.length, nextPosition, predictor]);
+  }, [currentSequenceConfig, gameState.history.length, predictor, nextPosition]);
 
   // 在历史记录更新时更新预测器
   useEffect(() => {
@@ -646,9 +733,19 @@ const App: React.FC = () => {
     if (isRecordMode && nextPosition) {
       const prediction = predictor.predictNextColor();
       if (prediction) {
+        setPredictionDetails({
+          color: prediction.color,
+          probability: prediction.probability,
+          matchCount: prediction.matchCount
+        });
         setPredictedColor(prediction.color);
         setPredictedPosition(nextPosition);
       } else {
+        setPredictionDetails({
+          color: null,
+          probability: 0,
+          matchCount: 0
+        });
         setPredictedColor(null);
         setPredictedPosition(null);
       }
@@ -656,6 +753,12 @@ const App: React.FC = () => {
   }, [gameState.history, isRecordMode, nextPosition, predictor]);
 
   const accuracy = calculateAccuracy();
+
+  // 获取最近N-1个颜色的辅助函数
+  const getLastNColors = (history: Move[], n: number): DotColor[] => {
+    // 获取 n-1 个颜色，因为最后一个是待预测的
+    return history.slice(-(n - 1)).map(move => move.color);
+  };
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -702,6 +805,17 @@ const App: React.FC = () => {
                   isViewingHistory={gameState.isViewingHistory}
                   isRecordMode={isRecordMode}
                 />
+                
+                {/* 预测序列显示 */}
+                {isRecordMode && currentSequenceConfig.isEnabled && (
+                  <PredictionSequenceDisplay
+                    historicalColors={getLastNColors(gameState.history, currentSequenceConfig.length)}
+                    predictedColor={predictionDetails.color}
+                    matchCount={predictionDetails.matchCount}
+                    confidence={predictionDetails.probability}
+                    sequenceLength={currentSequenceConfig.length}
+                  />
+                )}
               </div>
             </div>
 
