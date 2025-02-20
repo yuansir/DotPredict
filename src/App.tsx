@@ -917,6 +917,16 @@ const App: React.FC = () => {
 
   const accuracy = calculateAccuracy();
 
+  // 检查每行最后两个小球是否相同
+  const checkLastTwoColors = (row: (string | null)[]) => {
+    if (row.length < 2) return null;
+    const lastTwo = row.filter(color => color !== null).slice(-2);
+    if (lastTwo.length === 2 && lastTwo[0] === lastTwo[1]) {
+      return lastTwo[0];
+    }
+    return null;
+  };
+
   if (isLoading) {
     return <LoadingScreen />;
   }
@@ -1046,20 +1056,27 @@ const App: React.FC = () => {
 
               {/* 新增的独立一列，带呼吸边框效果 */}
               <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
-                {[0, 1, 2].map((index) => (
-                  <div
-                    key={index}
-                    style={{ 
-                      width: '40px', 
-                      height: '40px',
-                      animation: 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-                    }}
-                    className="rounded-full cursor-pointer border-2 border-blue-400
-                      bg-gradient-to-b from-gray-50 to-white
-                      shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1)]
-                      transition-all duration-200 ease-in-out"
-                  />
-                ))}
+                {matrixData.map((row, index) => {
+                  const predictedColor = checkLastTwoColors(row);
+                  return (
+                    <div
+                      key={index}
+                      style={{ 
+                        width: '40px', 
+                        height: '40px',
+                        animation: !predictedColor ? 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
+                      }}
+                      className={`rounded-full cursor-pointer border-2 
+                        ${predictedColor ? 
+                          `${predictedColor === 'red' ? 
+                            'bg-gradient-to-b from-red-400 to-red-500 border-red-400' : 
+                            'bg-gradient-to-b from-gray-700 to-gray-800 border-gray-700'}`
+                          : 'border-blue-400 bg-gradient-to-b from-gray-50 to-white'}
+                        shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1)]
+                        transition-all duration-200 ease-in-out`}
+                    />
+                  );
+                })}
               </div>
             </div>
           </div>
