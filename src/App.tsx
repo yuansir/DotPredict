@@ -113,7 +113,7 @@ const App: React.FC = () => {
 
   // 初始化空矩阵函数
   const createEmptyMatrix = () => {
-    return Array(PATTERN_ROWS).fill(null).map(() => 
+    return Array(PATTERN_ROWS).fill(null).map(() =>
       Array(PATTERN_COLS).fill(null)
     );
   };
@@ -129,27 +129,27 @@ const App: React.FC = () => {
       const history = gameState.history;
       const startIndex = Math.max(0, history.length - maxBalls);
       const displayHistory = history.slice(startIndex); // 只取最后48个
-      
+
       console.log('初始化3x16矩阵:', {
         totalHistory: history.length,
         displayHistory: displayHistory.length,
         startIndex
       });
-      
+
       // 重置矩阵
       const newMatrix = createEmptyMatrix();
-      
+
       // 按顺序添加每个颜色
       displayHistory.forEach((move, index) => {
         const col = Math.floor(index / PATTERN_ROWS);
         const row = index % PATTERN_ROWS;
         newMatrix[row][col] = move.color;
       });
-      
+
       console.log('初始化后的矩阵:', {
         matrix: newMatrix.map(row => row.filter(color => color !== null))
       });
-      
+
       setMatrixData(newMatrix);
     }
   }, [gameState.history, isLoading]); // 添加正确的依赖
@@ -157,16 +157,16 @@ const App: React.FC = () => {
   // 添加新颜色到矩阵
   const addColorToMatrix = useCallback((color: string) => {
     console.log('添加新颜色到矩阵:', { color });
-    
+
     setMatrixData(prevMatrix => {
       // 创建新矩阵副本
       const newMatrix = prevMatrix.map(row => [...row]);
-      
+
       // 找到第一个空位置（严格按照从左到右，每列从上到下）
       let targetCol = 0;
       let targetRow = 0;
       let found = false;
-      
+
       // 先找到第一个未满的列
       columnLoop: for (let col = 0; col < PATTERN_COLS; col++) {
         // 检查当前列是否有空位，从上到下检查
@@ -179,7 +179,7 @@ const App: React.FC = () => {
           }
         }
       }
-      
+
       // 如果矩阵已满，执行左移
       if (!found) {
         console.log('矩阵已满，执行左移');
@@ -195,15 +195,15 @@ const App: React.FC = () => {
         targetCol = PATTERN_COLS - 1;
         targetRow = 0;
       }
-      
+
       // 放入新数据
       newMatrix[targetRow][targetCol] = color;
-      
+
       console.log('更新后的矩阵:', {
         position: { row: targetRow, col: targetCol },
         isMatrixFull: !found
       });
-      
+
       return newMatrix;
     });
   }, []);
@@ -213,7 +213,7 @@ const App: React.FC = () => {
     setMatrixData(prevMatrix => {
       // 创建新矩阵副本
       const newMatrix = prevMatrix.map(row => [...row]);
-      
+
       // 从右到左，从下到上查找最后一个非空位置
       for (let col = PATTERN_COLS - 1; col >= 0; col--) {
         for (let row = PATTERN_ROWS - 1; row >= 0; row--) {
@@ -223,7 +223,7 @@ const App: React.FC = () => {
           }
         }
       }
-      
+
       return newMatrix;
     });
   }, []);
@@ -361,9 +361,9 @@ const App: React.FC = () => {
     try {
       const allGames = await storage.getAllHistory();
       console.log('获取到的所有历史游戏数据:', allGames);
-      
+
       // 按时间顺序合并所有游戏的历史数据
-      const completeHistory = allGames.flatMap(game => 
+      const completeHistory = allGames.flatMap(game =>
         (game.history || []).map(move => ({
           ...move,
           gameId: game.id,
@@ -373,7 +373,7 @@ const App: React.FC = () => {
 
       console.log('合并后的完整历史数据:', completeHistory);
       setAllGameHistory(completeHistory);
-      
+
       // 更新预测器的历史数据
       if (completeHistory.length > 0) {
         console.log('更新预测器的历史数据，包含当前游戏:', [...completeHistory, ...gameState.history]);
@@ -408,7 +408,7 @@ const App: React.FC = () => {
       if (history.length >= currentSequenceConfig.length && currentSequenceConfig.isEnabled && nextPos) {
         // 开始预测时设置loading状态
         setPredictionDetails(prev => ({ ...prev, isLoading: true }));
-        
+
         const prediction = predictor.predictNextColor();
         if (prediction) {
           console.log('防抖预测结果:', prediction);
@@ -448,7 +448,7 @@ const App: React.FC = () => {
 
     const lastTwo = history.slice(-2);
     const sequence = lastTwo.join('');
-    
+
     // 75%规则映射
     const rules: { [key: string]: DotColor } = {
       'blackblack': 'red',
@@ -666,10 +666,10 @@ const App: React.FC = () => {
     };
 
     setGameState(newGameState);
-    
+
     // 同步更新到3x16矩阵
     removeLastColorFromMatrix();
-    
+
     setNextPosition(lastMove.position);
     setLastPosition(newHistory.length > 0 ? newHistory[newHistory.length - 1].position : null);
 
@@ -1018,7 +1018,8 @@ const App: React.FC = () => {
 
           {/* 矩阵内容 */}
           <div className="p-6">
-            <div className="flex justify-center">
+            <div className="flex justify-center gap-4">
+              {/* 原有的3x16矩阵 */}
               <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
                 {matrixData.map((row, rowIndex) => (
                   <div key={rowIndex} className="flex items-center gap-[6px]">
@@ -1028,8 +1029,8 @@ const App: React.FC = () => {
                         style={{ width: '40px', height: '40px' }}
                         className={`rounded-full cursor-pointer 
                           ${color === 'red' ? 'bg-gradient-to-b from-red-400 to-red-500 hover:from-red-500 hover:to-red-600' :
-                          color === 'black' ? 'bg-gradient-to-b from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900' :
-                          'bg-gradient-to-b from-gray-50 to-white hover:from-gray-100 hover:to-gray-50'
+                            color === 'black' ? 'bg-gradient-to-b from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900' :
+                              'bg-gradient-to-b from-gray-50 to-white hover:from-gray-100 hover:to-gray-50'
                           } 
                           ${!color ? 'border-2 border-gray-200' : ''}
                           shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1)]
@@ -1042,10 +1043,41 @@ const App: React.FC = () => {
                   </div>
                 ))}
               </div>
+
+              {/* 新增的独立一列，带呼吸边框效果 */}
+              <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
+                {[0, 1, 2].map((index) => (
+                  <div
+                    key={index}
+                    style={{ 
+                      width: '40px', 
+                      height: '40px',
+                      animation: 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                    }}
+                    className="rounded-full cursor-pointer border-2 border-blue-400
+                      bg-gradient-to-b from-gray-50 to-white
+                      shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1)]
+                      transition-all duration-200 ease-in-out"
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes borderPulse {
+          0%, 100% {
+            border-color: rgb(96 165 250); /* blue-400 */
+            box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.4);
+          }
+          50% {
+            border-color: rgb(59 130 246); /* blue-500 */
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+          }
+        }
+      `}</style>
 
       <AlertDialog
         isOpen={showAlert}
