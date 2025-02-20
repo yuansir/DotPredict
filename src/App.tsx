@@ -816,8 +816,6 @@ const App: React.FC = () => {
                   onColorSelect={handleColorSelect}
                   onUndo={handleUndo}
                   onClear={handleClear}
-                  accuracy={accuracy}
-                  totalPredictions={gameState.totalPredictions}
                   predictedColor={predictedColor}
                   probability={predictedProbability}
                   isRecordMode={!gameState.isViewingHistory}

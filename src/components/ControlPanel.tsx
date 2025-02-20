@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { DotColor, Position } from '../types';
 import { BiUndo } from 'react-icons/bi';
-import { MdOutlineLeaderboard } from 'react-icons/md';
 import { FiTrash2, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { ConfirmDialog } from './ConfirmDialog';
 import { RuleDisplay } from './RuleDisplay';
@@ -13,9 +12,6 @@ interface ControlPanelProps {
   onColorSelect: (color: DotColor) => void;
   onUndo: () => void;
   onClear: () => void;
-  onShowStats: () => void;
-  accuracy: number;
-  totalPredictions: number;
   predictedColor: DotColor | null;
   probability: number | null;
   isRecordMode: boolean;
@@ -41,9 +37,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onColorSelect,
   onUndo,
   onClear,
-  onShowStats,
-  accuracy,
-  totalPredictions,
   predictedColor,
   probability,
   isRecordMode,
@@ -139,17 +132,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <span>撤销</span>
           </button>
 
-          {/* 统计按钮 */}
-          <button
-            onClick={onShowStats}
-            className="w-full py-3 px-4 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 
-              hover:from-purple-600 hover:to-purple-700 text-white flex items-center justify-center space-x-2 
-              transition-all duration-200"
-          >
-            <MdOutlineLeaderboard className="w-5 h-5" />
-            <span>查看统计</span>
-          </button>
-
           {/* 清空数据按钮 */}
           <button
             onClick={() => setShowClearConfirm(true)}
@@ -226,29 +208,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             )}
           </div>
         )}
-
-        {/* 状态显示 */}
-        <div className="bg-gray-700 rounded-lg p-4 space-y-4">
-          {/* 预测准确率 */}
-          <div className="flex justify-between items-center p-3 rounded-lg bg-gray-800/30">
-            <span className="text-gray-400">预测准确率</span>
-            <div className="flex items-center space-x-2">
-              <div className="h-2 w-24 bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-green-500 transition-all duration-500"
-                  style={{ width: `${accuracy}%` }}
-                />
-              </div>
-              <span className="text-green-400 font-medium">{accuracy.toFixed(1)}%</span>
-            </div>
-          </div>
-
-          {/* 预测次数 */}
-          <div className="flex justify-between items-center p-3 rounded-lg bg-gray-800/30">
-            <span className="text-gray-400">预测次数</span>
-            <span className="text-blue-400 font-medium">{totalPredictions}</span>
-          </div>
-        </div>
 
         {/* 规则展开/折叠按钮 */}
         <button
