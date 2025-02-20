@@ -225,6 +225,24 @@ class StorageService {
       localStorage.clear();
     }
   }
+
+  /**
+   * 获取所有历史数据
+   * @returns 按时间排序的所有历史数据
+   */
+  async getAllHistory(): Promise<any[]> {
+    const { data, error } = await this.supabase
+      .from('games')
+      .select('*')
+      .order('date', { ascending: true });  // 确保按时间顺序
+    
+    if (error) {
+      console.error('Error fetching all history:', error);
+      return [];
+    }
+    
+    return data || [];
+  }
 }
 
 export const storageService = new StorageService();

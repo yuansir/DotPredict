@@ -16,6 +16,15 @@ export const PredictionSequenceDisplay: React.FC<PredictionSequenceDisplayProps>
   confidence,
   sequenceLength
 }) => {
+  // 添加日志，记录组件接收到的props
+  console.log('PredictionSequenceDisplay接收到的props:', {
+    historicalColors,
+    predictedColor,
+    matchCount,
+    confidence,
+    sequenceLength
+  });
+
   // 渲染单个小球的函数
   const renderDot = (color: DotColor, key: number, isPredict: boolean = false) => (
     <div
@@ -74,7 +83,8 @@ export const PredictionSequenceDisplay: React.FC<PredictionSequenceDisplayProps>
                   置信度：
                 </span>
                 <span className="text-blue-400 font-semibold">
-                  {Math.round(confidence * 100)}%
+                  {/* 确保confidence是一个0到1之间的数值 */}
+                  {Math.round((confidence >= 0 && confidence <= 1 ? confidence : 0) * 100)}%
                 </span>
               </span>
             </div>

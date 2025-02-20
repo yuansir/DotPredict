@@ -183,6 +183,57 @@ export class SupabaseStorageService {
     }
   }
 
+  /**
+   * 获取所有历史数据，按日期排序
+   * @returns 所有历史游戏数据
+   */
+  async getAllHistory(): Promise<any[]> {
+    try {
+      // 获取所有日期记录，按日期升序排序
+      const { data: records, error: recordsError } = await supabase
+        .from('daily_records')
+        .select('*')
+        .order('date', { ascending: true });
+      
+      if (recordsError) {
+        console.error('Error fetching daily records:', recordsError);
+        return [];
+      }
+
+      // 获取每个日期的移动记录
+      const recordsWithMoves = await Promise.all(
+        (records || []).map(async (record) => {
+          const { data: moves, error: movesError } = await supabase
+            .from('moves')
+            .select('*')
+            .eq('date', record.date)
+            .order('sequence_number', { ascending: true });
+
+          if (movesError) {
+            console.error(`Error fetching moves for date ${record.date}:`, movesError);
+            return null;
+          }
+
+          return {
+            ...record,
+            history: (moves || []).map(move => ({
+              position: move.position,
+              color: move.color,
+              prediction: move.prediction,
+              timestamp: new Date(move.created_at).getTime()
+            }))
+          };
+        })
+      );
+
+      // 过滤掉加载失败的记录
+      return recordsWithMoves.filter(record => record !== null);
+    } catch (error) {
+      console.error('Error in getAllHistory:', error);
+      return [];
+    }
+  }
+
   async clearAllData(): Promise<void> {
     try {
       // 按照外键依赖关系的顺序删除数据

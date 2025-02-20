@@ -11,6 +11,7 @@ import AlertDialog from './components/AlertDialog';
 import { SequencePredictor, SequenceConfig } from './utils/sequencePredictor';
 import { supabase, testConnection } from './lib/supabase';
 import { PredictionSequenceDisplay } from './components/PredictionSequenceDisplay';
+import debounce from 'lodash/debounce';
 
 const GRID_SIZE = 8;
 const WINDOW_SIZE = GRID_SIZE * GRID_SIZE;
@@ -86,6 +87,9 @@ const App: React.FC = () => {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'info' | 'warning' | 'error'>('warning');
 
+  // 所有历史数据
+  const [allGameHistory, setAllGameHistory] = useState<Move[]>([]);
+
   // 序列配置状态
   const [currentSequenceConfig, setCurrentSequenceConfig] = useState<SequenceConfig>({
     length: 5,  // 改为5
@@ -148,13 +152,6 @@ const App: React.FC = () => {
     const loadState = async () => {
       setIsLoading(true);
       try {
-        // 测试连接
-        const connectionTest = await testConnection();
-        if (!connectionTest.success) {
-          throw new Error(`数据库连接失败: ${connectionTest.error}`);
-        }
-        console.log(`数据库连接成功，耗时: ${connectionTest.duration}ms`);
-
         const savedState = await storage.loadGameStateByDate(selectedDate);
 
         if (savedState) {
@@ -204,7 +201,7 @@ const App: React.FC = () => {
         });
         setNextPosition({ row: 0, col: 0 });
         setLastPosition(null);
-        
+
         // 提供更详细的错误信息
         let errorMessage = '加载游戏状态失败';
         if (error instanceof Error) {
@@ -221,65 +218,66 @@ const App: React.FC = () => {
     loadState();
   }, [selectedDate, today]);
 
-  const handleCellClick = async (position: Position) => {
-    if (!isRecordMode || gameState.isViewingHistory) return;
-
-    const newHistory = [...gameState.history];
-    const move: Move = {
-      position,
-      color: selectedColor,
-      timestamp: Date.now(),
-    };
-
-    // 如果有预测，记录预测结果
-    if (predictedPosition && predictedColor && 
-        position.row === predictedPosition.row && 
-        position.col === predictedPosition.col) {
-      move.prediction = {
-        color: predictedColor,
-        isCorrect: predictedColor === selectedColor,
-        probability: predictedProbability || 0
-      };
+  // 加载所有历史数据
+  const loadAllHistory = async () => {
+    try {
+      const allGames = await storage.getAllHistory();
+      console.log('获取到的所有历史游戏数据:', allGames);
       
-      // 更新预测统计
-      const newState = {
-        ...gameState,
-        totalPredictions: gameState.totalPredictions + 1,
-        correctPredictions: gameState.correctPredictions + (predictedColor === selectedColor ? 1 : 0)
-      };
-      setGameState(newState);
+      // 按时间顺序合并所有游戏的历史数据
+      const completeHistory = allGames.flatMap(game => 
+        (game.history || []).map(move => ({
+          ...move,
+          gameId: game.id,
+          date: game.date
+        }))
+      );
+
+      console.log('合并后的完整历史数据:', completeHistory);
+      setAllGameHistory(completeHistory);
+      
+      // 更新预测器的历史数据
+      if (completeHistory.length > 0) {
+        console.log('更新预测器的历史数据，包含当前游戏:', [...completeHistory, ...gameState.history]);
+        predictor.updateHistory([...completeHistory, ...gameState.history]);
+      }
+    } catch (error) {
+      console.error('Error loading all history:', error);
     }
+  };
 
-    newHistory.push(move);
-    
-    // 更新游戏状态
-    const newState = {
-      ...gameState,
-      history: newHistory,
-      grid: calculateGrid(newHistory, gameState.windowStart)
-    };
+  // 组件加载时获取所有历史数据
+  useEffect(() => {
+    loadAllHistory();
+  }, []);
 
-    setGameState(newState);
-    
-    // 更新预测器的历史记录
-    predictor.updateHistory(newHistory);
-    
-    // 找到下一个空位置
-    const nextEmpty = findNextEmptyPosition(newState.grid);
-    if (nextEmpty) {
-      setNextPosition(nextEmpty);
-      
-      // 更新预测
-      if (newHistory.length >= currentSequenceConfig.length && currentSequenceConfig.isEnabled) {
+  // 当前游戏历史更新时，只更新预测器的历史数据
+  useEffect(() => {
+    if (allGameHistory.length > 0) {
+      const updatedHistory = [...allGameHistory, ...gameState.history];
+      console.log('更新预测器的历史数据:', {
+        allGameHistoryLength: allGameHistory.length,
+        currentGameHistoryLength: gameState.history.length,
+        totalLength: updatedHistory.length
+      });
+      predictor.updateHistory(updatedHistory);
+    }
+  }, [gameState.history, allGameHistory]);
+
+  // 使用防抖的预测函数
+  const debouncedPredict = useCallback(
+    debounce((history: Move[], nextPos: Position | null) => {
+      if (history.length >= currentSequenceConfig.length && currentSequenceConfig.isEnabled && nextPos) {
         const prediction = predictor.predictNextColor();
         if (prediction) {
+          console.log('防抖预测结果:', prediction);
           setPredictionDetails({
             color: prediction.color,
             probability: prediction.probability,
             matchCount: prediction.matchCount
           });
           setPredictedColor(prediction.color);
-          setPredictedPosition(nextEmpty);
+          setPredictedPosition(nextPos);
           setPredictedProbability(prediction.probability);
         } else {
           setPredictionDetails({
@@ -292,6 +290,56 @@ const App: React.FC = () => {
           setPredictedProbability(null);
         }
       }
+    }, 100),
+    [predictor, currentSequenceConfig.length, currentSequenceConfig.isEnabled]
+  );
+
+  const handleCellClick = async (position: Position) => {
+    if (!isRecordMode || gameState.isViewingHistory) return;
+
+    const newHistory = [...gameState.history];
+    const move: Move = {
+      position,
+      color: selectedColor,
+      timestamp: Date.now(),
+    };
+
+    // 如果有预测，记录预测结果
+    if (predictedPosition && predictedColor &&
+      position.row === predictedPosition.row &&
+      position.col === predictedPosition.col) {
+      move.prediction = {
+        color: predictedColor,
+        isCorrect: predictedColor === selectedColor,
+        probability: predictedProbability || 0
+      };
+
+      // 更新预测统计
+      const newState = {
+        ...gameState,
+        totalPredictions: gameState.totalPredictions + 1,
+        correctPredictions: gameState.correctPredictions + (predictedColor === selectedColor ? 1 : 0)
+      };
+      setGameState(newState);
+    }
+
+    newHistory.push(move);
+
+    // 更新游戏状态
+    const newState = {
+      ...gameState,
+      history: newHistory,
+      grid: calculateGrid(newHistory, gameState.windowStart)
+    };
+
+    setGameState(newState);
+
+    // 找到下一个空位置
+    const nextEmpty = findNextEmptyPosition(newState.grid);
+    if (nextEmpty) {
+      setNextPosition(nextEmpty);
+      // 使用防抖的预测函数
+      debouncedPredict([...allGameHistory, ...newHistory], nextEmpty);
     }
 
     // 保存状态
@@ -316,51 +364,6 @@ const App: React.FC = () => {
     return { row: 0, col: 0 };
   };
 
-  const updatePrediction = useCallback(() => {
-    if (gameState.history.length >= currentSequenceConfig.length - 1 && currentSequenceConfig.isEnabled) {
-      const prediction = predictor.predictNextColor();
-      if (prediction) {
-        setPredictionDetails({
-          color: prediction.color,
-          probability: prediction.probability,
-          matchCount: prediction.matchCount
-        });
-        setPredictedColor(prediction.color);
-        setPredictedProbability(prediction.probability);
-      } else {
-        setPredictionDetails({
-          color: null,
-          probability: 0,
-          matchCount: 0
-        });
-        setPredictedColor(null);
-        setPredictedProbability(null);
-      }
-    }
-  }, [gameState.history.length, currentSequenceConfig.isEnabled, predictor]);
-
-  const updatePredictionStats = useCallback((
-    totalPredictions: number,
-    correctPredictions: number
-  ) => {
-    const accuracy = totalPredictions > 0
-      ? (correctPredictions / totalPredictions) * 100
-      : 0;
-
-    const newStats = {
-      timestamp: Date.now(),
-      accuracy,
-      totalPredictions,
-    };
-
-    setGameState(prev => ({
-      ...prev,
-      predictionStats: Array.isArray(prev.predictionStats)
-        ? [...prev.predictionStats, newStats]
-        : [newStats],
-    }));
-  }, []);
-
   const handleColorSelect = useCallback((color: DotColor) => {
     if (!isRecordMode) {
       setAlertMessage('预览模式下不能修改数据');
@@ -368,12 +371,12 @@ const App: React.FC = () => {
       setShowAlert(true);
       return;
     }
-    
+
     setSelectedColor(color);
-    
+
     if (nextPosition) {
       const position = nextPosition;
-      
+
       // 创建一个新的处理函数，使用新的颜色值
       const handleClick = async () => {
         if (!isRecordMode || gameState.isViewingHistory) return;
@@ -386,15 +389,15 @@ const App: React.FC = () => {
         };
 
         // 如果有预测，记录预测结果
-        if (predictedPosition && predictedColor && 
-            position.row === predictedPosition.row && 
-            position.col === predictedPosition.col) {
+        if (predictedPosition && predictedColor &&
+          position.row === predictedPosition.row &&
+          position.col === predictedPosition.col) {
           move.prediction = {
             color: predictedColor,
             isCorrect: predictedColor === color,  // 使用新颜色比较
             probability: predictedProbability || 0
           };
-          
+
           // 更新预测统计
           const newState = {
             ...gameState,
@@ -405,7 +408,7 @@ const App: React.FC = () => {
         }
 
         newHistory.push(move);
-        
+
         // 更新游戏状态
         const newState = {
           ...gameState,
@@ -414,38 +417,14 @@ const App: React.FC = () => {
         };
 
         setGameState(newState);
-        
-        // 更新预测器的历史记录
-        predictor.updateHistory(newHistory);
-        
+
         // 找到下一个空位置
         const nextEmpty = findNextEmptyPosition(newState.grid);
         if (nextEmpty) {
           setNextPosition(nextEmpty);
-          
-          // 更新预测
-          if (newHistory.length >= currentSequenceConfig.length && currentSequenceConfig.isEnabled) {
-            const prediction = predictor.predictNextColor();
-            if (prediction) {
-              setPredictionDetails({
-                color: prediction.color,
-                probability: prediction.probability,
-                matchCount: prediction.matchCount
-              });
-              setPredictedColor(prediction.color);
-              setPredictedPosition(nextEmpty);
-              setPredictedProbability(prediction.probability);
-            } else {
-              setPredictionDetails({
-                color: null,
-                probability: 0,
-                matchCount: 0
-              });
-              setPredictedColor(null);
-              setPredictedPosition(null);
-              setPredictedProbability(null);
-            }
-          }
+
+          // 使用防抖的预测函数
+          debouncedPredict([...allGameHistory, ...newHistory], nextEmpty);
         }
 
         // 保存状态
@@ -458,19 +437,18 @@ const App: React.FC = () => {
           setShowAlert(true);
         }
       };
-      
+
       // 执行新的处理函数
       handleClick();
     }
   }, [
-    isRecordMode, 
-    nextPosition, 
-    gameState, 
-    predictedPosition, 
-    predictedColor, 
+    isRecordMode,
+    nextPosition,
+    gameState,
+    predictedPosition,
+    predictedColor,
     predictedProbability,
-    predictor,
-    selectedDate
+    allGameHistory
   ]);
 
   const handleUndo = useCallback(async () => {
@@ -510,10 +488,8 @@ const App: React.FC = () => {
     setNextPosition(lastMove.position);
     setLastPosition(newHistory.length > 0 ? newHistory[newHistory.length - 1].position : null);
 
-    updatePrediction(newHistory);
-
+    // 保存更新后的状态到数据库
     try {
-      // 保存更新后的状态到数据库
       await storage.saveGameStateByDate(newGameState, selectedDate);
     } catch (error) {
       console.error('Failed to save game state after undo:', error);
@@ -559,10 +535,8 @@ const App: React.FC = () => {
     setNextPosition(position);
     setLastPosition(newHistory.length > 0 ? newHistory[newHistory.length - 1].position : null);
 
-    updatePrediction(newHistory);
-
+    // 保存更新后的状态到数据库
     try {
-      // 保存更新后的状态到数据库
       await storage.saveGameStateByDate(newGameState, selectedDate);
     } catch (error) {
       console.error('Failed to save game state after cell delete:', error);
@@ -647,9 +621,9 @@ const App: React.FC = () => {
 
   // 验证配置是否完整
   const isValidConfig = (config: SequenceConfig): boolean => {
-    return typeof config.isEnabled === 'boolean' && 
-           typeof config.length === 'number' && 
-           config.length >= 4 && config.length <= 9;
+    return typeof config.isEnabled === 'boolean' &&
+      typeof config.length === 'number' &&
+      config.length >= 4 && config.length <= 9;
   };
 
   // 序列长度选项
@@ -679,7 +653,7 @@ const App: React.FC = () => {
       ...currentSequenceConfig,
       ...config
     };
-    
+
     if (!isValidConfig(newConfig)) {
       console.error('Invalid sequence config:', newConfig);
       return;
@@ -746,39 +720,13 @@ const App: React.FC = () => {
     }
   }, [currentSequenceConfig, gameState.history.length, predictor, nextPosition]);
 
-  // 在历史记录更新时更新预测器
-  useEffect(() => {
-    predictor.updateHistory(gameState.history);
-    // 如果在录入模式且有下一个位置，尝试预测
-    if (isRecordMode && nextPosition) {
-      const prediction = predictor.predictNextColor();
-      if (prediction) {
-        setPredictionDetails({
-          color: prediction.color,
-          probability: prediction.probability,
-          matchCount: prediction.matchCount
-        });
-        setPredictedColor(prediction.color);
-        setPredictedPosition(nextPosition);
-      } else {
-        setPredictionDetails({
-          color: null,
-          probability: 0,
-          matchCount: 0
-        });
-        setPredictedColor(null);
-        setPredictedPosition(null);
-      }
-    }
-  }, [gameState.history, isRecordMode, nextPosition, predictor]);
-
-  const accuracy = calculateAccuracy();
-
   // 获取最近N-1个颜色的辅助函数
   const getLastNColors = (history: Move[], n: number): DotColor[] => {
     // 获取 n-1 个颜色，因为最后一个是待预测的
     return history.slice(-(n - 1)).map(move => move.color);
   };
+
+  const accuracy = calculateAccuracy();
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -825,16 +773,25 @@ const App: React.FC = () => {
                   isViewingHistory={gameState.isViewingHistory}
                   isRecordMode={isRecordMode}
                 />
-                
+
                 {/* 预测序列显示 */}
                 {isRecordMode && currentSequenceConfig.isEnabled && (
-                  <PredictionSequenceDisplay
-                    historicalColors={getLastNColors(gameState.history, currentSequenceConfig.length)}
-                    predictedColor={predictionDetails.color}
-                    matchCount={predictionDetails.matchCount}
-                    confidence={predictionDetails.probability}
-                    sequenceLength={currentSequenceConfig.length}
-                  />
+                  <>
+                    {console.log('传递给PredictionSequenceDisplay的值:', {
+                      historicalColors: getLastNColors(gameState.history, currentSequenceConfig.length),
+                      predictedColor: predictionDetails.color,
+                      matchCount: predictionDetails.matchCount,
+                      confidence: predictionDetails.probability,
+                      sequenceLength: currentSequenceConfig.length
+                    })}
+                    <PredictionSequenceDisplay
+                      historicalColors={getLastNColors(gameState.history, currentSequenceConfig.length)}
+                      predictedColor={predictionDetails.color}
+                      matchCount={predictionDetails.matchCount}
+                      confidence={predictionDetails.probability}
+                      sequenceLength={currentSequenceConfig.length}
+                    />
+                  </>
                 )}
               </div>
             </div>

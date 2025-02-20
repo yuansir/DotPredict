@@ -14,12 +14,23 @@ export class SequencePredictor {
     this.history = [];
   }
 
-  // 更新历史记录
+  /**
+   * 更新历史数据
+   * @param history 完整的历史数据序列，包含所有天数的数据
+   */
   public updateHistory(history: Move[]): void {
+    if (!Array.isArray(history)) {
+      console.warn('Invalid history data provided');
+      this.history = [];
+      return;
+    }
     this.history = history;
   }
 
-  // 更新配置
+  /**
+   * 更新配置
+   * @param config 配置更新
+   */
   public updateConfig(config: Partial<SequenceConfig>): void {
     this.config = {
       ...this.config,
@@ -27,83 +38,124 @@ export class SequencePredictor {
     };
   }
 
-  // 预测下一个颜色
+  /**
+   * 预测下一个颜色
+   * 基于完整的历史数据序列进行匹配和预测
+   * @returns 预测结果，包含颜色、概率和匹配次数
+   */
   public predictNextColor(): PredictionResult | null {
-    if (!this.config.isEnabled || this.history.length < this.config.length - 1) {
-      return {
-        color: 'black',
-        probability: 0,
-        matchCount: 0
-      };
+    // 检查是否有足够的历史数据进行预测
+    if (!this.config.isEnabled || this.history.length < this.config.length) {
+      console.log('历史数据不足或预测未启用:', {
+        isEnabled: this.config.isEnabled,
+        historyLength: this.history.length,
+        requiredLength: this.config.length
+      });
+      return null;
     }
 
     // 获取当前序列（最后 N-1 个颜色）
     const currentSequence = this.history.slice(-(this.config.length - 1)).map(move => move.color);
+    console.log('当前序列:', currentSequence, '长度:', currentSequence.length);
     
-    // 在历史数据中查找匹配序列
-    const matches: DotColor[] = [];
+    // 在所有历史数据中查找匹配序列
+    const matches: { color: DotColor; gameId?: string; date?: string }[] = [];
     
-    // 遍历所有可能的历史序列
-    for (let i = 0; i <= this.history.length - this.config.length; i++) {
+    // 遍历所有可能的历史序列（排除最后 config.length-1 个，因为它们是当前序列）
+    const searchEndIndex = this.history.length - (this.config.length - 1); // 排除当前序列
+    console.log('开始在历史数据中查找匹配...');
+    console.log('历史数据总长度:', this.history.length, '搜索结束位置:', searchEndIndex);
+    
+    // 对于每个可能的起始位置
+    for (let i = 0; i < searchEndIndex; i++) {
+      // 获取当前位置的序列（长度为 config.length - 1）
       const historySequence = this.history.slice(i, i + this.config.length - 1).map(move => move.color);
       
-      // 检查序列是否匹配
+      // 检查序列是否匹配当前序列
       if (this.sequencesMatch(historySequence, currentSequence)) {
-        // 如果匹配，记录下一个颜色
-        const nextColor = this.history[i + this.config.length - 1].color;
-        matches.push(nextColor);
+        // 如果匹配，获取下一个颜色
+        const nextMove = this.history[i + this.config.length - 1];
+        if (nextMove) { // 确保存在下一个颜色
+          matches.push({
+            color: nextMove.color,
+            gameId: nextMove.gameId,
+            date: nextMove.date
+          });
+          console.log('找到匹配序列:', {
+            position: i,
+            sequence: historySequence,
+            nextColor: nextMove.color,
+            date: nextMove.date,
+            currentDate: this.history[this.history.length - 1]?.date
+          });
+        }
       }
     }
 
+    console.log('匹配结果统计:', {
+      totalMatches: matches.length,
+      matchDetails: matches
+    });
+
+    // 如果没有找到匹配的序列
     if (matches.length === 0) {
-      return {
-        color: 'black',
-        probability: 0,
-        matchCount: 0
-      };
+      console.log('没有找到匹配的序列');
+      return null;
     }
 
-    // 统计颜色频率并计算置信度
-    const colorCounts = this.calculateColorCounts(matches);
-    const { color: predictedColor, count: maxCount } = this.findMostFrequentColor(colorCounts);
+    // 统计每种颜色的出现次数
+    const colorCounts = matches.reduce((acc, match) => {
+      acc[match.color] = (acc[match.color] || 0) + 1;
+      return acc;
+    }, {} as Record<DotColor, number>);
 
+    console.log('颜色统计:', colorCounts);
+
+    // 找出出现次数最多的颜色
+    let maxCount = 0;
+    let predictedColor: DotColor = 'black';
+    
+    for (const [color, count] of Object.entries(colorCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        predictedColor = color as DotColor;
+      }
+    }
+
+    const probability = maxCount / matches.length;
+    
+    console.log('预测结果:', {
+      predictedColor,
+      probability,
+      matchCount: matches.length,
+      colorCounts,
+      maxCount,
+      totalMatches: matches.length
+    });
+
+    // 返回预测结果
     return {
       color: predictedColor,
-      probability: maxCount / matches.length,
+      probability,
       matchCount: matches.length
     };
   }
 
-  // 辅助函数：检查两个序列是否匹配
+  /**
+   * 辅助函数：检查两个序列是否匹配
+   * @param seq1 序列1
+   * @param seq2 序列2
+   * @returns 是否匹配
+   */
   private sequencesMatch(seq1: DotColor[], seq2: DotColor[]): boolean {
     if (seq1.length !== seq2.length) return false;
     return seq1.every((color, index) => color === seq2[index]);
   }
 
-  // 辅助函数：计算颜色出现次数
-  private calculateColorCounts(colors: DotColor[]): Record<DotColor, number> {
-    return colors.reduce((acc, color) => {
-      acc[color] = (acc[color] || 0) + 1;
-      return acc;
-    }, {} as Record<DotColor, number>);
-  }
-
-  // 辅助函数：找出出现次数最多的颜色
-  private findMostFrequentColor(counts: Record<DotColor, number>): { color: DotColor, count: number } {
-    let maxCount = 0;
-    let mostFrequentColor: DotColor = 'black';
-
-    for (const [color, count] of Object.entries(counts)) {
-      if (count > maxCount) {
-        maxCount = count;
-        mostFrequentColor = color as DotColor;
-      }
-    }
-
-    return { color: mostFrequentColor, count: maxCount };
-  }
-
-  // 获取当前统计信息
+  /**
+   * 获取当前统计信息
+   * @returns 统计信息，包含总预测次数和正确预测次数
+   */
   public getStats(): { totalPredictions: number; correctPredictions: number } {
     return {
       totalPredictions: this.history.filter(move => move.prediction).length,

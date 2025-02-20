@@ -73,21 +73,20 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         {/* 颜色选择器容器 */}
         <div className="relative bg-gray-700 rounded-lg p-4 shadow-inner">
           <div className="absolute inset-0 bg-gradient-to-r from-gray-700 via-gray-600 to-gray-700 opacity-50 rounded-lg"></div>
-          
+
           {/* 控制按钮组 */}
           <div className="relative grid grid-cols-2 gap-4">
             {/* 红色按钮 */}
             <button
               onClick={() => onColorSelect('red')}
-              className={`group relative h-20 rounded-lg transition-all duration-200 ${
-                selectedColor === 'red'
+              className={`group relative h-20 rounded-lg transition-all duration-200 ${selectedColor === 'red'
                   ? 'ring-2 ring-red-500 ring-opacity-60'
                   : ''
-              }`}
+                }`}
             >
               {/* 按钮背景 */}
               <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg shadow-lg"></div>
-              
+
               {/* 红色球体 */}
               <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-12 h-12 
                 rounded-full bg-gradient-to-br from-red-400 to-red-600 
@@ -101,15 +100,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             {/* 黑色按钮 */}
             <button
               onClick={() => onColorSelect('black')}
-              className={`group relative h-20 rounded-lg transition-all duration-200 ${
-                selectedColor === 'black'
+              className={`group relative h-20 rounded-lg transition-all duration-200 ${selectedColor === 'black'
                   ? 'ring-2 ring-gray-400 ring-opacity-60'
                   : ''
-              }`}
+                }`}
             >
               {/* 按钮背景 */}
               <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg shadow-lg"></div>
-              
+
               {/* 黑色球体 */}
               <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-12 h-12 
                 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 
@@ -132,10 +130,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             onClick={onUndo}
             disabled={!true}
             className={`w-full py-3 px-4 rounded-lg flex items-center justify-center space-x-2 transition-all duration-200 
-              ${
-                true
-                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
-                  : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+              ${true
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
+                : 'bg-gray-700 text-gray-400 cursor-not-allowed'
               }`}
           >
             <BiUndo className={`w-5 h-5 ${true ? 'animate-pulse' : ''}`} />
@@ -174,8 +171,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <input
                   type="checkbox"
                   checked={sequenceConfig.isEnabled}
-                  onChange={() => onSequenceConfigChange?.({ 
-                    isEnabled: !sequenceConfig.isEnabled 
+                  onChange={() => onSequenceConfigChange?.({
+                    isEnabled: !sequenceConfig.isEnabled
                   })}
                   className="form-checkbox h-5 w-5 text-blue-500 rounded border-gray-600 bg-gray-700
                             focus:ring-blue-500 focus:ring-offset-gray-800"
@@ -186,8 +183,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               <span className="text-gray-400">序列长度</span>
               <select
                 value={sequenceConfig.length}
-                onChange={(e) => onSequenceConfigChange?.({ 
-                  length: parseInt(e.target.value) 
+                onChange={(e) => onSequenceConfigChange?.({
+                  length: parseInt(e.target.value)
                 })}
                 className="bg-gray-700 text-gray-300 rounded px-3 py-1 border border-gray-600
                           focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -206,16 +203,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-200">预测信息</h3>
             </div>
-            
+
             {predictedColor ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30">
                   <span className="text-gray-300">下一个预测</span>
-                  <div className={`w-6 h-6 rounded-full ${
-                    predictedColor === 'red' ? 'bg-red-500' : 'bg-gray-900'
-                  }`} />
+                  <div className={`w-6 h-6 rounded-full ${predictedColor === 'red' ? 'bg-red-500' : 'bg-gray-900'
+                    }`} />
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30">
                   <span className="text-gray-300">置信度</span>
                   <span className="text-blue-400">
@@ -238,7 +234,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <span className="text-gray-400">预测准确率</span>
             <div className="flex items-center space-x-2">
               <div className="h-2 w-24 bg-gray-700 rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-green-500 transition-all duration-500"
                   style={{ width: `${accuracy}%` }}
                 />
