@@ -88,7 +88,7 @@ const App: React.FC = () => {
 
   // 序列配置状态
   const [currentSequenceConfig, setCurrentSequenceConfig] = useState<SequenceConfig>({
-    length: 3,
+    length: 5,  // 改为5
     isEnabled: true
   });
 
@@ -186,7 +186,7 @@ const App: React.FC = () => {
             totalPredictions: 0,
             correctPredictions: 0,
             isViewingHistory: false,
-            predictionStats: [],
+            predictionStats: []
           });
           setNextPosition({ row: 0, col: 0 });
           setLastPosition(null);
@@ -200,7 +200,7 @@ const App: React.FC = () => {
           totalPredictions: 0,
           correctPredictions: 0,
           isViewingHistory: false,
-          predictionStats: [],
+          predictionStats: []
         });
         setNextPosition({ row: 0, col: 0 });
         setLastPosition(null);
@@ -649,8 +649,28 @@ const App: React.FC = () => {
   const isValidConfig = (config: SequenceConfig): boolean => {
     return typeof config.isEnabled === 'boolean' && 
            typeof config.length === 'number' && 
-           config.length > 0;
+           config.length >= 4 && config.length <= 9;
   };
+
+  // 序列长度选项
+  const sequenceLengthOptions = [
+    { value: 4, label: '4' },
+    { value: 5, label: '5' },
+    { value: 6, label: '6' },
+    { value: 7, label: '7' },
+    { value: 8, label: '8' },
+    { value: 9, label: '9' }
+  ];
+
+  // 确保序列长度在有效范围内
+  useEffect(() => {
+    if (currentSequenceConfig.length < 4) {
+      handleSequenceConfigChange({
+        ...currentSequenceConfig,
+        length: 4
+      });
+    }
+  }, []); // 仅在组件挂载时执行一次
 
   // 更新序列配置
   const handleSequenceConfigChange = (config: Partial<SequenceConfig>) => {
@@ -826,7 +846,6 @@ const App: React.FC = () => {
                   onColorSelect={handleColorSelect}
                   onUndo={handleUndo}
                   onClear={handleClear}
-                  onShowStats={() => setShowStats(true)}
                   accuracy={accuracy}
                   totalPredictions={gameState.totalPredictions}
                   predictedColor={predictedColor}
@@ -841,12 +860,6 @@ const App: React.FC = () => {
           </div>
         </div>
       </div>
-
-      <StatsPanel
-        isOpen={showStats}
-        onClose={() => setShowStats(false)}
-        history={gameState.history}
-      />
 
       <AlertDialog
         isOpen={showAlert}

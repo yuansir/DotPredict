@@ -26,6 +26,16 @@ interface ControlPanelProps {
 
 const RULES_EXPANDED_KEY = 'dotPredict_rulesExpanded';
 
+// 序列长度选项
+const sequenceLengthOptions = [
+  { value: 4, label: '4' },
+  { value: 5, label: '5' },
+  { value: 6, label: '6' },
+  { value: 7, label: '7' },
+  { value: 8, label: '8' },
+  { value: 9, label: '9' }
+];
+
 export const ControlPanel: React.FC<ControlPanelProps> = ({
   selectedColor,
   onColorSelect,
@@ -38,7 +48,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   probability,
   isRecordMode,
   onSequenceConfigChange,
-  sequenceConfig = { length: 3, isEnabled: true },
+  sequenceConfig = { length: 4, isEnabled: true },
   className = ''
 }) => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -156,44 +166,39 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
 
         {/* 序列预测设置 */}
-        <div className="bg-gray-700 rounded-lg p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-200">序列预测设置</h3>
-          </div>
-          
-          {/* 启用预测开关 */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30">
-            <span className="text-gray-300">启用预测</span>
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={sequenceConfig.isEnabled}
-                onChange={() => onSequenceConfigChange?.({ 
-                  isEnabled: !sequenceConfig.isEnabled 
+        {isRecordMode && onSequenceConfigChange && (
+          <div className="mt-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400">启用预测</span>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={sequenceConfig.isEnabled}
+                  onChange={() => onSequenceConfigChange?.({ 
+                    isEnabled: !sequenceConfig.isEnabled 
+                  })}
+                  className="form-checkbox h-5 w-5 text-blue-500 rounded border-gray-600 bg-gray-700
+                            focus:ring-blue-500 focus:ring-offset-gray-800"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400">序列长度</span>
+              <select
+                value={sequenceConfig.length}
+                onChange={(e) => onSequenceConfigChange?.({ 
+                  length: parseInt(e.target.value) 
                 })}
-                className="form-checkbox h-5 w-5 text-blue-500 rounded border-gray-600 bg-gray-700
-                          focus:ring-blue-500 focus:ring-offset-gray-800"
-              />
+                className="bg-gray-700 text-gray-300 rounded px-3 py-1 border border-gray-600
+                          focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {sequenceLengthOptions.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </div>
           </div>
-
-          {/* 序列长度设置 */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30">
-            <span className="text-gray-300">序列长度</span>
-            <select
-              value={sequenceConfig.length}
-              onChange={(e) => onSequenceConfigChange?.({ 
-                length: parseInt(e.target.value) 
-              })}
-              className="bg-gray-700 text-gray-300 rounded px-3 py-1 border border-gray-600
-                        focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {[3,4,5,6,7,8,9].map(n => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+        )}
 
         {/* 预测信息显示 */}
         {isRecordMode && (
