@@ -18,9 +18,11 @@ interface ControlPanelProps {
   onSequenceConfigChange?: (config: Partial<SequenceConfig>) => void;
   sequenceConfig?: SequenceConfig;
   className?: string;
+  rule75Prediction: {
+    predictedColor: DotColor | null;
+    currentSequence: DotColor[];
+  };
 }
-
-const RULES_EXPANDED_KEY = 'dotPredict_rulesExpanded';
 
 // 序列长度选项
 const sequenceLengthOptions = [
@@ -42,16 +44,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   isRecordMode,
   onSequenceConfigChange,
   sequenceConfig = { length: 4, isEnabled: true },
-  className = ''
+  className = '',
+  rule75Prediction
 }) => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isRulesExpanded, setIsRulesExpanded] = useState(() => {
-    const saved = localStorage.getItem(RULES_EXPANDED_KEY);
+    const saved = localStorage.getItem('dotPredict_rulesExpanded');
     return saved ? JSON.parse(saved) : false;
   });
 
   useEffect(() => {
-    localStorage.setItem(RULES_EXPANDED_KEY, JSON.stringify(isRulesExpanded));
+    localStorage.setItem('dotPredict_rulesExpanded', JSON.stringify(isRulesExpanded));
   }, [isRulesExpanded]);
 
   return (
@@ -183,22 +186,26 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         {isRecordMode && (
           <div className="bg-gray-700 rounded-lg p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-200">预测信息</h3>
+              <h3 className="text-lg font-semibold text-gray-200">75%规则预测</h3>
             </div>
 
-            {predictedColor ? (
+            {rule75Prediction.predictedColor ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30">
-                  <span className="text-gray-300">下一个预测</span>
-                  <div className={`w-6 h-6 rounded-full ${predictedColor === 'red' ? 'bg-red-500' : 'bg-gray-900'
-                    }`} />
+                  <span className="text-gray-300">当前序列</span>
+                  <div className="flex gap-2">
+                    {rule75Prediction.currentSequence.map((color, index) => (
+                      <div
+                        key={index}
+                        className={`w-6 h-6 rounded-full ${color === 'red' ? 'bg-red-500' : 'bg-gray-900'}`}
+                      />
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30">
-                  <span className="text-gray-300">置信度</span>
-                  <span className="text-blue-400">
-                    {Math.round((probability || 0) * 100)}%
-                  </span>
+                  <span className="text-gray-300">预测下一个</span>
+                  <div className={`w-6 h-6 rounded-full ${rule75Prediction.predictedColor === 'red' ? 'bg-red-500' : 'bg-gray-900'} animate-bounce-gentle`} />
                 </div>
               </div>
             ) : (

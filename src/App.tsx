@@ -98,6 +98,15 @@ const App: React.FC = () => {
     isEnabled: true
   });
 
+  // 75%规则预测状态
+  const [rule75Prediction, setRule75Prediction] = useState<{
+    predictedColor: DotColor | null;
+    currentSequence: DotColor[];
+  }>({
+    predictedColor: null,
+    currentSequence: []
+  });
+
   const storage = new SupabaseStorageService();
 
   // 初始化序列预测器
@@ -300,6 +309,38 @@ const App: React.FC = () => {
     }, 100),
     [predictor, currentSequenceConfig.length, currentSequenceConfig.isEnabled]
   );
+
+  // 75%规则预测逻辑
+  const predict75Rule = (history: DotColor[]) => {
+    if (history.length < 2) {
+      return {
+        predictedColor: null,
+        currentSequence: []
+      };
+    }
+
+    const lastTwo = history.slice(-2);
+    const sequence = lastTwo.join('');
+    
+    // 75%规则映射
+    const rules: { [key: string]: DotColor } = {
+      'blackblack': 'red',
+      'redred': 'black',
+      'blackred': 'red',
+      'redblack': 'black'
+    };
+
+    return {
+      predictedColor: rules[sequence] || null,
+      currentSequence: lastTwo
+    };
+  };
+
+  // 更新75%规则预测
+  useEffect(() => {
+    const newPrediction = predict75Rule(gameState.history.map(move => move.color));
+    setRule75Prediction(newPrediction);
+  }, [gameState.history]);
 
   const handleCellClick = async (position: Position) => {
     if (!isRecordMode || gameState.isViewingHistory) return;
@@ -822,6 +863,7 @@ const App: React.FC = () => {
                   onSequenceConfigChange={handleSequenceConfigChange}
                   sequenceConfig={currentSequenceConfig}
                   className="mb-4"
+                  rule75Prediction={rule75Prediction}  // 添加75%规则预测数据
                 />
               </div>
             </div>
