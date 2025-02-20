@@ -7,6 +7,7 @@ interface PredictionSequenceDisplayProps {
   matchCount: number;  // 历史匹配序列次数
   confidence: number;  // 预测置信度
   sequenceLength: number;  // 序列长度
+  isLoading?: boolean;  // 新增loading状态
 }
 
 export const PredictionSequenceDisplay: React.FC<PredictionSequenceDisplayProps> = ({
@@ -14,7 +15,8 @@ export const PredictionSequenceDisplay: React.FC<PredictionSequenceDisplayProps>
   predictedColor,
   matchCount,
   confidence,
-  sequenceLength
+  sequenceLength,
+  isLoading = false  // 默认为false
 }) => {
   // 添加日志，记录组件接收到的props
   console.log('PredictionSequenceDisplay接收到的props:', {
@@ -22,7 +24,8 @@ export const PredictionSequenceDisplay: React.FC<PredictionSequenceDisplayProps>
     predictedColor,
     matchCount,
     confidence,
-    sequenceLength
+    sequenceLength,
+    isLoading
   });
 
   // 渲染单个小球的函数
@@ -64,7 +67,20 @@ export const PredictionSequenceDisplay: React.FC<PredictionSequenceDisplayProps>
       </div>
       
       {/* 预测结果 */}
-      {predictedColor ? (
+      {isLoading ? (
+        <div className="space-y-3">
+          <div className="flex items-center space-x-3">
+            <div className="text-gray-400">
+              预测计算中
+              <span className="inline-flex ml-1">
+                <span className="animate-[loading1_1s_infinite] opacity-0">.</span>
+                <span className="animate-[loading2_1s_infinite] opacity-0">.</span>
+                <span className="animate-[loading3_1s_infinite] opacity-0">.</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : predictedColor ? (
         <div className="space-y-3">
           <div className="flex items-center space-x-3">
             <span className="text-gray-300 text-sm">预测下一个：</span>

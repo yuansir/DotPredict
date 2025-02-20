@@ -6,9 +6,26 @@ export default {
   ],
   theme: {
     extend: {
+      keyframes: {
+        loading1: {
+          '0%, 100%': { opacity: 0 },
+          '20%': { opacity: 1 },
+        },
+        loading2: {
+          '20%, 100%': { opacity: 0 },
+          '40%': { opacity: 1 },
+        },
+        loading3: {
+          '40%, 100%': { opacity: 0 },
+          '60%': { opacity: 1 },
+        }
+      },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'bounce-gentle': 'bounce 2s infinite',
+        'loading1': 'loading1 1s infinite',
+        'loading2': 'loading2 1s infinite',
+        'loading3': 'loading3 1s infinite',
       },
       colors: {
         primary: {

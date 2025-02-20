@@ -73,10 +73,12 @@ const App: React.FC = () => {
     color: DotColor | null;
     probability: number;
     matchCount: number;
+    isLoading: boolean;
   }>({
     color: null,
     probability: 0,
-    matchCount: 0
+    matchCount: 0,
+    isLoading: false
   });
   const [showStats, setShowStats] = useState(false);
   const [gameHistory, setGameHistory] = useState<any[]>([]);
@@ -268,13 +270,17 @@ const App: React.FC = () => {
   const debouncedPredict = useCallback(
     debounce((history: Move[], nextPos: Position | null) => {
       if (history.length >= currentSequenceConfig.length && currentSequenceConfig.isEnabled && nextPos) {
+        // 开始预测时设置loading状态
+        setPredictionDetails(prev => ({ ...prev, isLoading: true }));
+        
         const prediction = predictor.predictNextColor();
         if (prediction) {
           console.log('防抖预测结果:', prediction);
           setPredictionDetails({
             color: prediction.color,
             probability: prediction.probability,
-            matchCount: prediction.matchCount
+            matchCount: prediction.matchCount,
+            isLoading: false  // 预测完成，关闭loading
           });
           setPredictedColor(prediction.color);
           setPredictedPosition(nextPos);
@@ -283,7 +289,8 @@ const App: React.FC = () => {
           setPredictionDetails({
             color: null,
             probability: 0,
-            matchCount: 0
+            matchCount: 0,
+            isLoading: false  // 预测完成，关闭loading
           });
           setPredictedColor(null);
           setPredictedPosition(null);
@@ -669,7 +676,8 @@ const App: React.FC = () => {
         setPredictionDetails({
           color: prediction.color,
           probability: prediction.probability,
-          matchCount: prediction.matchCount
+          matchCount: prediction.matchCount,
+          isLoading: false
         });
         setPredictedColor(prediction.color);
         setPredictedPosition(nextPosition);
@@ -679,7 +687,8 @@ const App: React.FC = () => {
         setPredictionDetails({
           color: null,
           probability: 0,
-          matchCount: 0
+          matchCount: 0,
+          isLoading: false
         });
         setPredictedColor(null);
         setPredictedPosition(null);
@@ -690,7 +699,8 @@ const App: React.FC = () => {
       setPredictionDetails({
         color: null,
         probability: 0,
-        matchCount: 0
+        matchCount: 0,
+        isLoading: false
       });
       setPredictedColor(null);
       setPredictedPosition(null);
@@ -711,7 +721,8 @@ const App: React.FC = () => {
         setPredictionDetails({
           color: prediction.color,
           probability: prediction.probability,
-          matchCount: prediction.matchCount
+          matchCount: prediction.matchCount,
+          isLoading: false
         });
         setPredictedColor(prediction.color);
         setPredictedPosition(nextPosition);
@@ -782,7 +793,8 @@ const App: React.FC = () => {
                       predictedColor: predictionDetails.color,
                       matchCount: predictionDetails.matchCount,
                       confidence: predictionDetails.probability,
-                      sequenceLength: currentSequenceConfig.length
+                      sequenceLength: currentSequenceConfig.length,
+                      isLoading: predictionDetails.isLoading
                     })}
                     <PredictionSequenceDisplay
                       historicalColors={getLastNColors(gameState.history, currentSequenceConfig.length)}
@@ -790,6 +802,7 @@ const App: React.FC = () => {
                       matchCount={predictionDetails.matchCount}
                       confidence={predictionDetails.probability}
                       sequenceLength={currentSequenceConfig.length}
+                      isLoading={predictionDetails.isLoading}
                     />
                   </>
                 )}
