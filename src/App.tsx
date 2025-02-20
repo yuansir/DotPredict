@@ -107,6 +107,133 @@ const App: React.FC = () => {
     currentSequence: []
   });
 
+  // 连续模式预测矩阵常量
+  const PATTERN_ROWS = 3;
+  const PATTERN_COLS = 16;
+
+  // 初始化空矩阵函数
+  const createEmptyMatrix = () => {
+    return Array(PATTERN_ROWS).fill(null).map(() => 
+      Array(PATTERN_COLS).fill(null)
+    );
+  };
+
+  // 矩阵状态
+  const [matrixData, setMatrixData] = useState(createEmptyMatrix());
+
+  // 从当天历史数据初始化矩阵
+  useEffect(() => {
+    // 确保数据已加载完成
+    if (!isLoading && gameState.history.length > 0) {
+      const maxBalls = PATTERN_ROWS * PATTERN_COLS; // 48个
+      const history = gameState.history;
+      const startIndex = Math.max(0, history.length - maxBalls);
+      const displayHistory = history.slice(startIndex); // 只取最后48个
+      
+      console.log('初始化3x16矩阵:', {
+        totalHistory: history.length,
+        displayHistory: displayHistory.length,
+        startIndex
+      });
+      
+      // 重置矩阵
+      const newMatrix = createEmptyMatrix();
+      
+      // 按顺序添加每个颜色
+      displayHistory.forEach((move, index) => {
+        const col = Math.floor(index / PATTERN_ROWS);
+        const row = index % PATTERN_ROWS;
+        newMatrix[row][col] = move.color;
+      });
+      
+      console.log('初始化后的矩阵:', {
+        matrix: newMatrix.map(row => row.filter(color => color !== null))
+      });
+      
+      setMatrixData(newMatrix);
+    }
+  }, [gameState.history, isLoading]); // 添加正确的依赖
+
+  // 添加新颜色到矩阵
+  const addColorToMatrix = useCallback((color: string) => {
+    console.log('添加新颜色到矩阵:', { color });
+    
+    setMatrixData(prevMatrix => {
+      // 创建新矩阵副本
+      const newMatrix = prevMatrix.map(row => [...row]);
+      
+      // 找到第一个空位置（严格按照从左到右，每列从上到下）
+      let targetCol = 0;
+      let targetRow = 0;
+      let found = false;
+      
+      // 先找到第一个未满的列
+      columnLoop: for (let col = 0; col < PATTERN_COLS; col++) {
+        // 检查当前列是否有空位，从上到下检查
+        for (let row = 0; row < PATTERN_ROWS; row++) {
+          if (newMatrix[row][col] === null) {
+            targetCol = col;
+            targetRow = row;
+            found = true;
+            break columnLoop; // 找到第一个空位就停止搜索
+          }
+        }
+      }
+      
+      // 如果矩阵已满，执行左移
+      if (!found) {
+        console.log('矩阵已满，执行左移');
+        // 左移所有列
+        for (let row = 0; row < PATTERN_ROWS; row++) {
+          for (let col = 0; col < PATTERN_COLS - 1; col++) {
+            newMatrix[row][col] = newMatrix[row][col + 1];
+          }
+          // 清空最后一列
+          newMatrix[row][PATTERN_COLS - 1] = null;
+        }
+        // 在最右列第一个位置放入新数据
+        targetCol = PATTERN_COLS - 1;
+        targetRow = 0;
+      }
+      
+      // 放入新数据
+      newMatrix[targetRow][targetCol] = color;
+      
+      console.log('更新后的矩阵:', {
+        position: { row: targetRow, col: targetCol },
+        isMatrixFull: !found
+      });
+      
+      return newMatrix;
+    });
+  }, []);
+
+  // 从矩阵中移除最后一个颜色
+  const removeLastColorFromMatrix = useCallback(() => {
+    setMatrixData(prevMatrix => {
+      // 创建新矩阵副本
+      const newMatrix = prevMatrix.map(row => [...row]);
+      
+      // 从右到左，从下到上查找最后一个非空位置
+      for (let col = PATTERN_COLS - 1; col >= 0; col--) {
+        for (let row = PATTERN_ROWS - 1; row >= 0; row--) {
+          if (newMatrix[row][col] !== null) {
+            newMatrix[row][col] = null;
+            return newMatrix;
+          }
+        }
+      }
+      
+      return newMatrix;
+    });
+  }, []);
+
+  // 重置矩阵
+  const handlePatternReset = useCallback(() => {
+    console.log('重置矩阵');
+    setMatrixData(createEmptyMatrix());
+  }, []);
+
   const storage = new SupabaseStorageService();
 
   // 初始化序列预测器
@@ -413,7 +540,7 @@ const App: React.FC = () => {
   };
 
   const handleColorSelect = useCallback((color: DotColor) => {
-    if (!isRecordMode) {
+    if (!isRecordMode || gameState.isViewingHistory) {
       setAlertMessage('预览模式下不能修改数据');
       setAlertType('warning');
       setShowAlert(true);
@@ -421,6 +548,7 @@ const App: React.FC = () => {
     }
 
     setSelectedColor(color);
+    const nextPosition = findNextEmptyPosition(gameState.grid);
 
     if (nextPosition) {
       const position = nextPosition;
@@ -466,6 +594,9 @@ const App: React.FC = () => {
 
         setGameState(newState);
 
+        // 同步更新到3x16矩阵
+        addColorToMatrix(color);
+
         // 找到下一个空位置
         const nextEmpty = findNextEmptyPosition(newState.grid);
         if (nextEmpty) {
@@ -496,7 +627,9 @@ const App: React.FC = () => {
     predictedPosition,
     predictedColor,
     predictedProbability,
-    allGameHistory
+    allGameHistory,
+    selectedDate,
+    addColorToMatrix // 添加新依赖
   ]);
 
   const handleUndo = useCallback(async () => {
@@ -533,6 +666,10 @@ const App: React.FC = () => {
     };
 
     setGameState(newGameState);
+    
+    // 同步更新到3x16矩阵
+    removeLastColorFromMatrix();
+    
     setNextPosition(lastMove.position);
     setLastPosition(newHistory.length > 0 ? newHistory[newHistory.length - 1].position : null);
 
@@ -542,7 +679,7 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('Failed to save game state after undo:', error);
     }
-  }, [gameState, updateDisplayGrid, selectedDate]);
+  }, [gameState, selectedDate, removeLastColorFromMatrix]);
 
   const handleCellDelete = useCallback(async (position: Position) => {
     if (gameState.isViewingHistory) return;
@@ -633,7 +770,7 @@ const App: React.FC = () => {
     }));
   }, [gameState.history, updateDisplayGrid]);
 
-  const handleClear = async () => {
+  const handleClear = useCallback(async () => {
     try {
       setIsLoading(true);
       await storage.clearAllData();
@@ -659,7 +796,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // 计算预测准确率
   const calculateAccuracy = useCallback(() => {
@@ -865,6 +1002,45 @@ const App: React.FC = () => {
                   className="mb-4"
                   rule75Prediction={rule75Prediction}  // 添加75%规则预测数据
                 />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 连续模式预测矩阵 */}
+      <div className="w-full mt-6">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-lg">
+          {/* 标题栏 */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-medium text-gray-900">连续模式预测</h2>
+          </div>
+
+          {/* 矩阵内容 */}
+          <div className="p-6">
+            <div className="flex justify-center">
+              <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
+                {matrixData.map((row, rowIndex) => (
+                  <div key={rowIndex} className="flex items-center gap-[6px]">
+                    {row.map((color, colIndex) => (
+                      <div
+                        key={colIndex}
+                        style={{ width: '40px', height: '40px' }}
+                        className={`rounded-full cursor-pointer 
+                          ${color === 'red' ? 'bg-gradient-to-b from-red-400 to-red-500 hover:from-red-500 hover:to-red-600' :
+                          color === 'black' ? 'bg-gradient-to-b from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900' :
+                          'bg-gradient-to-b from-gray-50 to-white hover:from-gray-100 hover:to-gray-50'
+                          } 
+                          ${!color ? 'border-2 border-gray-200' : ''}
+                          shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1)]
+                          hover:shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                          active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]
+                          transition-all duration-200 ease-in-out`}
+                        title={color ? `第${colIndex + 1}列, 第${rowIndex + 1}行` : ''}
+                      />
+                    ))}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
