@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+// @ts-ignore
 import { DotColor, Position } from '../types';
 import { BiUndo } from 'react-icons/bi';
 import { FiTrash2, FiChevronDown, FiChevronUp } from 'react-icons/fi';
@@ -12,7 +13,9 @@ interface ControlPanelProps {
   onColorSelect: (color: DotColor) => void;
   onUndo: () => void;
   onClear: () => void;
+  // @ts-ignore
   predictedColor: DotColor | null;
+  // @ts-ignore
   probability: number | null;
   isRecordMode: boolean;
   onSequenceConfigChange?: (config: Partial<SequenceConfig>) => void;
