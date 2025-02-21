@@ -2,14 +2,17 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { DotColor, Position, GameState, Move } from './types';
 import { GameBoard } from './components/GameBoard';
 import { ControlPanel } from './components/ControlPanel';
-import { StatsPanel } from './components/StatsPanel'; // @ts-ignore
+// @ts-ignore
+import { StatsPanel } from './components/StatsPanel';
 import { SupabaseStorageService } from './services/supabase-storage';
-import { predictNextColor } from './utils/gameLogic'; // @ts-ignore
+// @ts-ignore
+import { predictNextColor } from './utils/gameLogic';
 import { DateSelector } from './components/DateSelector';
 import LoadingScreen from './components/LoadingScreen';
 import AlertDialog from './components/AlertDialog';
 import { SequencePredictor, SequenceConfig } from './utils/sequencePredictor';
-import { supabase, testConnection } from './lib/supabase'; // @ts-ignore
+// @ts-ignore
+import { supabase, testConnection } from './lib/supabase';
 import { PredictionSequenceDisplay } from './components/PredictionSequenceDisplay';
 import debounce from 'lodash/debounce';
 
