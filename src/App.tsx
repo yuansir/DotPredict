@@ -233,9 +233,8 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // 重置矩阵
+  // @ts-ignore
   const handlePatternReset = useCallback(() => {
-    // @ts-ignore
     console.log('重置矩阵');
     setMatrixData(createEmptyMatrix());
   }, []); // @ts-ignore
