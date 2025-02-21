@@ -44,7 +44,8 @@ export const predictNextColor = (
     return {
       color: predictedColor,
       probability: 0.75,
-      pattern: pattern75Match.colors.join('-')
+      pattern: pattern75Match.colors.join('-'),
+      matchCount: 0
     };
   }
 
@@ -53,7 +54,8 @@ export const predictNextColor = (
     return {
       color: predictedColor,
       probability: 0.25,
-      pattern: pattern25Match.colors.join('-')
+      pattern: pattern25Match.colors.join('-'),
+      matchCount: 0
     };
   }
 

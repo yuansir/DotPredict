@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+// @ts-ignore
 import { GameState, Move, DotColor, Position } from '../types';
 
 export class SupabaseStorageService {
@@ -147,6 +148,7 @@ export class SupabaseStorageService {
     }
   }
 
+  // @ts-ignore
   async saveGameHistory(state: GameState): Promise<void> {
     // 这里我们可以在 daily_records 表中添加一个标记，表示这是一个历史记录点
     try {
