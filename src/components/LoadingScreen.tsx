@@ -43,6 +43,7 @@ const LoadingScreen: React.FC = () => {
             <motion.div
               key={i}
               className="w-4 h-4 rounded-full bg-blue-500"
+              // @ts-ignore
               variants={dotVariants}
             />
           ))}
