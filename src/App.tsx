@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { DotColor, Position, GameState, Move } from './types';
 import { GameBoard } from './components/GameBoard';
 import { ControlPanel } from './components/ControlPanel';
@@ -14,7 +14,6 @@ import { SequencePredictor, SequenceConfig } from './utils/sequencePredictor';
 // @ts-ignore
 import { supabase, testConnection } from './lib/supabase';
 import { PredictionSequenceDisplay } from './components/PredictionSequenceDisplay';
-import debounce from 'lodash/debounce';
 
 const GRID_SIZE = 8;
 const WINDOW_SIZE = GRID_SIZE * GRID_SIZE;
@@ -407,40 +406,51 @@ const App: React.FC = () => {
     }
   }, [gameState.history, allGameHistory]);
 
-  // 使用防抖的预测函数
-  const debouncedPredict = useCallback(
-    debounce((history: Move[], nextPos: Position | null) => {
-      if (history.length >= currentSequenceConfig.length && currentSequenceConfig.isEnabled && nextPos) {
-        // 开始预测时设置loading状态
-        setPredictionDetails(prev => ({ ...prev, isLoading: true }));
+  // 自定义防抖 Hook
+  const useDebouncedCallback = (callback: Function, delay: number) => {
+    const timeoutRef = useRef<NodeJS.Timeout>();
 
-        const prediction = predictor.predictNextColor();
-        if (prediction) {
-          console.log('防抖预测结果:', prediction);
-          setPredictionDetails({
-            color: prediction.color,
-            probability: prediction.probability,
-            matchCount: prediction.matchCount,
-            isLoading: false  // 预测完成，关闭loading
-          });
-          setPredictedColor(prediction.color);
-          setPredictedPosition(nextPos);
-          setPredictedProbability(prediction.probability);
-        } else {
-          setPredictionDetails({
-            color: null,
-            probability: 0,
-            matchCount: 0,
-            isLoading: false  // 预测完成，关闭loading
-          });
-          setPredictedColor(null);
-          setPredictedPosition(null);
-          setPredictedProbability(null);
-        }
+    return useCallback((...args: any[]) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
-    }, 100),
-    [predictor, currentSequenceConfig.length, currentSequenceConfig.isEnabled]
-  );
+      timeoutRef.current = setTimeout(() => {
+        callback(...args);
+      }, delay);
+    }, [callback, delay]);
+  };
+
+  // 使用防抖的预测函数
+  const debouncedPredict = useDebouncedCallback((history: Move[], nextPos: Position | null) => {
+    if (history.length >= currentSequenceConfig.length && currentSequenceConfig.isEnabled && nextPos) {
+      // 开始预测时设置loading状态
+      setPredictionDetails(prev => ({ ...prev, isLoading: true }));
+
+      const prediction = predictor.predictNextColor();
+      if (prediction) {
+        console.log('防抖预测结果:', prediction);
+        setPredictionDetails({
+          color: prediction.color,
+          probability: prediction.probability,
+          matchCount: prediction.matchCount,
+          isLoading: false  // 预测完成，关闭loading
+        });
+        setPredictedColor(prediction.color);
+        setPredictedPosition(nextPos);
+        setPredictedProbability(prediction.probability);
+      } else {
+        setPredictionDetails({
+          color: null,
+          probability: 0,
+          matchCount: 0,
+          isLoading: false  // 预测完成，关闭loading
+        });
+        setPredictedColor(null);
+        setPredictedPosition(null);
+        setPredictedProbability(null);
+      }
+    }
+  }, 100);
 
   // 75%规则预测逻辑
   const predict75Rule = (history: DotColor[]) => {
