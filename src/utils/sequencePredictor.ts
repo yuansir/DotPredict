@@ -77,15 +77,20 @@ export class SequencePredictor {
         const nextMove = this.history[i + this.config.length - 1];
         if (nextMove) { // 确保存在下一个颜色
           matches.push({
+            // @ts-ignore
             color: nextMove.color,
+            // @ts-ignore
             gameId: nextMove.gameId,
+            // @ts-ignore
             date: nextMove.date
           });
           console.log('找到匹配序列:', {
             position: i,
             sequence: historySequence,
             nextColor: nextMove.color,
+            // @ts-ignore
             date: nextMove.date,
+            // @ts-ignore
             currentDate: this.history[this.history.length - 1]?.date
           });
         }
@@ -137,7 +142,8 @@ export class SequencePredictor {
     return {
       color: predictedColor,
       probability,
-      matchCount: matches.length
+      matchCount: matches.length,
+      pattern: ''
     };
   }
 
