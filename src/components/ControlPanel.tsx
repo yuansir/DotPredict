@@ -42,7 +42,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onColorSelect,
   onUndo,
   onClear,
+  // @ts-ignore
   predictedColor,
+  // @ts-ignore
   probability,
   isRecordMode,
   onSequenceConfigChange,

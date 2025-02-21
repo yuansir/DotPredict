@@ -15,6 +15,7 @@ export const Cell: React.FC<CellProps> = ({
   color,
   onClick,
   onDelete,
+  // @ts-ignore
   isPredicted,
   predictedColor,
   isNext,
