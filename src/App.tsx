@@ -1064,16 +1064,19 @@ const App: React.FC = () => {
                       style={{ 
                         width: '40px', 
                         height: '40px',
-                        animation: !predictedColor ? 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
+                        animation: !predictedColor ? 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'colorPulse 3s ease-in-out infinite'
                       }}
-                      className={`rounded-full cursor-pointer border-2 
+                      className={`rounded-full cursor-pointer border-2 relative
                         ${predictedColor ? 
                           `${predictedColor === 'red' ? 
-                            'bg-gradient-to-b from-red-400 to-red-500 border-red-400' : 
-                            'bg-gradient-to-b from-gray-700 to-gray-800 border-gray-700'}`
+                            'bg-gradient-to-b from-red-400 to-red-600 border-red-400 hover:from-red-500 hover:to-red-700' : 
+                            'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700 hover:from-gray-800 hover:to-black'}`
                           : 'border-blue-400 bg-gradient-to-b from-gray-50 to-white'}
-                        shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1)]
-                        transition-all duration-200 ease-in-out`}
+                        shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                        hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
+                        active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]
+                        transition-all duration-300 ease-in-out
+                        ${predictedColor ? 'after:content-[""] after:absolute after:inset-[-2px] after:rounded-full after:bg-gradient-to-b after:from-transparent after:to-white/20 after:opacity-0 hover:after:opacity-100 after:transition-opacity after:duration-300' : ''}`}
                     />
                   );
                 })}
@@ -1086,12 +1089,23 @@ const App: React.FC = () => {
       <style jsx>{`
         @keyframes borderPulse {
           0%, 100% {
-            border-color: rgb(96 165 250); /* blue-400 */
+            border-color: rgb(96 165 250);
             box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.4);
           }
           50% {
-            border-color: rgb(59 130 246); /* blue-500 */
+            border-color: rgb(59 130 246);
             box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+          }
+        }
+
+        @keyframes colorPulse {
+          0%, 100% {
+            filter: brightness(1) saturate(1);
+            transform: scale(1);
+          }
+          50% {
+            filter: brightness(1.1) saturate(1.1);
+            transform: scale(1.05);
           }
         }
       `}</style>
