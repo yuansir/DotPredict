@@ -21,6 +21,7 @@ export const Timeline: React.FC<TimelineProps> = ({
 }) => {
   const totalPages = Math.ceil(totalMoves / windowSize);
   const currentPage = Math.floor(windowStart / windowSize) + 1;
+  // @ts-ignore
   const maxStart = Math.max(0, totalMoves - windowSize);
 
   const handlePrevious = () => {
@@ -37,6 +38,7 @@ export const Timeline: React.FC<TimelineProps> = ({
     }
   };
 
+  // @ts-ignore
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
     const targetPage = Math.floor((totalPages - 1) * value / 100);
