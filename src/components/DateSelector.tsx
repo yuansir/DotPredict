@@ -8,8 +8,11 @@ interface DateSelectorProps {
   isRecordMode: boolean;
   onModeChange: (mode: boolean) => void;
   className?: string;
-  currentSessionId?: number;
-  latestSessionId?: number | null;
+  currentSessionId: number;
+  latestSessionId: number | null;
+  availableSessions: number[];
+  selectedSession: number | null;
+  onSessionChange: (sessionId: number) => void;
 }
 
 export const DateSelector: React.FC<DateSelectorProps> = ({
@@ -19,7 +22,10 @@ export const DateSelector: React.FC<DateSelectorProps> = ({
   onModeChange,
   className = '',
   currentSessionId = 1,
-  latestSessionId = null
+  latestSessionId = null,
+  availableSessions = [],
+  selectedSession = null,
+  onSessionChange
 }) => {
   const today = new Date().toISOString().slice(0, 10);
   const isToday = selectedDate === today;
@@ -80,10 +86,20 @@ export const DateSelector: React.FC<DateSelectorProps> = ({
             />
             <select
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700"
-              defaultValue={currentSessionId}
+              value={selectedSession || currentSessionId}
+              onChange={(e) => onSessionChange(Number(e.target.value))}
               disabled={!isRecordMode}
             >
-              <option value={currentSessionId}>第 {currentSessionId} 次输入</option>
+              {availableSessions.map(sessionId => (
+                <option key={sessionId} value={sessionId}>
+                  第 {sessionId} 次输入
+                </option>
+              ))}
+              {(selectedSession === currentSessionId || availableSessions.length === 0) && (
+                <option value={currentSessionId}>
+                  {availableSessions.length === 0 ? '新一轮输入中...' : '新一轮输入中...'}
+                </option>
+              )}
             </select>
             {isToday && (
               <span className="ml-2 text-green-500 font-medium text-sm whitespace-nowrap">

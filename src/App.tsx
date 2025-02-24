@@ -67,6 +67,9 @@ const App: React.FC = () => {
     return initialState;
   });
 
+  const [availableSessions, setAvailableSessions] = useState<number[]>([]);
+  const [selectedSession, setSelectedSession] = useState<number | null>(null);
+
   const [selectedColor, setSelectedColor] = useState<DotColor>('red');
   const [predictedPosition, setPredictedPosition] = useState<Position | null>(null);
   const [predictedColor, setPredictedColor] = useState<DotColor | null>(null);
@@ -956,56 +959,106 @@ const App: React.FC = () => {
         .from('daily_records')
         .select('latest_session_id')
         .eq('date', date)
-        .single();
-
-      if (error) throw error;
-      setLatestSessionId(data?.latest_session_id || null);
+        .maybeSingle();
       
-      // 如果没有最新会话ID，获取最大的会话ID
-      if (!data?.latest_session_id) {
-        const { data: movesData, error: movesError } = await supabase
-          .from('moves')
-          .select('session_id')
-          .eq('date', date)
-          .order('session_id', { ascending: false })
-          .limit(1);
-
-        if (movesError) throw movesError;
-        setCurrentSessionId(movesData?.[0]?.session_id || 1);
+      if (error) {
+        // 如果是没有找到记录，不需要显示错误
+        if (error.code === 'PGRST116') {
+          setLatestSessionId(null);
+          return;
+        }
+        throw error;
       }
+      
+      // 如果没有数据，设置为 null
+      if (!data) {
+        setLatestSessionId(null);
+        return;
+      }
+
+      setLatestSessionId(data.latest_session_id);
     } catch (error) {
       console.error('Error fetching latest session ID:', error);
+      // 出错时设置为 null，确保 UI 能正确显示
+      setLatestSessionId(null);
     }
   }, []);
 
-  // 重置所有矩阵的函数
-  const resetMatrices = useCallback(() => {
-    // 重置 3x16 矩阵
-    setMatrixData(Array(3).fill(null).map(() => Array(16).fill(null)));
+  // 获取可用会话列表
+  const fetchAvailableSessions = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('moves')
+        .select('session_id')
+        .eq('date', selectedDate)
+        .order('session_id');
+      
+      if (error) throw error;
+      
+      // 使用 Set 来去重
+      const uniqueSessions = [...new Set(data?.map(item => item.session_id) || [])];
+      setAvailableSessions(uniqueSessions);
+      
+      // 设置选中的会话
+      if (uniqueSessions.length === 0) {
+        // 如果没有历史记录，显示"新一轮输入中..."
+        setSelectedSession(currentSessionId);
+      } else if (latestSessionId === null) {
+        // 如果没有最新会话ID，选择当前会话
+        setSelectedSession(currentSessionId);
+      } else {
+        // 否则选择最新会话
+        setSelectedSession(currentSessionId);
+      }
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+      // 出错时设置为空数组，确保 UI 能正确显示
+      setAvailableSessions([]);
+      setSelectedSession(currentSessionId);
+    }
+  }, [selectedDate, latestSessionId, currentSessionId]);
+
+  // 处理会话选择
+  const handleSessionChange = useCallback(async (sessionId: number) => {
+    setSelectedSession(sessionId);
+    setIsLoading(true);
     
-    // 重置 8x8 矩阵
-    setGameState(prev => ({
-      ...prev,
-      grid: createEmptyGrid(),
-      history: [],
-      windowStart: 0,
-      isViewingHistory: false
-    }));
+    try {
+      // 加载选定会话的数据
+      const { data, error } = await supabase
+        .from('moves')
+        .select('*')
+        .eq('date', selectedDate)
+        .lte('session_id', sessionId)
+        .order('sequence_number', { ascending: true });
 
-    // 重置预测列
-    setPredictedColor(null);
-    setPredictedProbability(null);
-    setPredictionDetails({
-      color: null,
-      probability: 0,
-      matchCount: 0,
-      isLoading: false
-    });
+      if (error) throw error;
 
-    // 重置位置
-    setNextPosition({ row: 0, col: 0 });
-    setLastPosition(null);
-  }, []);
+      const moves = data.map(move => ({
+        position: move.position,
+        color: move.color as DotColor,
+        prediction: move.prediction
+      }));
+
+      setAllGameHistory(moves);
+      
+      // 更新游戏状态
+      setGameState(prev => ({
+        ...prev,
+        history: moves,
+        grid: calculateGrid(moves, prev.windowStart),
+        isViewingHistory: false
+      }));
+
+    } catch (error) {
+      console.error('Error loading session data:', error);
+      setAlertMessage('加载会话数据时出错');
+      setAlertType('error');
+      setShowAlert(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedDate]);
 
   // 终止当前会话
   const handleEndSession = async () => {
@@ -1041,8 +1094,15 @@ const App: React.FC = () => {
       setLatestSessionId(currentSessionId);
       setCurrentSessionId(prev => prev + 1);
       
-      // 在成功终止会话后重置所有矩阵
-      resetMatrices();
+      // 重置矩阵和游戏状态
+      handlePatternReset();
+      setGameState(prev => ({
+        ...prev,
+        history: [],
+        grid: createEmptyGrid(),
+        windowStart: 0,
+        isViewingHistory: false
+      }));
       
       // 显示成功提示
       setAlertMessage('会话已终止，可以开始新的输入');
@@ -1062,6 +1122,12 @@ const App: React.FC = () => {
     fetchLatestSessionId(selectedDate);
   }, [selectedDate, fetchLatestSessionId]);
 
+  // 在日期变化时获取会话列表
+  useEffect(() => {
+    fetchLatestSessionId(selectedDate);
+    fetchAvailableSessions();
+  }, [selectedDate, fetchLatestSessionId, fetchAvailableSessions]);
+
   // 修改加载数据的逻辑
   const loadGameData = useCallback(async () => {
     setIsLoading(true);
@@ -1072,9 +1138,9 @@ const App: React.FC = () => {
         .eq('date', selectedDate)
         .order('sequence_number', { ascending: true });
 
-      // 如果有最新会话ID，只加载到该会话的数据
-      if (latestSessionId) {
-        query = query.lte('session_id', latestSessionId);
+      // 如果选择了特定会话，只加载到该会话的数据
+      if (selectedSession) {
+        query = query.lte('session_id', selectedSession);
       }
 
       const { data, error } = await query;
@@ -1096,7 +1162,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDate, latestSessionId]);
+  }, [selectedDate, selectedSession]);
 
   // 修改保存移动的逻辑
   const saveMove = useCallback(async (
@@ -1154,6 +1220,10 @@ const App: React.FC = () => {
               onModeChange={handleModeChange}
               currentSessionId={currentSessionId}
               latestSessionId={latestSessionId}
+              availableSessions={availableSessions}
+              selectedSession={selectedSession}
+              onSessionChange={handleSessionChange}
+              className="w-full"
             />
           </div>
 
