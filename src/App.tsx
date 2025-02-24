@@ -952,6 +952,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <div className="container mx-auto px-4 py-8">
+        {/* 标题部分 - 保持不变 */}
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">点阵预测游戏</h1>
           <p className="text-gray-600">
@@ -963,147 +964,129 @@ const App: React.FC = () => {
           </p>
         </header>
 
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-            <div className="xl:col-span-2">
-              <div className="max-w-2xl mx-auto">
-                <div className="p-4">
-                  <DateSelector
-                    selectedDate={selectedDate}
-                    onDateChange={handleDateChange}
-                    isRecordMode={isRecordMode}
-                    onModeChange={handleModeChange}
-                  />
-                </div>
-                <GameBoard
-                  grid={gameState.grid}
-                  onCellClick={handleCellClick}
-                  onCellDelete={handleCellDelete}
-                  predictedPosition={predictedPosition}
-                  predictedColor={predictedColor}
-                  nextPosition={nextPosition}
-                  lastPosition={lastPosition}
-                  windowStart={gameState.windowStart}
-                  totalMoves={gameState.history.length}
-                  onWindowChange={handleWindowChange}
-                  onReturnToLatest={handleReturnToLatest}
-                  isViewingHistory={gameState.isViewingHistory}
-                  isRecordMode={isRecordMode}
-                />
-
-                {/* 预测序列显示 */}
-                {isRecordMode && currentSequenceConfig.isEnabled && (
-                  <>
-                    {console.log('传递给PredictionSequenceDisplay的值:', {
-                      historicalColors: getLastNColors(gameState.history, currentSequenceConfig.length),
-                      predictedColor: predictionDetails.color,
-                      matchCount: predictionDetails.matchCount,
-                      confidence: predictionDetails.probability,
-                      sequenceLength: currentSequenceConfig.length,
-                      isLoading: predictionDetails.isLoading
-                    })}
-                    <PredictionSequenceDisplay
-                      historicalColors={getLastNColors(gameState.history, currentSequenceConfig.length)}
-                      predictedColor={predictionDetails.color}
-                      matchCount={predictionDetails.matchCount}
-                      confidence={predictionDetails.probability}
-                      sequenceLength={currentSequenceConfig.length}
-                      isLoading={predictionDetails.isLoading}
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="xl:col-span-1">
-              <div className="sticky top-8">
-                <ControlPanel
-                  selectedColor={selectedColor}
-                  onColorSelect={handleColorSelect}
-                  onUndo={handleUndo}
-                  onClear={handleClear}
-                  predictedColor={predictedColor}
-                  probability={predictedProbability}
-                  isRecordMode={!gameState.isViewingHistory}
-                  onSequenceConfigChange={handleSequenceConfigChange}
-                  sequenceConfig={currentSequenceConfig}
-                  className="mb-4"
-                  rule75Prediction={rule75Prediction}  // 添加75%规则预测数据
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 连续模式预测矩阵 */}
-      <div className="w-full mt-6">
-        <div className="bg-white rounded-lg border border-gray-200 shadow-lg">
-          {/* 标题栏 */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">连续模式预测</h2>
+        {/* 主要内容区 - 改为单列布局 */}
+        <div className="max-w-4xl mx-auto">
+          {/* 1. 日期选择器 */}
+          <div className="mb-6">
+            <DateSelector
+              selectedDate={selectedDate}
+              onDateChange={handleDateChange}
+              isRecordMode={isRecordMode}
+              onModeChange={handleModeChange}
+            />
           </div>
 
-          {/* 矩阵内容 */}
-          <div className="p-6">
-            <div className="flex justify-center gap-4">
-              {/* 原有的3x16矩阵 */}
-              <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
-                {matrixData.map((row, rowIndex) => (
-                  <div key={rowIndex} className="flex items-center gap-[6px]">
-                    {row.map((color, colIndex) => (
-                      <div
-                        key={colIndex}
-                        style={{ width: '40px', height: '40px' }}
-                        className={`rounded-full cursor-pointer 
-                          ${color === 'red' ? 'bg-gradient-to-b from-red-400 to-red-500 hover:from-red-500 hover:to-red-600' :
-                            color === 'black' ? 'bg-gradient-to-b from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900' :
-                              'bg-gradient-to-b from-gray-50 to-white hover:from-gray-100 hover:to-gray-50'
-                          } 
-                          ${!color ? 'border-2 border-gray-200' : ''}
-                          shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1)]
-                          hover:shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
-                          active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]
-                          transition-all duration-200 ease-in-out`}
-                        title={color ? `第${colIndex + 1}列, 第${rowIndex + 1}行` : ''}
-                      />
+          {/* 2. 连续模式预测矩阵 */}
+          <div className="mb-6">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-lg">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <h2 className="text-lg font-medium text-gray-900">连续模式预测</h2>
+              </div>
+              <div className="p-6">
+                <div className="flex justify-center gap-4">
+                  <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
+                    {matrixData.map((row, rowIndex) => (
+                      <div key={rowIndex} className="flex items-center gap-[6px]">
+                        {row.map((color, colIndex) => (
+                          <div
+                            key={colIndex}
+                            style={{ width: '40px', height: '40px' }}
+                            className={`rounded-full cursor-pointer 
+                              ${color === 'red' ? 'bg-gradient-to-b from-red-400 to-red-500 hover:from-red-500 hover:to-red-600' :
+                                color === 'black' ? 'bg-gradient-to-b from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900' :
+                                  'bg-gradient-to-b from-gray-50 to-white hover:from-gray-100 hover:to-gray-50'
+                              } 
+                              ${!color ? 'border-2 border-gray-200' : ''}
+                              shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1)]
+                              hover:shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                              active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]
+                              transition-all duration-200 ease-in-out`}
+                            title={color ? `第${colIndex + 1}列, 第${rowIndex + 1}行` : ''}
+                          />
+                        ))}
+                      </div>
                     ))}
                   </div>
-                ))}
-              </div>
-
-              {/* 新增的独立一列，带呼吸边框效果 */}
-              <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
-                {matrixData.map((row, index) => {
-                  const predictedColor = checkLastTwoColors(row);
-                  return (
-                    <div
-                      key={index}
-                      style={{ 
-                        width: '40px', 
-                        height: '40px',
-                        animation: !predictedColor ? 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'colorPulse 3s ease-in-out infinite'
-                      }}
-                      className={`rounded-full cursor-pointer border-2 relative
-                        ${predictedColor ? 
-                          `${predictedColor === 'red' ? 
-                            'bg-gradient-to-b from-red-400 to-red-600 border-red-400 hover:from-red-500 hover:to-red-700' : 
-                            'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700 hover:from-gray-800 hover:to-black'}`
-                          : 'border-blue-400 bg-gradient-to-b from-gray-50 to-white'}
-                        shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
-                        hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
-                        active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]
-                        transition-all duration-300 ease-in-out
-                        ${predictedColor ? 'after:content-[""] after:absolute after:inset-[-2px] after:rounded-full after:bg-gradient-to-b after:from-transparent after:to-white/20 after:opacity-0 hover:after:opacity-100 after:transition-opacity after:duration-300' : ''}`}
-                    />
-                  );
-                })}
+                  <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
+                    {matrixData.map((row, index) => {
+                      const predictedColor = checkLastTwoColors(row);
+                      return (
+                        <div
+                          key={index}
+                          style={{ 
+                            width: '40px', 
+                            height: '40px',
+                            animation: !predictedColor ? 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'colorPulse 3s ease-in-out infinite'
+                          }}
+                          className={`rounded-full cursor-pointer border-2 relative
+                            ${predictedColor ? 
+                              `${predictedColor === 'red' ? 
+                                'bg-gradient-to-b from-red-400 to-red-600 border-red-400 hover:from-red-500 hover:to-red-700' : 
+                                'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700 hover:from-gray-800 hover:to-black'}`
+                              : 'border-blue-400 bg-gradient-to-b from-gray-50 to-white'}
+                            shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                            hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
+                            active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]
+                            transition-all duration-200 ease-in-out`}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
+
+          {/* 3. 控制面板 */}
+          <div className="mb-6">
+            <ControlPanel
+              selectedColor={selectedColor}
+              onColorSelect={handleColorSelect}
+              onUndo={handleUndo}
+              onClear={handleClear}
+              predictedColor={predictedColor}
+              probability={predictedProbability}
+              isRecordMode={!gameState.isViewingHistory}
+              onSequenceConfigChange={handleSequenceConfigChange}
+              sequenceConfig={currentSequenceConfig}
+              rule75Prediction={rule75Prediction}
+            />
+          </div>
+
+          {/* 4. 游戏面板 */}
+          <div className="mb-6">
+            <GameBoard
+              grid={gameState.grid}
+              onCellClick={handleCellClick}
+              onCellDelete={handleCellDelete}
+              predictedPosition={predictedPosition}
+              predictedColor={predictedColor}
+              nextPosition={nextPosition}
+              lastPosition={lastPosition}
+              windowStart={gameState.windowStart}
+              totalMoves={gameState.history.length}
+              onWindowChange={handleWindowChange}
+              onReturnToLatest={handleReturnToLatest}
+              isViewingHistory={gameState.isViewingHistory}
+              isRecordMode={isRecordMode}
+            />
+
+            {/* 预测序列显示 */}
+            {isRecordMode && currentSequenceConfig.isEnabled && (
+              <PredictionSequenceDisplay
+                historicalColors={getLastNColors(gameState.history, currentSequenceConfig.length)}
+                predictedColor={predictionDetails.color}
+                matchCount={predictionDetails.matchCount}
+                confidence={predictionDetails.probability}
+                sequenceLength={currentSequenceConfig.length}
+                isLoading={predictionDetails.isLoading}
+              />
+            )}
           </div>
         </div>
       </div>
 
+      {/* 动画样式 */}
       {/* @ts-ignore */}
       <style jsx>{`
         @keyframes borderPulse {
@@ -1129,6 +1112,7 @@ const App: React.FC = () => {
         }
       `}</style>
 
+      {/* 弹窗和加载组件 */}
       <AlertDialog
         isOpen={showAlert}
         message={alertMessage}
