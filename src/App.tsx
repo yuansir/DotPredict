@@ -978,6 +978,35 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // 重置所有矩阵的函数
+  const resetMatrices = useCallback(() => {
+    // 重置 3x16 矩阵
+    setMatrixData(Array(3).fill(null).map(() => Array(16).fill(null)));
+    
+    // 重置 8x8 矩阵
+    setGameState(prev => ({
+      ...prev,
+      grid: createEmptyGrid(),
+      history: [],
+      windowStart: 0,
+      isViewingHistory: false
+    }));
+
+    // 重置预测列
+    setPredictedColor(null);
+    setPredictedProbability(null);
+    setPredictionDetails({
+      color: null,
+      probability: 0,
+      matchCount: 0,
+      isLoading: false
+    });
+
+    // 重置位置
+    setNextPosition({ row: 0, col: 0 });
+    setLastPosition(null);
+  }, []);
+
   // 终止当前会话
   const handleEndSession = async () => {
     try {
@@ -1010,8 +1039,15 @@ const App: React.FC = () => {
       if (error) throw error;
       
       setLatestSessionId(currentSessionId);
-      // 创建新的会话ID
       setCurrentSessionId(prev => prev + 1);
+      
+      // 在成功终止会话后重置所有矩阵
+      resetMatrices();
+      
+      // 显示成功提示
+      setAlertMessage('会话已终止，可以开始新的输入');
+      setAlertType('info');
+      setShowAlert(true);
       
     } catch (error) {
       console.error('Error ending session:', error);
@@ -1218,7 +1254,7 @@ const App: React.FC = () => {
             />
 
             {/* 预测序列显示 */}
-            {isRecordMode && currentSequenceConfig.isEnabled && (
+            {isRecordMode && currentSequenceConfig.isEnabled && gameState.history.length > 0 && (
               <PredictionSequenceDisplay
                 historicalColors={getLastNColors(gameState.history, currentSequenceConfig.length)}
                 predictedColor={predictionDetails.color}
