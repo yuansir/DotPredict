@@ -63,11 +63,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   }, [isRulesExpanded]);
 
   return (
-    <div className={`space-y-6 ${className}`}>
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl p-6 space-y-6">
+    <div className={`flex justify-between gap-6 ${className}`}>
+      {/* 第一栏：颜色选择和基础操作 */}
+      <div className="flex-1 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl p-6 space-y-6">
         {/* 标题和说明 */}
         <div className="text-center space-y-2">
-          <h2 className="text-xl font-bold text-gray-100">控制面板</h2>
+          <h2 className="text-xl font-bold text-gray-100">基础操作</h2>
           <p className="text-sm text-gray-400">选择颜色放置点</p>
         </div>
 
@@ -151,39 +152,47 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <span>清空数据</span>
           </button>
         </div>
+      </div>
+
+      {/* 第二栏：预测配置 */}
+      <div className="flex-1 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl p-6 space-y-6">
+        <div className="text-center space-y-2">
+          <h2 className="text-xl font-bold text-gray-100">预测配置</h2>
+          <p className="text-sm text-gray-400">设置预测参数</p>
+        </div>
 
         {/* 序列预测设置 */}
         {isRecordMode && onSequenceConfigChange && (
-          <div className="mt-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">启用预测</span>
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={sequenceConfig.isEnabled}
-                  onChange={() => onSequenceConfigChange?.({
-                    isEnabled: !sequenceConfig.isEnabled
-                  })}
-                  className="form-checkbox h-5 w-5 text-blue-500 rounded border-gray-600 bg-gray-700
-                            focus:ring-blue-500 focus:ring-offset-gray-800"
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">序列长度</span>
-              <select
-                value={sequenceConfig.length}
-                onChange={(e) => onSequenceConfigChange?.({
-                  length: parseInt(e.target.value)
+          <div className="flex items-center justify-between">
+            <span className="text-gray-400">启用预测</span>
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={sequenceConfig.isEnabled}
+                onChange={() => onSequenceConfigChange?.({
+                  isEnabled: !sequenceConfig.isEnabled
                 })}
-                className="bg-gray-700 text-gray-300 rounded px-3 py-1 border border-gray-600
-                          focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {sequenceLengthOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
+                className="form-checkbox h-5 w-5 text-blue-500 rounded border-gray-600 bg-gray-700
+                            focus:ring-blue-500 focus:ring-offset-gray-800"
+              />
             </div>
+          </div>
+        )}
+        {isRecordMode && onSequenceConfigChange && (
+          <div className="flex items-center justify-between">
+            <span className="text-gray-400">序列长度</span>
+            <select
+              value={sequenceConfig.length}
+              onChange={(e) => onSequenceConfigChange?.({
+                length: parseInt(e.target.value)
+              })}
+              className="bg-gray-700 text-gray-300 rounded px-3 py-1 border border-gray-600
+                          focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {sequenceLengthOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
           </div>
         )}
 
@@ -220,8 +229,16 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             )}
           </div>
         )}
+      </div>
 
-        {/* 规则展开/折叠按钮 */}
+      {/* 第三栏：游戏规则 */}
+      <div className="flex-1 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl p-6 space-y-6">
+        <div className="text-center space-y-2">
+          <h2 className="text-xl font-bold text-gray-100">游戏规则</h2>
+          <p className="text-sm text-gray-400">点击展开查看规则</p>
+        </div>
+
+        {/* 规则展示区域 */}
         <button
           onClick={() => setIsRulesExpanded(!isRulesExpanded)}
           className="w-full py-2 px-4 rounded-lg bg-gray-700 text-gray-300 
@@ -235,26 +252,25 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <FiChevronDown className="w-5 h-5" />
           )}
         </button>
-      </div>
 
-      {/* 规则显示（可折叠） */}
-      <Transition
-        show={isRulesExpanded}
-        enter="transition-all duration-300 ease-out"
-        enterFrom="transform scale-95 opacity-0 -translate-y-4"
-        enterTo="transform scale-100 opacity-100 translate-y-0"
-        leave="transition-all duration-200 ease-in"
-        leaveFrom="transform scale-100 opacity-100 translate-y-0"
-        leaveTo="transform scale-95 opacity-0 -translate-y-4"
-      >
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl p-6">
-          <div className="text-center mb-4">
-            <h2 className="text-xl font-bold text-gray-100">游戏规则</h2>
-            <p className="text-sm text-gray-400 mt-1">了解如何玩转点阵预测游戏</p>
+        <Transition
+          show={isRulesExpanded}
+          enter="transition-all duration-300 ease-out"
+          enterFrom="transform scale-95 opacity-0 -translate-y-4"
+          enterTo="transform scale-100 opacity-100 translate-y-0"
+          leave="transition-all duration-200 ease-in"
+          leaveFrom="transform scale-100 opacity-100 translate-y-0"
+          leaveTo="transform scale-95 opacity-0 -translate-y-4"
+        >
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl p-6">
+            <div className="text-center mb-4">
+              <h2 className="text-xl font-bold text-gray-100">游戏规则</h2>
+              <p className="text-sm text-gray-400 mt-1">了解如何玩转点阵预测游戏</p>
+            </div>
+            <RuleDisplay />
           </div>
-          <RuleDisplay />
-        </div>
-      </Transition>
+        </Transition>
+      </div>
 
       {/* 确认对话框 */}
       <ConfirmDialog
