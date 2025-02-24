@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 // @ts-ignore
 import { DotColor, Position } from '../types';
 import { BiUndo } from 'react-icons/bi';
-import { FiTrash2, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiTrash2, FiChevronDown, FiChevronUp, FiStopCircle } from 'react-icons/fi';
 import { ConfirmDialog } from './ConfirmDialog';
 import { RuleDisplay } from './RuleDisplay';
 import { Transition } from '@headlessui/react';
@@ -82,8 +82,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <button
               onClick={() => onColorSelect('red')}
               className={`group relative h-20 rounded-lg transition-all duration-200 ${selectedColor === 'red'
-                  ? 'ring-2 ring-red-500 ring-opacity-60'
-                  : ''
+                ? 'ring-2 ring-red-500 ring-opacity-60'
+                : ''
                 }`}
             >
               {/* 按钮背景 */}
@@ -103,8 +103,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <button
               onClick={() => onColorSelect('black')}
               className={`group relative h-20 rounded-lg transition-all duration-200 ${selectedColor === 'black'
-                  ? 'ring-2 ring-gray-400 ring-opacity-60'
-                  : ''
+                ? 'ring-2 ring-gray-400 ring-opacity-60'
+                : ''
                 }`}
             >
               {/* 按钮背景 */}
@@ -139,6 +139,16 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           >
             <BiUndo className={`w-5 h-5 ${true ? 'animate-pulse' : ''}`} />
             <span>撤销</span>
+          </button>
+
+          {/* 终止输入按钮 */}
+          <button
+            className="w-full py-3 px-4 rounded-lg bg-gradient-to-r from-yellow-500 to-yellow-600 
+              hover:from-yellow-600 hover:to-yellow-700 text-white flex items-center justify-center space-x-2 
+              transition-all duration-200"
+          >
+            <FiStopCircle className="w-5 h-5" />
+            <span>终止输入</span>
           </button>
 
           {/* 清空数据按钮 */}

@@ -1013,15 +1013,15 @@ const App: React.FC = () => {
                       return (
                         <div
                           key={index}
-                          style={{ 
-                            width: '40px', 
+                          style={{
+                            width: '40px',
                             height: '40px',
                             animation: !predictedColor ? 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'colorPulse 3s ease-in-out infinite'
                           }}
                           className={`rounded-full cursor-pointer border-2 relative
-                            ${predictedColor ? 
-                              `${predictedColor === 'red' ? 
-                                'bg-gradient-to-b from-red-400 to-red-600 border-red-400 hover:from-red-500 hover:to-red-700' : 
+                            ${predictedColor ?
+                              `${predictedColor === 'red' ?
+                                'bg-gradient-to-b from-red-400 to-red-600 border-red-400 hover:from-red-500 hover:to-red-700' :
                                 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700 hover:from-gray-800 hover:to-black'}`
                               : 'border-blue-400 bg-gradient-to-b from-gray-50 to-white'}
                             shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]

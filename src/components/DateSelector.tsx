@@ -67,13 +67,20 @@ export const DateSelector: React.FC<DateSelectorProps> = ({
         </button>
 
         <div className="flex-grow relative">
-          <div className="flex items-center">
+          <div className="flex items-center gap-4">
             <input
               type="date"
               value={selectedDate}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <select
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700"
+              value={1}
+              onChange={() => {}}
+            >
+              <option value={1}>第 1 次输入</option>
+            </select>
             {isToday && (
               <span className="ml-2 text-green-500 font-medium text-sm whitespace-nowrap">
                 今天
