@@ -945,6 +945,149 @@ const App: React.FC = () => {
     return null;
   };
 
+  // 会话管理相关状态和函数
+  const [currentSessionId, setCurrentSessionId] = useState<number>(1);
+  const [latestSessionId, setLatestSessionId] = useState<number | null>(null);
+
+  // 获取日期的最新会话ID
+  const fetchLatestSessionId = useCallback(async (date: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('daily_records')
+        .select('latest_session_id')
+        .eq('date', date)
+        .single();
+
+      if (error) throw error;
+      setLatestSessionId(data?.latest_session_id || null);
+      
+      // 如果没有最新会话ID，获取最大的会话ID
+      if (!data?.latest_session_id) {
+        const { data: movesData, error: movesError } = await supabase
+          .from('moves')
+          .select('session_id')
+          .eq('date', date)
+          .order('session_id', { ascending: false })
+          .limit(1);
+
+        if (movesError) throw movesError;
+        setCurrentSessionId(movesData?.[0]?.session_id || 1);
+      }
+    } catch (error) {
+      console.error('Error fetching latest session ID:', error);
+    }
+  }, []);
+
+  // 终止当前会话
+  const handleEndSession = async () => {
+    try {
+      // 1. 先检查记录是否存在
+      const { data: existingRecord } = await supabase
+        .from('daily_records')
+        .select('id')
+        .eq('date', selectedDate)
+        .single();
+
+      let error;
+      if (existingRecord) {
+        // 2. 如果存在，使用 update
+        const { error: updateError } = await supabase
+          .from('daily_records')
+          .update({ latest_session_id: currentSessionId })
+          .eq('date', selectedDate);
+        error = updateError;
+      } else {
+        // 3. 如果不存在，使用 insert
+        const { error: insertError } = await supabase
+          .from('daily_records')
+          .insert({
+            date: selectedDate,
+            latest_session_id: currentSessionId
+          });
+        error = insertError;
+      }
+
+      if (error) throw error;
+      
+      setLatestSessionId(currentSessionId);
+      // 创建新的会话ID
+      setCurrentSessionId(prev => prev + 1);
+      
+    } catch (error) {
+      console.error('Error ending session:', error);
+      setAlertMessage('终止会话时出错');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  };
+
+  // 在日期变化时获取最新会话ID
+  useEffect(() => {
+    fetchLatestSessionId(selectedDate);
+  }, [selectedDate, fetchLatestSessionId]);
+
+  // 修改加载数据的逻辑
+  const loadGameData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      let query = supabase
+        .from('moves')
+        .select('*')
+        .eq('date', selectedDate)
+        .order('sequence_number', { ascending: true });
+
+      // 如果有最新会话ID，只加载到该会话的数据
+      if (latestSessionId) {
+        query = query.lte('session_id', latestSessionId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const moves = data.map(move => ({
+        position: move.position,
+        color: move.color as DotColor,
+        prediction: move.prediction
+      }));
+
+      setAllGameHistory(moves);
+      updateGameState(moves);
+    } catch (error) {
+      console.error('Error loading game data:', error);
+      setAlertMessage('加载数据时出错');
+      setAlertType('error');
+      setShowAlert(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedDate, latestSessionId]);
+
+  // 修改保存移动的逻辑
+  const saveMove = useCallback(async (
+    position: Position,
+    color: DotColor,
+    prediction: any,
+    sequenceNumber: number
+  ) => {
+    try {
+      const { error } = await supabase.from('moves').insert({
+        date: selectedDate,
+        position,
+        color,
+        prediction,
+        sequence_number: sequenceNumber,
+        session_id: currentSessionId
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving move:', error);
+      setAlertMessage('保存移动时出错');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  }, [selectedDate, currentSessionId]);
+
   if (isLoading) {
     return <LoadingScreen />;
   }
@@ -973,6 +1116,8 @@ const App: React.FC = () => {
               onDateChange={handleDateChange}
               isRecordMode={isRecordMode}
               onModeChange={handleModeChange}
+              currentSessionId={currentSessionId}
+              latestSessionId={latestSessionId}
             />
           </div>
 
@@ -1050,6 +1195,7 @@ const App: React.FC = () => {
               onSequenceConfigChange={handleSequenceConfigChange}
               sequenceConfig={currentSequenceConfig}
               rule75Prediction={rule75Prediction}
+              onEndSession={handleEndSession}
             />
           </div>
 
@@ -1087,30 +1233,31 @@ const App: React.FC = () => {
       </div>
 
       {/* 动画样式 */}
-      {/* @ts-ignore */}
-      <style jsx>{`
-        @keyframes borderPulse {
-          0%, 100% {
-            border-color: rgb(96 165 250);
-            box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.4);
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes borderPulse {
+            0%, 100% {
+              border-color: rgb(96 165 250);
+              box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.4);
+            }
+            50% {
+              border-color: rgb(59 130 246);
+              box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+            }
           }
-          50% {
-            border-color: rgb(59 130 246);
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
-          }
-        }
 
-        @keyframes colorPulse {
-          0%, 100% {
-            filter: brightness(1) saturate(1);
-            transform: scale(1);
+          @keyframes colorPulse {
+            0%, 100% {
+              filter: brightness(1) saturate(1);
+              transform: scale(1);
+            }
+            50% {
+              filter: brightness(1.1) saturate(1.1);
+              transform: scale(1.05);
+            }
           }
-          50% {
-            filter: brightness(1.1) saturate(1.1);
-            transform: scale(1.05);
-          }
-        }
-      `}</style>
+        `
+      }} />
 
       {/* 弹窗和加载组件 */}
       <AlertDialog

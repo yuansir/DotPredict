@@ -13,9 +13,8 @@ interface ControlPanelProps {
   onColorSelect: (color: DotColor) => void;
   onUndo: () => void;
   onClear: () => void;
-  // @ts-ignore
+  onEndSession: () => void;
   predictedColor: DotColor | null;
-  // @ts-ignore
   probability: number | null;
   isRecordMode: boolean;
   onSequenceConfigChange?: (config: Partial<SequenceConfig>) => void;
@@ -42,9 +41,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onColorSelect,
   onUndo,
   onClear,
-  // @ts-ignore
+  onEndSession,
   predictedColor,
-  // @ts-ignore
   probability,
   isRecordMode,
   onSequenceConfigChange,
@@ -143,6 +141,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
           {/* 终止输入按钮 */}
           <button
+            onClick={onEndSession}
             className="w-full py-3 px-4 rounded-lg bg-gradient-to-r from-yellow-500 to-yellow-600 
               hover:from-yellow-600 hover:to-yellow-700 text-white flex items-center justify-center space-x-2 
               transition-all duration-200"

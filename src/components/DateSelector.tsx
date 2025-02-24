@@ -8,6 +8,8 @@ interface DateSelectorProps {
   isRecordMode: boolean;
   onModeChange: (mode: boolean) => void;
   className?: string;
+  currentSessionId?: number;
+  latestSessionId?: number | null;
 }
 
 export const DateSelector: React.FC<DateSelectorProps> = ({
@@ -15,7 +17,9 @@ export const DateSelector: React.FC<DateSelectorProps> = ({
   onDateChange,
   isRecordMode,
   onModeChange,
-  className = ''
+  className = '',
+  currentSessionId = 1,
+  latestSessionId = null
 }) => {
   const today = new Date().toISOString().slice(0, 10);
   const isToday = selectedDate === today;
@@ -76,10 +80,10 @@ export const DateSelector: React.FC<DateSelectorProps> = ({
             />
             <select
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700"
-              value={1}
-              onChange={() => {}}
+              defaultValue={currentSessionId}
+              disabled={!isRecordMode}
             >
-              <option value={1}>第 1 次输入</option>
+              <option value={currentSessionId}>第 {currentSessionId} 次输入</option>
             </select>
             {isToday && (
               <span className="ml-2 text-green-500 font-medium text-sm whitespace-nowrap">
