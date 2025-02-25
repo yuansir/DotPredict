@@ -45,8 +45,8 @@ export const DateSelector: React.FC<DateSelectorProps> = ({
           <button
             onClick={() => onModeChange(!isRecordMode)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200
-              ${isRecordMode 
-                ? 'bg-blue-500 text-white hover:bg-blue-600' 
+              ${isRecordMode
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
           >
             {isRecordMode ? (
@@ -92,7 +92,7 @@ export const DateSelector: React.FC<DateSelectorProps> = ({
             >
               {availableSessions.map(sessionId => (
                 <option key={sessionId} value={sessionId}>
-                  第 {sessionId} 次输入
+                  第 {sessionId} 次输入记录
                 </option>
               ))}
               {(selectedSession === currentSessionId || availableSessions.length === 0) && (

@@ -128,39 +128,6 @@ const App: React.FC = () => {
   // 矩阵状态
   const [matrixData, setMatrixData] = useState(createEmptyMatrix());
 
-  // 从当天历史数据初始化矩阵
-  useEffect(() => {
-    // 确保数据已加载完成
-    if (!isLoading && gameState.history.length > 0) {
-      const maxBalls = PATTERN_ROWS * PATTERN_COLS; // 48个
-      const history = gameState.history;
-      const startIndex = Math.max(0, history.length - maxBalls);
-      const displayHistory = history.slice(startIndex); // 只取最后48个
-
-      console.log('初始化3x16矩阵:', {
-        totalHistory: history.length,
-        displayHistory: displayHistory.length,
-        startIndex
-      });
-
-      // 重置矩阵
-      const newMatrix = createEmptyMatrix();
-
-      // 按顺序添加每个颜色
-      displayHistory.forEach((move, index) => {
-        const col = Math.floor(index / PATTERN_ROWS);
-        const row = index % PATTERN_ROWS;
-        newMatrix[row][col] = move.color;
-      });
-
-      console.log('初始化后的矩阵:', {
-        matrix: newMatrix.map(row => row.filter(color => color !== null))
-      });
-
-      setMatrixData(newMatrix);
-    }
-  }, [gameState.history, isLoading]); // 添加正确的依赖
-
   // 添加新颜色到矩阵
   const addColorToMatrix = useCallback((color: string) => {
     console.log('添加新颜色到矩阵:', { color });
@@ -425,7 +392,7 @@ const App: React.FC = () => {
 
   // 使用防抖的预测函数
   const debouncedPredict = useDebouncedCallback((history: Move[], nextPos: Position | null) => {
-    if (history.length >= currentSequenceConfig.length && currentSequenceConfig.isEnabled && nextPos) {
+    if (history.length >= currentSequenceConfig.length && nextPos) {
       // 开始预测时设置loading状态
       setPredictionDetails(prev => ({ ...prev, isLoading: true }));
 
@@ -490,7 +457,8 @@ const App: React.FC = () => {
   const handleCellClick = async (position: Position) => {
     if (!isRecordMode || gameState.isViewingHistory) return;
 
-    const newHistory = [...gameState.history];
+    // 获取当前移动的序号
+    const sequenceNumber = gameState.history.length + 1;
     const move: Move = {
       position,
       color: selectedColor,
@@ -516,33 +484,25 @@ const App: React.FC = () => {
       setGameState(newState);
     }
 
-    newHistory.push(move);
+    // 保存移动记录到数据库
+    await saveMove(position, selectedColor, move.prediction, sequenceNumber);
 
     // 更新游戏状态
-    const newState = {
-      ...gameState,
-      history: newHistory,
-      grid: calculateGrid(newHistory, gameState.windowStart)
-    };
+    setGameState(prev => ({
+      ...prev,
+      history: [...prev.history, move],
+      grid: calculateGrid([...prev.history, move], prev.windowStart)
+    }));
 
-    setGameState(newState);
+    // 更新最后点击的位置
+    setLastPosition(position);
 
-    // 找到下一个空位置
-    const nextEmpty = findNextEmptyPosition(newState.grid);
-    if (nextEmpty) {
-      setNextPosition(nextEmpty);
-      // 使用防抖的预测函数
-      debouncedPredict([...allGameHistory, ...newHistory], nextEmpty);
-    }
-
-    // 保存状态
-    try {
-      await storage.saveGameStateByDate(newState, selectedDate);
-    } catch (error) {
-      console.error('Failed to save game state:', error);
-      setAlertMessage('保存游戏状态失败');
-      setAlertType('error' as 'info' | 'warning' | 'error');
-      setShowAlert(true);
+    // 如果启用了预测，尝试预测下一步
+    if (currentSequenceConfig.isEnabled && currentSequenceConfig.length > 0) {
+      const nextEmpty = findNextEmptyPosition(gameState.grid);
+      if (nextEmpty) {
+        debouncedPredict([...allGameHistory, ...gameState.history, move], nextEmpty);
+      }
     }
   };
 
@@ -987,36 +947,43 @@ const App: React.FC = () => {
   // 获取可用会话列表
   const fetchAvailableSessions = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('moves')
-        .select('session_id')
+      // 1. 从 daily_records 获取 latest_session_id
+      const { data: record, error: recordError } = await supabase
+        .from('daily_records')
+        .select('latest_session_id')
         .eq('date', selectedDate)
-        .order('session_id');
+        .single();
       
-      if (error) throw error;
+      if (recordError) throw recordError;
       
-      // 使用 Set 来去重
-      const uniqueSessions = [...new Set(data?.map(item => item.session_id) || [])];
-      setAvailableSessions(uniqueSessions);
+      // 2. 生成会话列表
+      let sessions = [];
+      if (record && record.latest_session_id !== null) {
+        // 生成从1到latest_session_id的数组
+        sessions = Array.from(
+          { length: record.latest_session_id }, 
+          (_, i) => i + 1
+        );
+      }
+      setAvailableSessions(sessions);
       
-      // 设置选中的会话
-      if (uniqueSessions.length === 0) {
+      // 3. 设置选中的会话
+      if (sessions.length === 0) {
         // 如果没有历史记录，显示"新一轮输入中..."
         setSelectedSession(currentSessionId);
-      } else if (latestSessionId === null) {
-        // 如果没有最新会话ID，选择当前会话
+      } else if (isRecordMode) {
+        // 录入模式下，选择当前会话
         setSelectedSession(currentSessionId);
       } else {
-        // 否则选择最新会话
-        setSelectedSession(currentSessionId);
+        // 预览模式下，默认选择最后一个完成的会话
+        setSelectedSession(sessions[sessions.length - 1]);
       }
     } catch (error) {
       console.error('Error fetching sessions:', error);
-      // 出错时设置为空数组，确保 UI 能正确显示
       setAvailableSessions([]);
       setSelectedSession(currentSessionId);
     }
-  }, [selectedDate, latestSessionId, currentSessionId]);
+  }, [selectedDate, currentSessionId, isRecordMode]);
 
   // 处理会话选择
   const handleSessionChange = useCallback(async (sessionId: number) => {
@@ -1063,7 +1030,7 @@ const App: React.FC = () => {
   // 终止当前会话
   const handleEndSession = async () => {
     try {
-      // 1. 先检查记录是否存在
+      // 1. 检查记录是否存在
       const { data: existingRecord } = await supabase
         .from('daily_records')
         .select('id')
@@ -1075,7 +1042,10 @@ const App: React.FC = () => {
         // 2. 如果存在，使用 update
         const { error: updateError } = await supabase
           .from('daily_records')
-          .update({ latest_session_id: currentSessionId })
+          .update({ 
+            latest_session_id: currentSessionId,
+            updated_at: new Date()
+          })
           .eq('date', selectedDate);
         error = updateError;
       } else {
@@ -1084,17 +1054,21 @@ const App: React.FC = () => {
           .from('daily_records')
           .insert({
             date: selectedDate,
-            latest_session_id: currentSessionId
+            latest_session_id: currentSessionId,
+            total_predictions: 0,
+            correct_predictions: 0
           });
         error = insertError;
       }
 
       if (error) throw error;
       
+      // 更新状态
       setLatestSessionId(currentSessionId);
       setCurrentSessionId(prev => prev + 1);
+      setSelectedSession(prev => prev + 1);
       
-      // 重置矩阵和游戏状态
+      // 重置状态
       handlePatternReset();
       setGameState(prev => ({
         ...prev,
@@ -1103,12 +1077,11 @@ const App: React.FC = () => {
         windowStart: 0,
         isViewingHistory: false
       }));
-      
+
       // 显示成功提示
       setAlertMessage('会话已终止，可以开始新的输入');
       setAlertType('info');
       setShowAlert(true);
-      
     } catch (error) {
       console.error('Error ending session:', error);
       setAlertMessage('终止会话时出错');
@@ -1128,43 +1101,71 @@ const App: React.FC = () => {
     fetchAvailableSessions();
   }, [selectedDate, fetchLatestSessionId, fetchAvailableSessions]);
 
-  // 修改加载数据的逻辑
-  const loadGameData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      let query = supabase
-        .from('moves')
-        .select('*')
-        .eq('date', selectedDate)
-        .order('sequence_number', { ascending: true });
+  // 添加初始化会话的函数
+  const initializeSession = useCallback(async () => {
+    if (!isRecordMode) return;
 
-      // 如果选择了特定会话，只加载到该会话的数据
-      if (selectedSession) {
-        query = query.lte('session_id', selectedSession);
+    try {
+      // 1. 获取当前日期的记录
+      const { data: record } = await supabase
+        .from('daily_records')
+        .select('latest_session_id')
+        .eq('date', selectedDate)
+        .single();
+
+      let newSessionId = 1;  // 默认为 1
+
+      // 2. 根据不同情况设置会话ID
+      if (record && record.latest_session_id !== null) {
+        // 当日期有记录，且 latest_session_id 不为 null
+        newSessionId = record.latest_session_id + 1;
+      }
+      // 否则（没有记录或 latest_session_id 为 null）使用默认值 1
+
+      // 3. 设置会话ID
+      setCurrentSessionId(newSessionId);
+      setSelectedSession(newSessionId);
+
+      // 4. 如果是新日期，创建 daily_records
+      if (!record) {
+        const { error: insertError } = await supabase
+          .from('daily_records')
+          .insert({
+            date: selectedDate,
+            latest_session_id: null,  // 初始为 null
+            total_predictions: 0,
+            correct_predictions: 0
+          });
+
+        if (insertError) throw insertError;
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-
-      const moves = data.map(move => ({
-        position: move.position,
-        color: move.color as DotColor,
-        prediction: move.prediction
+      // 5. 重置游戏状态
+      setGameState(prev => ({
+        ...prev,
+        history: [],
+        grid: createEmptyGrid(),
+        windowStart: 0,
+        isViewingHistory: false
       }));
 
-      setAllGameHistory(moves);
-      updateGameState(moves);
+      return newSessionId;
     } catch (error) {
-      console.error('Error loading game data:', error);
-      setAlertMessage('加载数据时出错');
-      setAlertType('error');
-      setShowAlert(true);
-    } finally {
-      setIsLoading(false);
+      console.error('Error initializing session:', error);
+      setCurrentSessionId(1);
+      setSelectedSession(1);
+      return 1;
     }
-  }, [selectedDate, selectedSession]);
+  }, [selectedDate, isRecordMode]);
 
-  // 修改保存移动的逻辑
+  // 在日期变更时初始化会话
+  useEffect(() => {
+    if (isRecordMode) {
+      initializeSession();
+    }
+  }, [selectedDate, isRecordMode, initializeSession]);
+
+  // 修改 saveMove 函数
   const saveMove = useCallback(async (
     position: Position,
     color: DotColor,
@@ -1172,13 +1173,14 @@ const App: React.FC = () => {
     sequenceNumber: number
   ) => {
     try {
+      // 直接使用当前的 session_id 保存移动记录
       const { error } = await supabase.from('moves').insert({
         date: selectedDate,
         position,
         color,
         prediction,
         sequence_number: sequenceNumber,
-        session_id: currentSessionId
+        session_id: currentSessionId  // 使用已经初始化好的 session_id
       });
 
       if (error) throw error;
@@ -1189,6 +1191,39 @@ const App: React.FC = () => {
       setShowAlert(true);
     }
   }, [selectedDate, currentSessionId]);
+
+  // 从当天历史数据初始化矩阵
+  useEffect(() => {
+    // 确保数据已加载完成
+    if (!isLoading && gameState.history.length > 0) {
+      const maxBalls = PATTERN_ROWS * PATTERN_COLS; // 48个
+      const history = gameState.history;
+      const startIndex = Math.max(0, history.length - maxBalls);
+      const displayHistory = history.slice(startIndex); // 只取最后48个
+
+      console.log('初始化3x16矩阵:', {
+        totalHistory: history.length,
+        displayHistory: displayHistory.length,
+        startIndex
+      });
+
+      // 重置矩阵
+      const newMatrix = createEmptyMatrix();
+
+      // 按顺序添加每个颜色
+      displayHistory.forEach((move, index) => {
+        const col = Math.floor(index / PATTERN_ROWS);
+        const row = index % PATTERN_ROWS;
+        newMatrix[row][col] = move.color;
+      });
+
+      console.log('初始化后的矩阵:', {
+        matrix: newMatrix.map(row => row.filter(color => color !== null))
+      });
+
+      setMatrixData(newMatrix);
+    }
+  }, [gameState.history, isLoading]);
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -1244,7 +1279,7 @@ const App: React.FC = () => {
                             style={{ width: '40px', height: '40px' }}
                             className={`rounded-full cursor-pointer 
                               ${color === 'red' ? 'bg-gradient-to-b from-red-400 to-red-500 hover:from-red-500 hover:to-red-600' :
-                                color === 'black' ? 'bg-gradient-to-b from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900' :
+                                color === 'black' ? 'bg-gradient-to-b from-gray-700 to-gray-900 hover:from-gray-800 hover:to-black' :
                                   'bg-gradient-to-b from-gray-50 to-white hover:from-gray-100 hover:to-gray-50'
                               } 
                               ${!color ? 'border-2 border-gray-200' : ''}
