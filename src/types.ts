@@ -17,12 +17,9 @@ export interface Move {
 }
 
 export interface GameState {
-  grid: (DotColor | null)[][];
   history: Move[];
-  windowStart: number;
   totalPredictions: number;
   correctPredictions: number;
-  isViewingHistory: boolean;
   predictionStats: {
     timestamp: number;
     accuracy: number;

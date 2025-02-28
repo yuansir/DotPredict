@@ -23,15 +23,26 @@ export class SupabaseStorageService {
       if (recordError) throw recordError;
 
       // 2. 保存移动记录
-      const moves = state.history.map((move, index) => ({
-        date,
-        position: move.position,
-        color: move.color,
-        sequence_number: index,
-        prediction: move.prediction,
-        created_at: new Date(move.timestamp).toISOString(),
-        session_id: sessionId  // 添加会话ID
-      }));
+      const moves = state.history.map((move, index) => {
+        // 确保时间戳是有效的
+        let createdAt;
+        try {
+          createdAt = new Date(move.timestamp).toISOString();
+        } catch (error) {
+          console.warn('Invalid timestamp detected, using current time instead:', move.timestamp);
+          createdAt = new Date().toISOString();
+        }
+        
+        return {
+          date,
+          position: move.position,
+          color: move.color,
+          sequence_number: index,
+          prediction: move.prediction,
+          created_at: createdAt,
+          session_id: sessionId  // 添加会话ID
+        };
+      });
 
       // 先删除当天的所有记录，然后重新插入
       const { error: deleteError } = await supabase
