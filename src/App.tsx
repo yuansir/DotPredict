@@ -1319,6 +1319,10 @@ const App: React.FC = () => {
             <div className="bg-white rounded-lg border border-gray-200 shadow-lg">
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-medium text-gray-900">连续模式预测</h2>
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded">设定</span>
+                  <span className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded">规则</span>
+                </div>
               </div>
               <div className="p-6">
                 <div className="flex justify-center gap-4">
@@ -1369,6 +1373,23 @@ const App: React.FC = () => {
                         />
                       );
                     })}
+                  </div>
+                  {/* 规则列 */}
+                  <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
+                    {matrixData.map((row, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          width: '40px',
+                          height: '40px',
+                        }}
+                        className="rounded-full cursor-pointer border-2 border-blue-400 bg-gradient-to-b from-gray-50 to-white
+                          shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                          hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
+                          active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]
+                          transition-all duration-200 ease-in-out"
+                      />
+                    ))}
                   </div>
                 </div>
               </div>
