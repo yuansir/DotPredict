@@ -287,7 +287,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         onClose={() => setShowClearConfirm(false)}
         onConfirm={onClear}
         title="确认清空数据"
-        message="这将清空所有游戏数据，包括历史记录和统计信息。此操作不可撤销，是否确认继续？"
+        message="这将清空所有游戏数据，包括历史记录、统计信息和当前游戏进度。请确保您已保存所有必要的数据后再进行此操作。"
         confirmText="清空数据"
         cancelText="取消"
         type="danger"

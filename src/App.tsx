@@ -653,6 +653,7 @@ const App: React.FC = () => {
           }));
         } else {
           console.log('没有未终止的当前会话数据，显示空矩阵');
+          setAllGameHistory([]); // 清空所有游戏历史，确保矩阵不显示历史数据
           setGameState(prev => ({
             ...prev,
             history: [],
@@ -660,9 +661,6 @@ const App: React.FC = () => {
             windowStart: 0,
             isViewingHistory: false
           }));
-          
-          // 清空历史记录
-          setAllGameHistory([]);
         }
       } else {
         // 加载选定会话的数据
@@ -822,6 +820,7 @@ const App: React.FC = () => {
             }));
           } else {
             console.log('没有未终止的当前会话数据，显示空矩阵');
+            setAllGameHistory([]); // 清空所有游戏历史，确保矩阵不显示历史数据
             setGameState(prev => ({
               ...prev,
               history: [],
@@ -829,9 +828,6 @@ const App: React.FC = () => {
               windowStart: 0,
               isViewingHistory: false
             }));
-            
-            // 清空历史记录
-            setAllGameHistory([]);
           }
         } catch (error) {
           console.error('Error loading initial data:', error);
@@ -913,7 +909,6 @@ const App: React.FC = () => {
       // 清除矩阵数据
       setMatrixData(createEmptyMatrix());
 
-      // 显示成功提示
       setAlertMessage('会话已终止，可以开始新的输入');
       setAlertType('info');
       setShowAlert(true);
@@ -1176,27 +1171,11 @@ const App: React.FC = () => {
 
   // 清除操作
   const handleClear = useCallback(async () => {
-    if (!isRecordMode || gameState.isViewingHistory) {
-      setAlertMessage('预览模式下不能清空');
-      setAlertType('warning');
-      setShowAlert(true);
-      return;
-    }
-
-    const shouldClear = window.confirm("确定要清空当前会话中的所有数据吗？");
-    if (!shouldClear) return;
-
-    // 1. 从数据库删除当前会话的所有记录
     try {
-      const { error } = await supabase
-        .from('moves')
-        .delete()
-        .eq('date', selectedDate)
-        .eq('session_id', currentSessionId);
+      // 调用清空所有数据的方法
+      await storage.clearAllData();
 
-      if (error) throw error;
-
-      // 2. 重置本地状态
+      // 重置本地状态
       setGameState(prev => ({
         ...prev,
         history: [],
@@ -1205,19 +1184,19 @@ const App: React.FC = () => {
         isViewingHistory: false
       }));
 
-      // 3. 清空矩阵数据
+      // 清空矩阵数据
       setMatrixData(createEmptyMatrix());
 
-      setAlertMessage('已清空当前会话');
+      setAlertMessage('已清空所有数据');
       setAlertType('info');
       setShowAlert(true);
     } catch (error) {
-      console.error('Error clearing session:', error);
-      setAlertMessage('清空会话失败');
+      console.error('Error clearing all data:', error);
+      setAlertMessage('清空数据失败');
       setAlertType('error');
       setShowAlert(true);
     }
-  }, [isRecordMode, gameState.isViewingHistory, selectedDate, currentSessionId, calculateGrid, createEmptyMatrix]);
+  }, [calculateGrid, createEmptyMatrix]);
 
   // 撤销上一步操作
   const handleUndo = useCallback(async () => {
