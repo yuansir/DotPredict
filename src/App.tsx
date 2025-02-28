@@ -28,11 +28,6 @@ const calculateGrid = (history: Move[], windowStart: number) => {
 
   // 获取当前页的移动记录
   const displayMoves = history.slice(windowStart, windowStart + WINDOW_SIZE);
-  console.log('Display moves:', {
-    totalMoves: history.length,
-    windowStart,
-    displayMovesLength: displayMoves.length
-  });
 
   // 处理当前页的移动记录
   displayMoves.forEach((move, index) => {
@@ -49,10 +44,17 @@ const calculateGrid = (history: Move[], windowStart: number) => {
 };
 
 const App: React.FC = () => {
+  // 会话管理相关状态和函数
+  const [currentSessionId, setCurrentSessionId] = useState<number>(1);
+  const [latestSessionId, setLatestSessionId] = useState<number | null>(null);
+  const [selectedSession, setSelectedSession] = useState<number | null>(null);
+  const [availableSessions, setAvailableSessions] = useState<number[]>([]);
+
   const today = new Date().toISOString().slice(0, 10);
 
   const [selectedDate, setSelectedDate] = useState<string>(today);
-  const [isRecordMode, setIsRecordMode] = useState<boolean>(selectedDate === today);  // 今天是录入模式，其他日期是预览模式
+  // 初始化时，如果是今天且会话ID为1（新一轮输入），则为录入模式
+  const [isRecordMode, setIsRecordMode] = useState<boolean>(selectedDate === today);  
 
   const [gameState, setGameState] = useState<GameState>(() => {
     const initialState: GameState = {
@@ -66,9 +68,6 @@ const App: React.FC = () => {
     };
     return initialState;
   });
-
-  const [availableSessions, setAvailableSessions] = useState<number[]>([]);
-  const [selectedSession, setSelectedSession] = useState<number | null>(null);
 
   const [selectedColor, setSelectedColor] = useState<DotColor>('red');
   const [predictedPosition, setPredictedPosition] = useState<Position | null>(null);
@@ -130,8 +129,6 @@ const App: React.FC = () => {
 
   // 添加新颜色到矩阵
   const addColorToMatrix = useCallback((color: string) => {
-    console.log('添加新颜色到矩阵:', { color });
-
     setMatrixData(prevMatrix => {
       // 创建新矩阵副本
       const newMatrix = prevMatrix.map(row => [...row]);
@@ -156,7 +153,6 @@ const App: React.FC = () => {
 
       // 如果矩阵已满，执行左移
       if (!found) {
-        console.log('矩阵已满，执行左移');
         // 左移所有列
         for (let row = 0; row < PATTERN_ROWS; row++) {
           for (let col = 0; col < PATTERN_COLS - 1; col++) {
@@ -172,11 +168,6 @@ const App: React.FC = () => {
 
       // 放入新数据
       newMatrix[targetRow][targetCol] = color;
-
-      console.log('更新后的矩阵:', {
-        position: { row: targetRow, col: targetCol },
-        isMatrixFull: !found
-      });
 
       return newMatrix;
     });
@@ -204,7 +195,6 @@ const App: React.FC = () => {
 
   // @ts-ignore
   const handlePatternReset = useCallback(() => {
-    console.log('重置矩阵');
     setMatrixData(createEmptyMatrix());
   }, []); // @ts-ignore
 
@@ -215,8 +205,9 @@ const App: React.FC = () => {
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
-    // 切换到今天时是录入模式，其他日期是预览模式
-    setIsRecordMode(date === today);
+    // 只有当天日期+新一轮输入会话才是录入模式
+    const shouldBeRecordMode = date === today && selectedSession === currentSessionId;
+    setIsRecordMode(shouldBeRecordMode);
   };
 
   const handleModeChange = (mode: boolean) => {
@@ -252,11 +243,6 @@ const App: React.FC = () => {
   }, [gameState]);
 
   const updateDisplayGrid = useCallback((history: Move[], windowStart: number) => {
-    console.log('updateDisplayGrid called:', {
-      historyLength: history.length,
-      windowStart,
-      windowSize: WINDOW_SIZE
-    });
     return calculateGrid(history, windowStart);
   }, []);
 
@@ -586,11 +572,12 @@ const App: React.FC = () => {
 
         // 保存状态
         try {
-          await storage.saveGameStateByDate(newState, selectedDate);
+          const sessionIdToUse = getSessionIdToUse();
+          await storage.saveGameStateByDate(newState, selectedDate, sessionIdToUse);
         } catch (error) {
           console.error('Failed to save game state:', error);
           setAlertMessage('保存游戏状态失败');
-          setAlertType('error' as 'info' | 'warning' | 'error');
+          setAlertType('error');
           setShowAlert(true);
         }
       };
@@ -607,312 +594,114 @@ const App: React.FC = () => {
     predictedProbability,
     allGameHistory,
     selectedDate,
-    addColorToMatrix // 添加新依赖
+    addColorToMatrix
   ]);
 
-  const handleUndo = useCallback(async () => {
-    if (gameState.history.length === 0 || gameState.isViewingHistory) return;
+  // 获取当前应使用的会话ID
+  const getSessionIdToUse = useCallback(() => {
+    return isRecordMode && !gameState.isViewingHistory 
+      ? currentSessionId 
+      : (selectedSession || 1);
+  }, [isRecordMode, gameState.isViewingHistory, currentSessionId, selectedSession]);
 
-    const newHistory = [...gameState.history];
-    const lastMove = newHistory.pop();
-    if (!lastMove) return;
+  // 处理会话选择
+  const handleSessionChange = useCallback(async (sessionId: number) => {
+    setSelectedSession(sessionId);
+    setIsLoading(true);
+    
+    // 只有当天日期+新一轮输入会话才是录入模式
+    const shouldBeRecordMode = selectedDate === today && sessionId === currentSessionId;
+    setIsRecordMode(shouldBeRecordMode);
+    
+    try {
+      // 如果选择的是"新一轮输入中"会话
+      if (sessionId === currentSessionId) {
+        // 查询大于latest_session_id的数据（未终止的当前会话数据）
+        console.log('查询新一轮输入中的数据, 条件:', { 
+          selectedDate, 
+          latestSessionId, 
+          currentSessionId,
+          condition: `session_id > ${latestSessionId || 0}`
+        });
+        
+        const { data, error } = await supabase
+          .from('moves')
+          .select('*')
+          .eq('date', selectedDate)
+          .gt('session_id', latestSessionId || 0)  // 大于latest_session_id的数据
+          .order('sequence_number', { ascending: true });
 
-    let newTotalPredictions = gameState.totalPredictions;
-    let newCorrectPredictions = gameState.correctPredictions;
+        if (error) throw error;
 
-    if (lastMove.prediction) {
-      newTotalPredictions--;
-      if (lastMove.prediction.isCorrect) {
-        newCorrectPredictions--;
+        // 如果有数据，加载它
+        if (data && data.length > 0) {
+          console.log('加载未终止的当前会话数据:', data.length, data);
+          const moves = data.map(move => ({
+            position: move.position,
+            color: move.color as DotColor,
+            prediction: move.prediction
+          }));
+
+          setAllGameHistory(moves);
+          
+          // 更新游戏状态
+          setGameState(prev => ({
+            ...prev,
+            history: moves,
+            grid: calculateGrid(moves, prev.windowStart),
+            isViewingHistory: false
+          }));
+        } else {
+          console.log('没有未终止的当前会话数据，显示空矩阵');
+          setGameState(prev => ({
+            ...prev,
+            history: [],
+            grid: createEmptyGrid(),
+            windowStart: 0,
+            isViewingHistory: false
+          }));
+          
+          // 清空历史记录
+          setAllGameHistory([]);
+        }
+      } else {
+        // 加载选定会话的数据
+        const { data, error } = await supabase
+          .from('moves')
+          .select('*')
+          .eq('date', selectedDate)
+          .eq('session_id', sessionId)
+          .order('sequence_number', { ascending: true });
+
+        if (error) throw error;
+
+        const moves = data.map(move => ({
+          position: move.position,
+          color: move.color as DotColor,
+          prediction: move.prediction
+        }));
+
+        setAllGameHistory(moves);
+        
+        // 更新游戏状态
+        setGameState(prev => ({
+          ...prev,
+          history: moves,
+          grid: calculateGrid(moves, prev.windowStart),
+          isViewingHistory: false
+        }));
       }
-    }
-
-    const currentPage = Math.floor((newHistory.length - 1) / WINDOW_SIZE);
-    const newWindowStart = currentPage * WINDOW_SIZE;
-
-    const newGrid = updateDisplayGrid(newHistory, newWindowStart);
-
-    const newGameState = {
-      ...gameState,
-      grid: newGrid,
-      history: newHistory,
-      windowStart: newWindowStart,
-      totalPredictions: newTotalPredictions,
-      correctPredictions: newCorrectPredictions,
-      isViewingHistory: false,
-      predictionStats: gameState.predictionStats.slice(0, -1), // 移除最后一个统计记录
-    };
-
-    setGameState(newGameState);
-
-    // 同步更新到3x16矩阵
-    removeLastColorFromMatrix();
-
-    setNextPosition(lastMove.position);
-    setLastPosition(newHistory.length > 0 ? newHistory[newHistory.length - 1].position : null);
-
-    // 保存更新后的状态到数据库
-    try {
-      await storage.saveGameStateByDate(newGameState, selectedDate);
     } catch (error) {
-      console.error('Failed to save game state after undo:', error);
-    }
-  }, [gameState, selectedDate, removeLastColorFromMatrix]);
-
-  const handleCellDelete = useCallback(async (position: Position) => {
-    if (gameState.isViewingHistory) return;
-
-    const index = gameState.history.findIndex(
-      move => move.position.row === position.row && move.position.col === position.col
-    );
-
-    if (index === -1) return;
-
-    const newHistory = gameState.history.slice(0, index);
-
-    let newTotalPredictions = gameState.totalPredictions;
-    let newCorrectPredictions = gameState.correctPredictions;
-
-    const deletedMove = gameState.history[index];
-    if (deletedMove.prediction) {
-      newTotalPredictions--;
-      if (deletedMove.prediction.isCorrect) {
-        newCorrectPredictions--;
-      }
-    }
-
-    const newWindowStart = Math.max(0, Math.min(gameState.windowStart, newHistory.length - WINDOW_SIZE));
-    const newGrid = updateDisplayGrid(newHistory, newWindowStart);
-
-    const newGameState = {
-      ...gameState,
-      grid: newGrid,
-      history: newHistory,
-      windowStart: newWindowStart,
-      totalPredictions: newTotalPredictions,
-      correctPredictions: newCorrectPredictions,
-      isViewingHistory: false,
-    };
-
-    setGameState(newGameState);
-    setNextPosition(position);
-    setLastPosition(newHistory.length > 0 ? newHistory[newHistory.length - 1].position : null);
-
-    // 保存更新后的状态到数据库
-    try {
-      await storage.saveGameStateByDate(newGameState, selectedDate);
-    } catch (error) {
-      console.error('Failed to save game state after cell delete:', error);
-    }
-  }, [gameState, updateDisplayGrid, selectedDate]);
-
-  const handleWindowChange = useCallback((newStart: number) => {
-    // 计算总页数
-    const totalPages = Math.ceil(gameState.history.length / WINDOW_SIZE);
-
-    // 计算目标页码
-    const targetPage = Math.floor(newStart / WINDOW_SIZE);
-
-    // 确保页码在有效范围内
-    const validPage = Math.min(targetPage, totalPages - 1);
-
-    // 计算实际的起始位置
-    const validStart = validPage * WINDOW_SIZE;
-
-    console.log('Page change:', {
-      historyLength: gameState.history.length,
-      totalPages,
-      targetPage,
-      validPage,
-      validStart
-    });
-
-    // 更新游戏状态
-    setGameState(prev => ({
-      ...prev,
-      windowStart: validStart,
-      grid: updateDisplayGrid(prev.history, validStart),
-      isViewingHistory: validStart < prev.history.length - WINDOW_SIZE
-    }));
-  }, [gameState.history.length]);
-
-  const handleReturnToLatest = useCallback(() => {
-    const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
-    const newGrid = updateDisplayGrid(gameState.history, maxStart);
-
-    setGameState(prev => ({
-      ...prev,
-      grid: newGrid,
-      windowStart: maxStart,
-      isViewingHistory: false,
-    }));
-  }, [gameState.history, updateDisplayGrid]);
-
-  const handleClear = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      await storage.clearAllData();
-      setGameState({
-        grid: createEmptyGrid(),
-        history: [],
-        windowStart: 0,
-        totalPredictions: 0,
-        correctPredictions: 0,
-        isViewingHistory: false,
-        predictionStats: []
-      });
-      setNextPosition({ row: 0, col: 0 });
-      setLastPosition(null);
-      setAlertMessage('游戏数据已清空');
-      setAlertType('success' as 'info' | 'warning' | 'error');
-      setShowAlert(true);
-    } catch (error) {
-      console.error('Failed to clear data:', error);
-      setAlertMessage('清空数据失败');
-      setAlertType('error' as 'info' | 'warning' | 'error');
+      console.error('Error loading session data:', error);
+      setAlertMessage('加载会话数据时出错');
+      setAlertType('error');
       setShowAlert(true);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedDate, latestSessionId, currentSessionId, createEmptyGrid, calculateGrid, today]);
 
-  // 计算预测准确率
-  const calculateAccuracy = useCallback(() => {
-    if (gameState.totalPredictions === 0) return 0;
-    return (gameState.correctPredictions / gameState.totalPredictions) * 100;
-  }, [gameState.correctPredictions, gameState.totalPredictions]);
-
-  // 验证配置是否完整
-  const isValidConfig = (config: SequenceConfig): boolean => {
-    return typeof config.isEnabled === 'boolean' &&
-      typeof config.length === 'number' &&
-      config.length >= 4 && config.length <= 9;
-  };
-
-  // 序列长度选项
-  // @ts-ignore
-  const sequenceLengthOptions = [
-    { value: 3, label: '3' },
-    { value: 4, label: '4' },
-    { value: 5, label: '5' },
-    { value: 6, label: '6' },
-    { value: 7, label: '7' },
-    { value: 8, label: '8' },
-    { value: 9, label: '9' }
-  ]; // @ts-ignore
-
-  // 确保序列长度在有效范围内
-  useEffect(() => {
-    if (currentSequenceConfig.length < 4) {
-      handleSequenceConfigChange({
-        ...currentSequenceConfig,
-        length: 4
-      });
-    }
-  }, []); // 仅在组件挂载时执行一次
-
-  // 更新序列配置
-  const handleSequenceConfigChange = (config: Partial<SequenceConfig>) => {
-    // 保持现有配置的其他字段
-    const newConfig = {
-      ...currentSequenceConfig,
-      ...config
-    };
-
-    if (!isValidConfig(newConfig)) {
-      console.error('Invalid sequence config:', newConfig);
-      return;
-    }
-
-    setCurrentSequenceConfig(newConfig);
-    predictor.updateConfig(newConfig);
-
-    // 每次配置改变都重新计算预测
-    if (gameState.history.length >= newConfig.length - 1) {
-      const prediction = predictor.predictNextColor();
-      if (prediction) {
-        setPredictionDetails({
-          color: prediction.color,
-          probability: prediction.probability,
-          matchCount: prediction.matchCount,
-          isLoading: false
-        });
-        setPredictedColor(prediction.color);
-        setPredictedPosition(nextPosition);
-        setPredictedProbability(prediction.probability);
-      } else {
-        // 清除预测状态
-        setPredictionDetails({
-          color: null,
-          probability: 0,
-          matchCount: 0,
-          isLoading: false
-        });
-        setPredictedColor(null);
-        setPredictedPosition(null);
-        setPredictedProbability(null);
-      }
-    } else {
-      // 历史记录不足，清除预测状态
-      setPredictionDetails({
-        color: null,
-        probability: 0,
-        matchCount: 0,
-        isLoading: false
-      });
-      setPredictedColor(null);
-      setPredictedPosition(null);
-      setPredictedProbability(null);
-    }
-  };
-
-  // 监听配置变化
-  useEffect(() => {
-    if (!isValidConfig(currentSequenceConfig)) {
-      return;
-    }
-
-    // 配置改变时重新计算预测
-    if (currentSequenceConfig.isEnabled && gameState.history.length >= currentSequenceConfig.length - 1) {
-      const prediction = predictor.predictNextColor();
-      if (prediction) {
-        setPredictionDetails({
-          color: prediction.color,
-          probability: prediction.probability,
-          matchCount: prediction.matchCount,
-          isLoading: false
-        });
-        setPredictedColor(prediction.color);
-        setPredictedPosition(nextPosition);
-        setPredictedProbability(prediction.probability);
-      }
-    }
-  }, [currentSequenceConfig, gameState.history.length, predictor, nextPosition]);
-
-  // 获取最近N-1个颜色的辅助函数
-  const getLastNColors = (history: Move[], n: number): DotColor[] => {
-    // 获取 n-1 个颜色，因为最后一个是待预测的
-    return history.slice(-(n - 1)).map(move => move.color);
-  };
-
-  // @ts-ignore
-  const accuracy = calculateAccuracy(); // @ts-ignore
-
-  // 检查每行最后两个小球是否相同
-  const checkLastTwoColors = (row: (string | null)[]) => {
-    if (row.length < 2) return null;
-    const lastTwo = row.filter(color => color !== null).slice(-2);
-    if (lastTwo.length === 2 && lastTwo[0] === lastTwo[1]) {
-      return lastTwo[0];
-    }
-    return null;
-  };
-
-  // 会话管理相关状态和函数
-  const [currentSessionId, setCurrentSessionId] = useState<number>(1);
-  const [latestSessionId, setLatestSessionId] = useState<number | null>(null);
-
-  // 获取日期的最新会话ID
+  // 在日期变化时获取最新会话ID
   const fetchLatestSessionId = useCallback(async (date: string) => {
     try {
       const { data, error } = await supabase
@@ -943,6 +732,10 @@ const App: React.FC = () => {
       setLatestSessionId(null);
     }
   }, []);
+
+  useEffect(() => {
+    fetchLatestSessionId(selectedDate);
+  }, [selectedDate, fetchLatestSessionId]);
 
   // 获取可用会话列表
   const fetchAvailableSessions = useCallback(async () => {
@@ -985,51 +778,84 @@ const App: React.FC = () => {
     }
   }, [selectedDate, currentSessionId, isRecordMode]);
 
-  // 处理会话选择
-  const handleSessionChange = useCallback(async (sessionId: number) => {
-    setSelectedSession(sessionId);
-    setIsLoading(true);
-    
-    try {
-      // 加载选定会话的数据
-      const { data, error } = await supabase
-        .from('moves')
-        .select('*')
-        .eq('date', selectedDate)
-        .lte('session_id', sessionId)
-        .order('sequence_number', { ascending: true });
+  // 加载初始数据 - 主要针对"新一轮输入中"会话
+  useEffect(() => {
+    const loadInitialData = async () => {
+      // 如果是"新一轮输入中"会话，只加载未终止的数据
+      if (selectedSession === currentSessionId) {
+        setIsLoading(true);
+        try {
+          console.log('初始化加载数据 - 查询条件:', { 
+            selectedDate, 
+            latestSessionId, 
+            currentSessionId,
+            condition: `session_id > ${latestSessionId || 0}`
+          });
 
-      if (error) throw error;
+          // 查询大于latest_session_id的数据（未终止的当前会话数据）
+          const { data, error } = await supabase
+            .from('moves')
+            .select('*')
+            .eq('date', selectedDate)
+            .gt('session_id', latestSessionId || 0)  // 大于latest_session_id的数据
+            .order('sequence_number', { ascending: true });
 
-      const moves = data.map(move => ({
-        position: move.position,
-        color: move.color as DotColor,
-        prediction: move.prediction
-      }));
+          if (error) throw error;
 
-      setAllGameHistory(moves);
-      
-      // 更新游戏状态
-      setGameState(prev => ({
-        ...prev,
-        history: moves,
-        grid: calculateGrid(moves, prev.windowStart),
-        isViewingHistory: false
-      }));
+          // 如果有数据，加载它
+          if (data && data.length > 0) {
+            console.log('加载未终止的当前会话数据:', data.length, data);
+            const moves = data.map(move => ({
+              position: move.position,
+              color: move.color as DotColor,
+              prediction: move.prediction
+            }));
 
-    } catch (error) {
-      console.error('Error loading session data:', error);
-      setAlertMessage('加载会话数据时出错');
-      setAlertType('error');
-      setShowAlert(true);
-    } finally {
-      setIsLoading(false);
+            setAllGameHistory(moves);
+            
+            // 更新游戏状态
+            setGameState(prev => ({
+              ...prev,
+              history: moves,
+              grid: calculateGrid(moves, prev.windowStart),
+              isViewingHistory: false
+            }));
+          } else {
+            console.log('没有未终止的当前会话数据，显示空矩阵');
+            setGameState(prev => ({
+              ...prev,
+              history: [],
+              grid: createEmptyGrid(),
+              windowStart: 0,
+              isViewingHistory: false
+            }));
+            
+            // 清空历史记录
+            setAllGameHistory([]);
+          }
+        } catch (error) {
+          console.error('Error loading initial data:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    // 确保latestSessionId已加载完成后再加载数据
+    if (latestSessionId !== undefined) {
+      loadInitialData();
     }
-  }, [selectedDate]);
+  }, [selectedDate, selectedSession, currentSessionId, latestSessionId, calculateGrid, createEmptyGrid]);
 
   // 终止当前会话
   const handleEndSession = async () => {
     try {
+      console.log('终止会话前状态:', {
+        selectedDate,
+        currentSessionId,
+        latestSessionId
+      });
+
       // 1. 检查记录是否存在
       const { data: existingRecord } = await supabase
         .from('daily_records')
@@ -1068,6 +894,12 @@ const App: React.FC = () => {
       setCurrentSessionId(prev => prev + 1);
       setSelectedSession(prev => prev + 1);
       
+      console.log('终止会话后状态:', {
+        新latestSessionId: currentSessionId,
+        新currentSessionId: currentSessionId + 1,
+        新selectedSession: selectedSession + 1
+      });
+      
       // 重置状态
       handlePatternReset();
       setGameState(prev => ({
@@ -1077,6 +909,9 @@ const App: React.FC = () => {
         windowStart: 0,
         isViewingHistory: false
       }));
+
+      // 清除矩阵数据
+      setMatrixData(createEmptyMatrix());
 
       // 显示成功提示
       setAlertMessage('会话已终止，可以开始新的输入');
@@ -1090,17 +925,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 在日期变化时获取最新会话ID
-  useEffect(() => {
-    fetchLatestSessionId(selectedDate);
-  }, [selectedDate, fetchLatestSessionId]);
-
-  // 在日期变化时获取会话列表
-  useEffect(() => {
-    fetchLatestSessionId(selectedDate);
-    fetchAvailableSessions();
-  }, [selectedDate, fetchLatestSessionId, fetchAvailableSessions]);
-
   // 添加初始化会话的函数
   const initializeSession = useCallback(async () => {
     if (!isRecordMode) return;
@@ -1112,7 +936,7 @@ const App: React.FC = () => {
         .select('latest_session_id')
         .eq('date', selectedDate)
         .single();
-
+      
       let newSessionId = 1;  // 默认为 1
 
       // 2. 根据不同情况设置会话ID
@@ -1172,25 +996,84 @@ const App: React.FC = () => {
     prediction: any,
     sequenceNumber: number
   ) => {
+    const sessionIdToUse = getSessionIdToUse();
+    console.log('保存移动记录，使用会话ID:', sessionIdToUse, {
+      当前模式: isRecordMode ? '录入模式' : '预览模式',
+      当前会话ID: currentSessionId,
+      选中会话ID: selectedSession
+    });
+    
     try {
-      // 直接使用当前的 session_id 保存移动记录
-      const { error } = await supabase.from('moves').insert({
-        date: selectedDate,
-        position,
-        color,
-        prediction,
-        sequence_number: sequenceNumber,
-        session_id: currentSessionId  // 使用已经初始化好的 session_id
-      });
+      // 使用upsert代替insert，确保session_id被正确设置
+      const { data, error } = await supabase
+        .from('moves')
+        .upsert({
+          date: selectedDate,
+          position: position,
+          color: color,
+          prediction: prediction,
+          sequence_number: sequenceNumber,
+          session_id: sessionIdToUse  // 明确设置session_id
+        });
 
       if (error) throw error;
+      
+      // 验证保存是否成功
+      try {
+        const { data: verifyData, error: verifyError } = await supabase
+          .from('moves')
+          .select('session_id')
+          .eq('date', selectedDate)
+          .eq('sequence_number', sequenceNumber)
+          .single();
+          
+        if (verifyError) {
+          console.error('验证保存时出错:', verifyError);
+        } else {
+          console.log('验证保存结果:', {
+            实际保存的会话ID: verifyData?.session_id,
+            预期会话ID: sessionIdToUse,
+            是否一致: verifyData?.session_id === sessionIdToUse ? '✓ 一致' : '✗ 不一致'
+          });
+        }
+      } catch (verifyError) {
+        console.error('验证过程出错:', verifyError);
+      }
+      
     } catch (error) {
-      console.error('Error saving move:', error);
+      console.error('保存移动记录时出错:', error);
       setAlertMessage('保存移动时出错');
       setAlertType('error');
       setShowAlert(true);
     }
-  }, [selectedDate, currentSessionId]);
+  }, [selectedDate, getSessionIdToUse]);
+
+  // 序列配置变更
+  const handleSequenceConfigChange = useCallback((newConfig: SequenceConfig) => {
+    setCurrentSequenceConfig(newConfig);
+    
+    // 更新预测器的序列长度
+    predictor.setSequenceLength(newConfig.length);
+    
+    // 如果启用了预测且有历史记录，尝试重新预测
+    if (newConfig.isEnabled && gameState.history.length > 0) {
+      const nextEmpty = findNextEmptyPosition(gameState.grid);
+      if (nextEmpty) {
+        debouncedPredict([...allGameHistory, ...gameState.history], nextEmpty);
+      }
+    } else {
+      // 如果禁用了预测，清除预测状态
+      setPredictedColor(null);
+      setPredictedPosition(null);
+      setPredictedProbability(null);
+    }
+  }, [gameState, allGameHistory, debouncedPredict, findNextEmptyPosition, predictor]);
+
+  // 获取历史记录中最后N个颜色
+  const getLastNColors = (history: Move[], n: number): DotColor[] => {
+    const colors = history.map(move => move.color);
+    return colors.slice(-n);
+  };
 
   // 从当天历史数据初始化矩阵
   useEffect(() => {
@@ -1224,6 +1107,194 @@ const App: React.FC = () => {
       setMatrixData(newMatrix);
     }
   }, [gameState.history, isLoading]);
+
+  // 检查行中最后两个颜色的函数
+  const checkLastTwoColors = useCallback((row: (DotColor | null)[]) => {
+    const nonNullColors = row.filter(color => color !== null) as DotColor[];
+    if (nonNullColors.length < 2) return null;
+    
+    const lastTwoColors = nonNullColors.slice(-2);
+    
+    // 如果最后两个颜色相同，返回该颜色，否则返回null
+    return lastTwoColors[0] === lastTwoColors[1] ? lastTwoColors[0] : null;
+  }, []);
+
+  // 删除指定位置的点
+  const handleCellDelete = useCallback(async (position: Position) => {
+    if (!isRecordMode || gameState.isViewingHistory) {
+      setAlertMessage('预览模式下不能删除');
+      setAlertType('warning');
+      setShowAlert(true);
+      return;
+    }
+
+    // 1. 查找要删除的位置在历史记录中的索引
+    const index = gameState.history.findIndex(
+      move => move.position.row === position.row && move.position.col === position.col
+    );
+
+    if (index === -1) {
+      setAlertMessage('找不到要删除的点');
+      setAlertType('warning');
+      setShowAlert(true);
+      return;
+    }
+
+    // 2. 更新本地状态
+    const newHistory = [...gameState.history];
+    newHistory.splice(index, 1); // 移除指定索引的操作
+
+    setGameState(prev => ({
+      ...prev,
+      history: newHistory,
+      grid: calculateGrid(newHistory, prev.windowStart)
+    }));
+
+    // 3. 从数据库删除对应记录
+    try {
+      // 找到历史记录中对应的序号
+      const sequenceNumber = index + 1;
+      
+      const { error } = await supabase
+        .from('moves')
+        .delete()
+        .eq('date', selectedDate)
+        .eq('session_id', currentSessionId)
+        .eq('sequence_number', sequenceNumber);
+
+      if (error) throw error;
+      
+      // 4. 重新排序后续的序号
+      // 这里可能需要额外的逻辑来处理序号重排
+    } catch (error) {
+      console.error('Error deleting move:', error);
+      setAlertMessage('删除操作失败');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  }, [isRecordMode, gameState, selectedDate, currentSessionId, calculateGrid]);
+
+  // 清除操作
+  const handleClear = useCallback(async () => {
+    if (!isRecordMode || gameState.isViewingHistory) {
+      setAlertMessage('预览模式下不能清空');
+      setAlertType('warning');
+      setShowAlert(true);
+      return;
+    }
+
+    const shouldClear = window.confirm("确定要清空当前会话中的所有数据吗？");
+    if (!shouldClear) return;
+
+    // 1. 从数据库删除当前会话的所有记录
+    try {
+      const { error } = await supabase
+        .from('moves')
+        .delete()
+        .eq('date', selectedDate)
+        .eq('session_id', currentSessionId);
+
+      if (error) throw error;
+
+      // 2. 重置本地状态
+      setGameState(prev => ({
+        ...prev,
+        history: [],
+        grid: calculateGrid([], 0),
+        windowStart: 0,
+        isViewingHistory: false
+      }));
+
+      // 3. 清空矩阵数据
+      setMatrixData(createEmptyMatrix());
+
+      setAlertMessage('已清空当前会话');
+      setAlertType('info');
+      setShowAlert(true);
+    } catch (error) {
+      console.error('Error clearing session:', error);
+      setAlertMessage('清空会话失败');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  }, [isRecordMode, gameState.isViewingHistory, selectedDate, currentSessionId, calculateGrid, createEmptyMatrix]);
+
+  // 撤销上一步操作
+  const handleUndo = useCallback(async () => {
+    if (!isRecordMode || gameState.isViewingHistory) {
+      setAlertMessage('预览模式下不能撤销');
+      setAlertType('warning');
+      setShowAlert(true);
+      return;
+    }
+
+    if (gameState.history.length === 0) {
+      setAlertMessage('没有可撤销的操作');
+      setAlertType('info');
+      setShowAlert(true);
+      return;
+    }
+
+    // 1. 更新本地状态
+    const newHistory = [...gameState.history];
+    newHistory.pop(); // 移除最后一个操作
+
+    setGameState(prev => ({
+      ...prev,
+      history: newHistory,
+      grid: calculateGrid(newHistory, prev.windowStart)
+    }));
+
+    // 2. 从数据库删除最后一条记录
+    try {
+      const { error } = await supabase
+        .from('moves')
+        .delete()
+        .eq('date', selectedDate)
+        .eq('session_id', currentSessionId)
+        .eq('sequence_number', gameState.history.length);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error undoing move:', error);
+      setAlertMessage('撤销操作失败');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  }, [isRecordMode, gameState, selectedDate, currentSessionId, calculateGrid]);
+
+  // 窗口位置变更处理
+  const handleWindowChange = useCallback((newStart: number) => {
+    setGameState(prev => ({
+      ...prev,
+      windowStart: newStart,
+      isViewingHistory: true
+    }));
+  }, []);
+
+  // 返回最新状态
+  const handleReturnToLatest = useCallback(() => {
+    const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
+    
+    setGameState(prev => ({
+      ...prev,
+      windowStart: maxStart,
+      isViewingHistory: false
+    }));
+  }, [gameState.history.length]);
+
+  // 在日期变化时获取会话列表
+  useEffect(() => {
+    fetchLatestSessionId(selectedDate);
+    fetchAvailableSessions();
+  }, [selectedDate, fetchLatestSessionId, fetchAvailableSessions]);
+
+  // 初始化组件
+  useEffect(() => {
+    // 在组件首次加载时初始化
+    fetchLatestSessionId(selectedDate);
+    fetchAvailableSessions();
+  }, [selectedDate, fetchLatestSessionId, fetchAvailableSessions]);
 
   if (isLoading) {
     return <LoadingScreen />;
