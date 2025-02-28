@@ -751,7 +751,7 @@ const App: React.FC = () => {
       // 2. 生成会话列表
       let sessions = [];
       if (record && record.latest_session_id !== null) {
-        // 生成从1到latest_session_id的数组
+        // 当日期有记录，且 latest_session_id 不为 null
         sessions = Array.from(
           { length: record.latest_session_id }, 
           (_, i) => i + 1
@@ -1321,7 +1321,7 @@ const App: React.FC = () => {
                 <h2 className="text-lg font-medium text-gray-900">连续模式预测</h2>
                 <div className="flex items-center space-x-4">
                   <span className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded">设定</span>
-                  <span className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded">规则</span>
+                  <span className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded">75%规则</span>
                 </div>
               </div>
               <div className="p-6">
@@ -1376,20 +1376,69 @@ const App: React.FC = () => {
                   </div>
                   {/* 规则列 */}
                   <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
-                    {matrixData.map((row, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          width: '40px',
-                          height: '40px',
-                        }}
-                        className="rounded-full cursor-pointer border-2 border-blue-400 bg-gradient-to-b from-gray-50 to-white
-                          shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
-                          hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
-                          active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]
-                          transition-all duration-200 ease-in-out"
-                      />
-                    ))}
+                    {[0, 1, 2].map((index) => {
+                      // 根据索引决定显示什么
+                      if (index === 0 && rule75Prediction.currentSequence[0]) {
+                        // 第一行显示当前序列的第一个小球
+                        return (
+                          <div
+                            key={index}
+                            style={{ width: '40px', height: '40px' }}
+                            className={`rounded-full cursor-pointer border-2 relative
+                              ${rule75Prediction.currentSequence[0] === 'red' 
+                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400' 
+                                : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'}
+                              shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                              transition-all duration-200 ease-in-out`}
+                          />
+                        );
+                      } else if (index === 1 && rule75Prediction.currentSequence[1]) {
+                        // 第二行显示当前序列的第二个小球
+                        return (
+                          <div
+                            key={index}
+                            style={{ width: '40px', height: '40px' }}
+                            className={`rounded-full cursor-pointer border-2 relative
+                              ${rule75Prediction.currentSequence[1] === 'red' 
+                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400' 
+                                : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'}
+                              shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                              transition-all duration-200 ease-in-out`}
+                          />
+                        );
+                      } else if (index === 2 && rule75Prediction.predictedColor) {
+                        // 第三行显示预测的下一个小球
+                        return (
+                          <div
+                            key={index}
+                            style={{ 
+                              width: '40px', 
+                              height: '40px',
+                              animation: 'colorPulse 3s ease-in-out infinite'
+                            }}
+                            className={`rounded-full cursor-pointer border-2 relative
+                              ${rule75Prediction.predictedColor === 'red' 
+                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400' 
+                                : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'}
+                              shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                              transition-all duration-200 ease-in-out`}
+                          />
+                        );
+                      } else {
+                        // 默认显示空白小球
+                        return (
+                          <div
+                            key={index}
+                            style={{ width: '40px', height: '40px' }}
+                            className="rounded-full cursor-pointer border-2 border-blue-400 bg-gradient-to-b from-gray-50 to-white
+                              shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                              hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
+                              active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]
+                              transition-all duration-200 ease-in-out"
+                          />
+                        );
+                      }
+                    })}
                   </div>
                 </div>
               </div>
