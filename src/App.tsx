@@ -1409,20 +1409,29 @@ const App: React.FC = () => {
                       } else if (index === 2 && rule75Prediction.predictedColor) {
                         // 第三行显示预测的下一个小球
                         return (
-                          <div
-                            key={index}
-                            style={{ 
-                              width: '40px', 
-                              height: '40px',
-                              animation: 'colorPulse 3s ease-in-out infinite'
-                            }}
-                            className={`rounded-full cursor-pointer border-2 relative
-                              ${rule75Prediction.predictedColor === 'red' 
-                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400' 
-                                : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'}
-                              shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
-                              transition-all duration-200 ease-in-out`}
-                          />
+                          <div className="relative">
+                            <div
+                              key={index}
+                              style={{ 
+                                width: '40px', 
+                                height: '40px',
+                                animation: 'colorPulse 3s ease-in-out infinite'
+                              }}
+                              className={`rounded-full cursor-pointer border-2 relative
+                                ${rule75Prediction.predictedColor === 'red' 
+                                  ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400' 
+                                  : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'}
+                                shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                                transition-all duration-200 ease-in-out`}
+                            />
+                            {/* 蓝色方框呼吸灯效果 */}
+                            <div 
+                              className="absolute inset-[-4px] rounded-full border-2 border-blue-400"
+                              style={{
+                                animation: 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                              }}
+                            />
+                          </div>
                         );
                       } else {
                         // 默认显示空白小球
