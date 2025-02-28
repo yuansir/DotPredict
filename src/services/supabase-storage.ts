@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { GameState, Move, DotColor, Position } from '../types';
 
 export class SupabaseStorageService {
-  async saveGameStateByDate(state: GameState, date: string): Promise<void> {
+  async saveGameStateByDate(state: GameState, date: string, sessionId: number): Promise<void> {
     try {
       // 1. 保存或更新日期记录
       const { error: recordError } = await supabase
@@ -29,18 +29,23 @@ export class SupabaseStorageService {
         color: move.color,
         sequence_number: index,
         prediction: move.prediction,
-        created_at: new Date(move.timestamp).toISOString()
+        created_at: new Date(move.timestamp).toISOString(),
+        session_id: sessionId  // 添加会话ID
       }));
 
       // 先删除当天的所有记录，然后重新插入
       const { error: deleteError } = await supabase
         .from('moves')
         .delete()
-        .eq('date', date);
+        .eq('date', date)
+        .eq('session_id', sessionId);  // 只删除当前会话的记录
 
       if (deleteError) throw deleteError;
 
       if (moves.length > 0) {
+        // 添加日志
+        console.log('保存游戏状态，使用会话ID:', sessionId, '总记录数:', moves.length);
+        
         const { error: movesError } = await supabase
           .from('moves')
           .insert(moves);

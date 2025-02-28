@@ -88,7 +88,6 @@ export const DateSelector: React.FC<DateSelectorProps> = ({
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700"
               value={selectedSession || currentSessionId}
               onChange={(e) => onSessionChange(Number(e.target.value))}
-              disabled={!isRecordMode}
             >
               {availableSessions.map(sessionId => (
                 <option key={sessionId} value={sessionId}>
