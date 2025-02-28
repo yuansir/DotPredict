@@ -14,34 +14,6 @@ import { SequencePredictor, SequenceConfig } from './utils/sequencePredictor';
 import { supabase, testConnection } from './lib/supabase';
 import { PredictionSequenceDisplay } from './components/PredictionSequenceDisplay';
 
-const GRID_SIZE = 8;
-const WINDOW_SIZE = GRID_SIZE * GRID_SIZE;
-
-const createEmptyGrid = () =>
-  Array(GRID_SIZE)
-    .fill(null)
-    .map(() => Array(GRID_SIZE).fill(null));
-
-const calculateGrid = (history: Move[], windowStart: number) => {
-  const newGrid = createEmptyGrid();
-
-  // 获取当前页的移动记录
-  const displayMoves = history.slice(windowStart, windowStart + WINDOW_SIZE);
-
-  // 处理当前页的移动记录
-  displayMoves.forEach((move, index) => {
-    // 计算在网格中的位置（纵向填充）
-    const col = Math.floor(index / GRID_SIZE);  // 先确定在第几列
-    const row = index % GRID_SIZE;              // 再确定在这列的第几行
-
-    if (row < GRID_SIZE && col < GRID_SIZE) {
-      newGrid[row][col] = move.color;
-    }
-  });
-
-  return newGrid;
-};
-
 const App: React.FC = () => {
   // 会话管理相关状态和函数
   const [currentSessionId, setCurrentSessionId] = useState<number>(1);
@@ -57,12 +29,9 @@ const App: React.FC = () => {
 
   const [gameState, setGameState] = useState<GameState>(() => {
     const initialState: GameState = {
-      grid: createEmptyGrid(),
       history: [],
-      windowStart: 0,
       totalPredictions: 0,
       correctPredictions: 0,
-      isViewingHistory: false,
       predictionStats: [],
     };
     return initialState;
@@ -117,11 +86,10 @@ const App: React.FC = () => {
   const PATTERN_COLS = 16;
 
   // 初始化空矩阵函数
-  const createEmptyMatrix = () => {
-    return Array(PATTERN_ROWS).fill(null).map(() =>
-      Array(PATTERN_COLS).fill(null)
-    );
-  };
+  const createEmptyMatrix = useCallback(() => {
+    const newMatrix: (DotColor | null)[][] = Array(PATTERN_ROWS).fill(null).map(() => Array(PATTERN_COLS).fill(null));
+    return newMatrix;
+  }, []);
 
   // 矩阵状态
   const [matrixData, setMatrixData] = useState(createEmptyMatrix());
@@ -212,29 +180,20 @@ const App: React.FC = () => {
   const handleModeChange = (mode: boolean) => {
     setIsRecordMode(mode);
     if (mode) {
-      const nextEmpty = findNextEmptyPosition(gameState.grid);
+      const nextEmpty = { row: 0, col: 0 };
       if (nextEmpty) {
         setNextPosition(nextEmpty);
-      }
-      if (gameState.isViewingHistory) {
-        handleReturnToLatest();
       }
     }
   };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+      if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         handleUndo();
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        handleWindowChange(Math.max(0, gameState.windowStart - GRID_SIZE));
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
-        handleWindowChange(Math.min(maxStart, gameState.windowStart + GRID_SIZE));
       }
+      // 移除左右箭头键处理，因为它们用于8x8矩阵的窗口滚动
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -249,20 +208,15 @@ const App: React.FC = () => {
         const savedState = await storage.loadGameStateByDate(selectedDate);
 
         if (savedState) {
-          // 确保 windowStart 是从第一页开始
-          const initialWindowStart = 0;
-
+          // 移除windowStart相关代码
           const stateWithStats = {
             ...savedState,
-            windowStart: initialWindowStart,  // 强制从第一页开始
             predictionStats: savedState.predictionStats || [],
-            // 使用独立函数计算初始网格
-            grid: calculateGrid(savedState.history, initialWindowStart)
           };
 
           setGameState(stateWithStats);
 
-          const nextEmpty = findNextEmptyPosition(stateWithStats.grid);
+          const nextEmpty = { row: 0, col: 0 };
           if (nextEmpty) {
             setNextPosition(nextEmpty);
           }
@@ -271,12 +225,9 @@ const App: React.FC = () => {
           }
         } else {
           setGameState({
-            grid: createEmptyGrid(),
             history: [],
-            windowStart: 0,
             totalPredictions: 0,
             correctPredictions: 0,
-            isViewingHistory: false,
             predictionStats: []
           });
           setNextPosition({ row: 0, col: 0 });
@@ -285,12 +236,9 @@ const App: React.FC = () => {
       } catch (error) {
         console.error('Failed to load game state:', error);
         setGameState({
-          grid: createEmptyGrid(),
           history: [],
-          windowStart: 0,
           totalPredictions: 0,
           correctPredictions: 0,
-          isViewingHistory: false,
           predictionStats: []
         });
         setNextPosition({ row: 0, col: 0 });
@@ -349,11 +297,12 @@ const App: React.FC = () => {
   useEffect(() => {
     if (allGameHistory.length > 0) {
       const updatedHistory = [...allGameHistory, ...gameState.history];
-      console.log('更新预测器的历史数据:', {
-        allGameHistoryLength: allGameHistory.length,
-        currentGameHistoryLength: gameState.history.length,
-        totalLength: updatedHistory.length
-      });
+      // 只在开发环境下输出日志
+      if (process.env.NODE_ENV === 'development') {
+        console.log('更新预测器的历史数据:', {
+          totalLength: updatedHistory.length
+        });
+      }
       predictor.updateHistory(updatedHistory);
     }
   }, [gameState.history, allGameHistory]);
@@ -361,18 +310,26 @@ const App: React.FC = () => {
   // 自定义防抖 Hook
   const useDebouncedCallback = (callback: Function, delay: number) => {
     const timeoutRef = useRef<NodeJS.Timeout>();
+    const callbackRef = useRef<Function>();
+    
+    // 更新回调引用，避免闭包问题
+    useEffect(() => {
+      callbackRef.current = callback;
+    }, [callback]);
 
     return useCallback((...args: any[]) => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
       timeoutRef.current = setTimeout(() => {
-        callback(...args);
+        if (callbackRef.current) {
+          callbackRef.current(...args);
+        }
       }, delay);
-    }, [callback, delay]);
+    }, [delay]);
   };
 
-  // 使用防抖的预测函数
+  // 使用防抖的预测函数 - 增加延迟到300ms，减少频繁调用
   const debouncedPredict = useDebouncedCallback((history: Move[], nextPos: Position | null) => {
     if (history.length >= currentSequenceConfig.length && nextPos) {
       // 开始预测时设置loading状态
@@ -380,7 +337,14 @@ const App: React.FC = () => {
 
       const prediction = predictor.predictNextColor();
       if (prediction) {
-        console.log('防抖预测结果:', prediction);
+        // 只在开发环境下输出日志
+        if (process.env.NODE_ENV === 'development') {
+          console.log('预测结果:', {
+            color: prediction.color,
+            probability: prediction.probability.toFixed(2)
+          });
+        }
+        
         setPredictionDetails({
           color: prediction.color,
           probability: prediction.probability,
@@ -402,7 +366,7 @@ const App: React.FC = () => {
         setPredictedProbability(null);
       }
     }
-  }, 100);
+  }, 300); // 增加到300ms减少频繁调用
 
   // 75%规则预测逻辑
   const predict75Rule = (history: DotColor[]) => {
@@ -436,169 +400,92 @@ const App: React.FC = () => {
     setRule75Prediction(newPrediction);
   }, [gameState.history]);
 
-  const handleCellClick = async (position: Position) => {
-    if (!isRecordMode || gameState.isViewingHistory) return;
+  // 获取当前应使用的会话ID
+  const getSessionIdToUse = useCallback(() => {
+    return isRecordMode
+      ? currentSessionId
+      : (selectedSession || 1);
+  }, [isRecordMode, currentSessionId, selectedSession]);
 
-    // 获取当前移动的序号
-    const sequenceNumber = gameState.history.length + 1;
-    const move: Move = {
-      position,
-      color: selectedColor,
-      timestamp: Date.now(),
-    };
-
-    // 如果有预测，记录预测结果
-    if (predictedPosition && predictedColor &&
-      position.row === predictedPosition.row &&
-      position.col === predictedPosition.col) {
-      move.prediction = {
-        color: predictedColor,
-        isCorrect: predictedColor === selectedColor,
-        probability: predictedProbability || 0
-      };
-
-      // 更新预测统计
-      const newState = {
-        ...gameState,
-        totalPredictions: gameState.totalPredictions + 1,
-        correctPredictions: gameState.correctPredictions + (predictedColor === selectedColor ? 1 : 0)
-      };
-      setGameState(newState);
-    }
-
-    // 保存移动记录到数据库
-    await saveMove(position, selectedColor, move.prediction, sequenceNumber);
-
-    // 更新游戏状态
-    setGameState(prev => ({
-      ...prev,
-      history: [...prev.history, move],
-      grid: calculateGrid([...prev.history, move], prev.windowStart)
-    }));
-
-    // 更新最后点击的位置
-    setLastPosition(position);
-
-    // 如果启用了预测，尝试预测下一步
-    if (currentSequenceConfig.isEnabled && currentSequenceConfig.length > 0) {
-      const nextEmpty = findNextEmptyPosition(gameState.grid);
-      if (nextEmpty) {
-        debouncedPredict([...allGameHistory, ...gameState.history, move], nextEmpty);
-      }
-    }
-  };
-
-  const findNextEmptyPosition = (grid: (DotColor | null)[][]): Position | null => {
-    for (let col = 0; col < GRID_SIZE; col++) {
-      for (let row = 0; row < GRID_SIZE; row++) {
-        if (grid[row][col] === null) {
-          return { row, col };
-        }
-      }
-    }
-    return { row: 0, col: 0 };
-  };
-
+  // 颜色选择处理函数
   const handleColorSelect = useCallback((color: DotColor) => {
-    if (!isRecordMode || gameState.isViewingHistory) {
+    if (!isRecordMode) {
       setAlertMessage('预览模式下不能修改数据');
-      setAlertType('warning' as 'info' | 'warning' | 'error');
       setShowAlert(true);
       return;
     }
 
-    setSelectedColor(color);
-    const nextPosition = findNextEmptyPosition(gameState.grid);
+    // 创建一个新的处理函数，使用新的颜色值
+    const handleClick = async () => {
+      if (!isRecordMode) return;
 
-    if (nextPosition) {
-      const position = nextPosition;
-
-      // 创建一个新的处理函数，使用新的颜色值
-      const handleClick = async () => {
-        if (!isRecordMode || gameState.isViewingHistory) return;
-
-        const newHistory = [...gameState.history];
-        const move: Move = {
-          position,
-          color,  // 使用传入的新颜色
-          timestamp: Date.now(),
-        };
-
-        // 如果有预测，记录预测结果
-        if (predictedPosition && predictedColor &&
-          position.row === predictedPosition.row &&
-          position.col === predictedPosition.col) {
-          move.prediction = {
-            color: predictedColor,
-            isCorrect: predictedColor === color,  // 使用新颜色比较
-            probability: predictedProbability || 0
-          };
-
-          // 更新预测统计
-          const newState = {
-            ...gameState,
-            totalPredictions: gameState.totalPredictions + 1,
-            correctPredictions: gameState.correctPredictions + (predictedColor === color ? 1 : 0)
-          };
-          setGameState(newState);
-        }
-
-        newHistory.push(move);
-
-        // 更新游戏状态
-        const newState = {
-          ...gameState,
-          history: newHistory,
-          grid: calculateGrid(newHistory, gameState.windowStart)
-        };
-
-        setGameState(newState);
-
-        // 同步更新到3x16矩阵
-        addColorToMatrix(color);
-
-        // 找到下一个空位置
-        const nextEmpty = findNextEmptyPosition(newState.grid);
-        if (nextEmpty) {
-          setNextPosition(nextEmpty);
-
-          // 使用防抖的预测函数
-          debouncedPredict([...allGameHistory, ...newHistory], nextEmpty);
-        }
-
-        // 保存状态
-        try {
-          const sessionIdToUse = getSessionIdToUse();
-          await storage.saveGameStateByDate(newState, selectedDate, sessionIdToUse);
-        } catch (error) {
-          console.error('Failed to save game state:', error);
-          setAlertMessage('保存游戏状态失败');
-          setAlertType('error');
-          setShowAlert(true);
-        }
+      // 使用nextPosition作为当前位置
+      const currentPosition = nextPosition;
+      
+      const newHistory = [...gameState.history];
+      const move: Move = {
+        position: currentPosition,
+        color,  // 使用传入的新颜色
+        timestamp: Date.now(),
       };
 
-      // 执行新的处理函数
-      handleClick();
-    }
-  }, [
-    isRecordMode,
-    nextPosition,
-    gameState,
-    predictedPosition,
-    predictedColor,
-    predictedProbability,
-    allGameHistory,
-    selectedDate,
-    addColorToMatrix
-  ]);
+      // 如果有预测，记录预测结果
+      if (predictedPosition && predictedColor &&
+        currentPosition.row === predictedPosition.row &&
+        currentPosition.col === predictedPosition.col) {
+        move.prediction = {
+          color: predictedColor,
+          isCorrect: predictedColor === color,  // 使用新颜色比较
+          probability: predictedProbability || 0
+        };
 
-  // 获取当前应使用的会话ID
-  const getSessionIdToUse = useCallback(() => {
-    return isRecordMode && !gameState.isViewingHistory
-      ? currentSessionId
-      : (selectedSession || 1);
-  }, [isRecordMode, gameState.isViewingHistory, currentSessionId, selectedSession]);
+        // 更新预测统计
+        const newState = {
+          ...gameState,
+          totalPredictions: gameState.totalPredictions + 1,
+          correctPredictions: gameState.correctPredictions + (predictedColor === color ? 1 : 0)
+        };
+        setGameState(newState);
+      }
+
+      newHistory.push(move);
+
+      // 更新游戏状态
+      const newState = {
+        ...gameState,
+        history: newHistory
+      };
+
+      setGameState(newState);
+
+      // 同步更新到3x16矩阵
+      addColorToMatrix(color);
+
+      // 找到下一个空位置
+      const nextEmpty = { row: 0, col: 0 };
+      setNextPosition(nextEmpty);
+
+      // 延迟预测，避免频繁更新
+      setTimeout(() => {
+        // 使用防抖的预测函数
+        debouncedPredict([...allGameHistory, ...newHistory], nextEmpty);
+      }, 100);
+
+      // 保存状态
+      try {
+        const sessionIdToUse = getSessionIdToUse();
+        await storage.saveGameStateByDate(newState, selectedDate, sessionIdToUse);
+      } catch (error) {
+        console.error('Failed to save game state:', error);
+        setAlertMessage('保存游戏状态失败');
+        setAlertType('error');
+        setShowAlert(true);
+      }
+    };
+
+    // 执行新的处理函数
+    handleClick();
+  }, [isRecordMode, gameState, nextPosition, predictedPosition, predictedColor, predictedProbability, addColorToMatrix, allGameHistory, debouncedPredict, getSessionIdToUse, selectedDate, storage]);
 
   // 处理会话选择
   const handleSessionChange = useCallback(async (sessionId: number) => {
@@ -644,8 +531,9 @@ const App: React.FC = () => {
           setGameState(prev => ({
             ...prev,
             history: moves,
-            grid: calculateGrid(moves, prev.windowStart),
-            isViewingHistory: false
+            totalPredictions: 0,
+            correctPredictions: 0,
+            predictionStats: []
           }));
         } else {
           console.log('没有未终止的当前会话数据，显示空矩阵');
@@ -653,9 +541,9 @@ const App: React.FC = () => {
           setGameState(prev => ({
             ...prev,
             history: [],
-            grid: createEmptyGrid(),
-            windowStart: 0,
-            isViewingHistory: false
+            totalPredictions: 0,
+            correctPredictions: 0,
+            predictionStats: []
           }));
           setMatrixData(createEmptyMatrix()); // 清空3x16矩阵
         }
@@ -682,8 +570,9 @@ const App: React.FC = () => {
         setGameState(prev => ({
           ...prev,
           history: moves,
-          grid: calculateGrid(moves, prev.windowStart),
-          isViewingHistory: false
+          totalPredictions: 0,
+          correctPredictions: 0,
+          predictionStats: []
         }));
       }
     } catch (error) {
@@ -812,8 +701,9 @@ const App: React.FC = () => {
             setGameState(prev => ({
               ...prev,
               history: moves,
-              grid: calculateGrid(moves, prev.windowStart),
-              isViewingHistory: false
+              totalPredictions: 0,
+              correctPredictions: 0,
+              predictionStats: []
             }));
           } else {
             console.log('没有未终止的当前会话数据，显示空矩阵');
@@ -821,9 +711,9 @@ const App: React.FC = () => {
             setGameState(prev => ({
               ...prev,
               history: [],
-              grid: createEmptyGrid(),
-              windowStart: 0,
-              isViewingHistory: false
+              totalPredictions: 0,
+              correctPredictions: 0,
+              predictionStats: []
             }));
             setMatrixData(createEmptyMatrix()); // 清空3x16矩阵
           }
@@ -839,7 +729,7 @@ const App: React.FC = () => {
     if (latestSessionId !== undefined) {
       loadInitialData();
     }
-  }, [selectedDate, selectedSession, currentSessionId, latestSessionId, calculateGrid, createEmptyGrid]);
+  }, [selectedDate, selectedSession, currentSessionId, latestSessionId]);
 
   // 终止当前会话
   const handleEndSession = async () => {
@@ -899,9 +789,9 @@ const App: React.FC = () => {
       setGameState(prev => ({
         ...prev,
         history: [],
-        grid: createEmptyGrid(),
-        windowStart: 0,
-        isViewingHistory: false
+        totalPredictions: 0,
+        correctPredictions: 0,
+        predictionStats: []
       }));
 
       // 清除矩阵数据
@@ -961,9 +851,9 @@ const App: React.FC = () => {
       setGameState(prev => ({
         ...prev,
         history: [],
-        grid: createEmptyGrid(),
-        windowStart: 0,
-        isViewingHistory: false
+        totalPredictions: 0,
+        correctPredictions: 0,
+        predictionStats: []
       }));
 
       return newSessionId;
@@ -990,11 +880,11 @@ const App: React.FC = () => {
     sequenceNumber: number
   ) => {
     const sessionIdToUse = getSessionIdToUse();
-    console.log('保存移动记录，使用会话ID:', sessionIdToUse, {
-      当前模式: isRecordMode ? '录入模式' : '预览模式',
-      当前会话ID: currentSessionId,
-      选中会话ID: selectedSession
-    });
+    
+    // 只在开发环境下输出日志
+    if (process.env.NODE_ENV === 'development') {
+      console.log('保存移动记录，使用会话ID:', sessionIdToUse);
+    }
 
     try {
       // 使用upsert代替insert，确保session_id被正确设置
@@ -1022,7 +912,8 @@ const App: React.FC = () => {
 
         if (verifyError) {
           console.error('验证保存时出错:', verifyError);
-        } else {
+        } else if (process.env.NODE_ENV === 'development') {
+          // 只在开发环境下输出详细验证日志
           console.log('验证保存结果:', {
             实际保存的会话ID: verifyData?.session_id,
             预期会话ID: sessionIdToUse,
@@ -1046,21 +937,19 @@ const App: React.FC = () => {
     setCurrentSequenceConfig(newConfig);
 
     // 更新预测器的序列长度
-    predictor.setSequenceLength(newConfig.length);
+    predictor.updateConfig(newConfig);
 
     // 如果启用了预测且有历史记录，尝试重新预测
     if (newConfig.isEnabled && gameState.history.length > 0) {
-      const nextEmpty = findNextEmptyPosition(gameState.grid);
-      if (nextEmpty) {
-        debouncedPredict([...allGameHistory, ...gameState.history], nextEmpty);
-      }
+      // 使用固定位置代替findNextEmptyPosition
+      debouncedPredict([...allGameHistory, ...gameState.history], { row: 0, col: 0 });
     } else {
       // 如果禁用了预测，清除预测状态
       setPredictedColor(null);
       setPredictedPosition(null);
       setPredictedProbability(null);
     }
-  }, [gameState, allGameHistory, debouncedPredict, findNextEmptyPosition, predictor]);
+  }, [gameState, allGameHistory, debouncedPredict, predictor]);
 
   // 获取历史记录中最后N个颜色
   const getLastNColors = (history: Move[], n: number): DotColor[] => {
@@ -1077,11 +966,13 @@ const App: React.FC = () => {
       const startIndex = Math.max(0, history.length - maxBalls);
       const displayHistory = history.slice(startIndex); // 只取最后48个
 
-      console.log('初始化3x16矩阵:', {
-        totalHistory: history.length,
-        displayHistory: displayHistory.length,
-        startIndex
-      });
+      // 只在开发环境下输出日志
+      if (process.env.NODE_ENV === 'development') {
+        console.log('初始化3x16矩阵:', {
+          totalHistory: history.length,
+          displayHistory: displayHistory.length
+        });
+      }
 
       // 重置矩阵
       const newMatrix = createEmptyMatrix();
@@ -1091,10 +982,6 @@ const App: React.FC = () => {
         const col = Math.floor(index / PATTERN_ROWS);
         const row = index % PATTERN_ROWS;
         newMatrix[row][col] = move.color;
-      });
-
-      console.log('初始化后的矩阵:', {
-        matrix: newMatrix.map(row => row.filter(color => color !== null))
       });
 
       setMatrixData(newMatrix);
@@ -1112,61 +999,6 @@ const App: React.FC = () => {
     return lastTwoColors[0] === lastTwoColors[1] ? lastTwoColors[0] : null;
   }, []);
 
-  // 删除指定位置的点
-  const handleCellDelete = useCallback(async (position: Position) => {
-    if (!isRecordMode || gameState.isViewingHistory) {
-      setAlertMessage('预览模式下不能删除');
-      setAlertType('warning');
-      setShowAlert(true);
-      return;
-    }
-
-    // 1. 查找要删除的位置在历史记录中的索引
-    const index = gameState.history.findIndex(
-      move => move.position.row === position.row && move.position.col === position.col
-    );
-
-    if (index === -1) {
-      setAlertMessage('找不到要删除的点');
-      setAlertType('warning');
-      setShowAlert(true);
-      return;
-    }
-
-    // 2. 更新本地状态
-    const newHistory = [...gameState.history];
-    newHistory.splice(index, 1); // 移除指定索引的操作
-
-    setGameState(prev => ({
-      ...prev,
-      history: newHistory,
-      grid: calculateGrid(newHistory, prev.windowStart)
-    }));
-
-    // 3. 从数据库删除对应记录
-    try {
-      // 找到历史记录中对应的序号
-      const sequenceNumber = index + 1;
-
-      const { error } = await supabase
-        .from('moves')
-        .delete()
-        .eq('date', selectedDate)
-        .eq('session_id', currentSessionId)
-        .eq('sequence_number', sequenceNumber);
-
-      if (error) throw error;
-
-      // 4. 重新排序后续的序号
-      // 这里可能需要额外的逻辑来处理序号重排
-    } catch (error) {
-      console.error('Error deleting move:', error);
-      setAlertMessage('删除操作失败');
-      setAlertType('error');
-      setShowAlert(true);
-    }
-  }, [isRecordMode, gameState, selectedDate, currentSessionId, calculateGrid]);
-
   // 清除操作
   const handleClear = useCallback(async () => {
     try {
@@ -1177,9 +1009,9 @@ const App: React.FC = () => {
       setGameState(prev => ({
         ...prev,
         history: [],
-        grid: calculateGrid([], 0),
-        windowStart: 0,
-        isViewingHistory: false
+        totalPredictions: 0,
+        correctPredictions: 0,
+        predictionStats: []
       }));
 
       // 清空矩阵数据
@@ -1205,11 +1037,11 @@ const App: React.FC = () => {
       setAlertType('error');
       setShowAlert(true);
     }
-  }, [calculateGrid, createEmptyMatrix, setCurrentSessionId, setLatestSessionId, setSelectedSession]);
+  }, [setCurrentSessionId, setLatestSessionId, setSelectedSession]);
 
   // 撤销上一步操作
   const handleUndo = useCallback(async () => {
-    if (!isRecordMode || gameState.isViewingHistory) {
+    if (!isRecordMode) {
       setAlertMessage('预览模式下不能撤销');
       setAlertType('warning');
       setShowAlert(true);
@@ -1230,7 +1062,9 @@ const App: React.FC = () => {
     setGameState(prev => ({
       ...prev,
       history: newHistory,
-      grid: calculateGrid(newHistory, prev.windowStart)
+      totalPredictions: 0,
+      correctPredictions: 0,
+      predictionStats: []
     }));
 
     // 2. 从数据库删除最后一条记录
@@ -1249,27 +1083,24 @@ const App: React.FC = () => {
       setAlertType('error');
       setShowAlert(true);
     }
-  }, [isRecordMode, gameState, selectedDate, currentSessionId, calculateGrid]);
+  }, [isRecordMode, gameState, selectedDate, currentSessionId]);
 
-  // 窗口位置变更处理
-  const handleWindowChange = useCallback((newStart: number) => {
-    setGameState(prev => ({
-      ...prev,
-      windowStart: newStart,
-      isViewingHistory: true
-    }));
-  }, []);
+  // 当序列配置变更时
+  useEffect(() => {
+    const newConfig = currentSequenceConfig;
+    predictor.updateConfig(newConfig);
 
-  // 返回最新状态
-  const handleReturnToLatest = useCallback(() => {
-    const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
-
-    setGameState(prev => ({
-      ...prev,
-      windowStart: maxStart,
-      isViewingHistory: false
-    }));
-  }, [gameState.history.length]);
+    // 如果启用了预测且有历史记录，尝试重新预测
+    if (newConfig.isEnabled && gameState.history.length > 0) {
+      // 使用固定位置代替findNextEmptyPosition
+      debouncedPredict([...allGameHistory, ...gameState.history], { row: 0, col: 0 });
+    } else {
+      // 如果禁用了预测，清除预测状态
+      setPredictedColor(null);
+      setPredictedPosition(null);
+      setPredictedProbability(null);
+    }
+  }, [gameState, allGameHistory, debouncedPredict, predictor]);
 
   // 在日期变化时获取会话列表
   useEffect(() => {
@@ -1346,8 +1177,9 @@ const App: React.FC = () => {
                                 : color === 'black'
                                   ? 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'
                                   : 'bg-white border-gray-300'}
-                              hover:shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
-                              active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]
+                              shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                              hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
+                              active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]
                               transition-all duration-200 ease-in-out`}
                             title={color ? `第${colIndex + 1}列, 第${rowIndex + 1}行` : ''}
                           />
@@ -1404,6 +1236,8 @@ const App: React.FC = () => {
                                 ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400'
                                 : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'}
                               shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                              hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
+                              active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]
                               transition-all duration-200 ease-in-out`}
                             title={rule75Prediction.currentSequence[0] ? `第${index + 1}行` : ''}
                           />
@@ -1416,6 +1250,8 @@ const App: React.FC = () => {
                                 ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400'
                                 : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'}
                               shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                              hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
+                              active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]
                               transition-all duration-200 ease-in-out`}
                             title={rule75Prediction.currentSequence[1] ? `第${index + 1}行` : ''}
                           />
@@ -1432,6 +1268,8 @@ const App: React.FC = () => {
                                 ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400'
                                 : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'}
                               shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                              hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
+                              active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]
                               transition-all duration-200 ease-in-out`}
                             title={rule75Prediction.predictedColor ? `第${index + 1}行` : ''}
                           />
@@ -1474,7 +1312,7 @@ const App: React.FC = () => {
               onClear={handleClear}
               predictedColor={predictedColor}
               probability={predictedProbability}
-              isRecordMode={!gameState.isViewingHistory}
+              isRecordMode={isRecordMode}
               onSequenceConfigChange={handleSequenceConfigChange}
               sequenceConfig={currentSequenceConfig}
               rule75Prediction={rule75Prediction}

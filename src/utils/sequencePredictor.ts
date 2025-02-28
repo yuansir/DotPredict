@@ -46,25 +46,21 @@ export class SequencePredictor {
   public predictNextColor(): PredictionResult | null {
     // 检查是否有足够的历史数据进行预测
     if (!this.config.isEnabled || this.history.length < this.config.length) {
-      console.log('历史数据不足或预测未启用:', {
-        isEnabled: this.config.isEnabled,
-        historyLength: this.history.length,
-        requiredLength: this.config.length
-      });
+      // 只在调试模式下输出
+      if (process.env.NODE_ENV === 'development') {
+        console.log('历史数据不足或预测未启用');
+      }
       return null;
     }
 
     // 获取当前序列（最后 N-1 个颜色）
     const currentSequence = this.history.slice(-(this.config.length - 1)).map(move => move.color);
-    console.log('当前序列:', currentSequence, '长度:', currentSequence.length);
     
     // 在所有历史数据中查找匹配序列
     const matches: { color: DotColor; gameId?: string; date?: string }[] = [];
     
     // 遍历所有可能的历史序列（排除最后 config.length-1 个，因为它们是当前序列）
     const searchEndIndex = this.history.length - (this.config.length - 1); // 排除当前序列
-    console.log('开始在历史数据中查找匹配...');
-    console.log('历史数据总长度:', this.history.length, '搜索结束位置:', searchEndIndex);
     
     // 对于每个可能的起始位置
     for (let i = 0; i < searchEndIndex; i++) {
@@ -84,27 +80,12 @@ export class SequencePredictor {
             // @ts-ignore
             date: nextMove.date
           });
-          console.log('找到匹配序列:', {
-            position: i,
-            sequence: historySequence,
-            nextColor: nextMove.color,
-            // @ts-ignore
-            date: nextMove.date,
-            // @ts-ignore
-            currentDate: this.history[this.history.length - 1]?.date
-          });
         }
       }
     }
 
-    console.log('匹配结果统计:', {
-      totalMatches: matches.length,
-      matchDetails: matches
-    });
-
     // 如果没有找到匹配的序列
     if (matches.length === 0) {
-      console.log('没有找到匹配的序列');
       return null;
     }
 
@@ -113,8 +94,6 @@ export class SequencePredictor {
       acc[match.color] = (acc[match.color] || 0) + 1;
       return acc;
     }, {} as Record<DotColor, number>);
-
-    console.log('颜色统计:', colorCounts);
 
     // 找出出现次数最多的颜色
     let maxCount = 0;
@@ -129,14 +108,14 @@ export class SequencePredictor {
 
     const probability = maxCount / matches.length;
     
-    console.log('预测结果:', {
-      predictedColor,
-      probability,
-      matchCount: matches.length,
-      colorCounts,
-      maxCount,
-      totalMatches: matches.length
-    });
+    // 只在调试模式下输出简化的预测结果
+    if (process.env.NODE_ENV === 'development') {
+      console.log('预测结果:', {
+        predictedColor,
+        probability: probability.toFixed(2),
+        matchCount: matches.length
+      });
+    }
 
     // 返回预测结果
     return {
