@@ -1189,6 +1189,17 @@ const App: React.FC = () => {
       // 清空矩阵数据
       setMatrixData(createEmptyMatrix());
 
+      // 重置会话ID状态
+      setCurrentSessionId(1);
+      setLatestSessionId(null);
+      setSelectedSession(1);
+      
+      console.log('清空数据后重置会话ID:', {
+        currentSessionId: 1,
+        latestSessionId: null,
+        selectedSession: 1
+      });
+
       setAlertMessage('已清空所有数据');
       setAlertType('info');
       setShowAlert(true);
@@ -1198,7 +1209,7 @@ const App: React.FC = () => {
       setAlertType('error');
       setShowAlert(true);
     }
-  }, [calculateGrid, createEmptyMatrix]);
+  }, [calculateGrid, createEmptyMatrix, setCurrentSessionId, setLatestSessionId, setSelectedSession]);
 
   // 撤销上一步操作
   const handleUndo = useCallback(async () => {
@@ -1333,13 +1344,12 @@ const App: React.FC = () => {
                           <div
                             key={colIndex}
                             style={{ width: '40px', height: '40px' }}
-                            className={`rounded-full cursor-pointer 
-                              ${color === 'red' ? 'bg-gradient-to-b from-red-400 to-red-500 hover:from-red-500 hover:to-red-600' :
-                                color === 'black' ? 'bg-gradient-to-b from-gray-700 to-gray-900 hover:from-gray-800 hover:to-black' :
-                                  'bg-gradient-to-b from-gray-50 to-white hover:from-gray-100 hover:to-gray-50'
-                              } 
-                              ${!color ? 'border-2 border-gray-200' : ''}
-                              shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1)]
+                            className={`rounded-full cursor-pointer border-2 
+                              ${color === 'red' 
+                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400' 
+                                : color === 'black' 
+                                  ? 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700' 
+                                  : 'bg-white border-gray-300'}
                               hover:shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
                               active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]
                               transition-all duration-200 ease-in-out`}
@@ -1350,39 +1360,48 @@ const App: React.FC = () => {
                     ))}
                   </div>
                   <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
-                    {matrixData.map((row, index) => {
+                    {matrixData.map((row, rowIndex) => {
                       const predictedColor = checkLastTwoColors(row);
                       return (
-                        <div
-                          key={index}
-                          style={{
-                            width: '40px',
-                            height: '40px',
-                            animation: !predictedColor ? 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'colorPulse 3s ease-in-out infinite'
-                          }}
-                          className={`rounded-full cursor-pointer border-2 relative
-                            ${predictedColor ?
-                              `${predictedColor === 'red' ?
-                                'bg-gradient-to-b from-red-400 to-red-600 border-red-400 hover:from-red-500 hover:to-red-700' :
-                                'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700 hover:from-gray-800 hover:to-black'}`
-                              : 'border-blue-400 bg-gradient-to-b from-gray-50 to-white'}
-                            shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
-                            hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
-                            active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]
-                            transition-all duration-200 ease-in-out`}
-                        />
+                        <div key={rowIndex} className="relative">
+                          <div
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              animation: !predictedColor ? 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'colorPulse 3s ease-in-out infinite'
+                            }}
+                            className={`rounded-full cursor-pointer border-2 relative
+                              ${predictedColor ?
+                                `${predictedColor === 'red' ?
+                                  'bg-gradient-to-b from-red-400 to-red-600 border-red-400 hover:from-red-500 hover:to-red-700' :
+                                  'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700 hover:from-gray-800 hover:to-black'}`
+                                : 'border-blue-400 bg-gradient-to-b from-gray-50 to-white'}
+                              shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                              hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
+                              active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]
+                              transition-all duration-200 ease-in-out`}
+                          />
+                          {/* 蓝色方框呼吸灯效果 */}
+                          {predictedColor && (
+                            <div 
+                              key="border-pulse"
+                              className="absolute inset-[-4px] rounded-full border-2 border-blue-400"
+                              style={{
+                                animation: 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                              }}
+                            />
+                          )}
+                        </div>
                       );
                     })}
                   </div>
                   {/* 规则列 */}
                   <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
-                    {[0, 1, 2].map((index) => {
-                      // 根据索引决定显示什么
-                      if (index === 0 && rule75Prediction.currentSequence[0]) {
-                        // 第一行显示当前序列的第一个小球
-                        return (
+                    {[0, 1, 2].map((index) => (
+                      <div key={index} className="relative">
+                        {index === 0 && rule75Prediction.currentSequence[0] ? (
+                          // 第一行显示当前序列的第一个小球
                           <div
-                            key={index}
                             style={{ width: '40px', height: '40px' }}
                             className={`rounded-full cursor-pointer border-2 relative
                               ${rule75Prediction.currentSequence[0] === 'red' 
@@ -1391,12 +1410,9 @@ const App: React.FC = () => {
                               shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
                               transition-all duration-200 ease-in-out`}
                           />
-                        );
-                      } else if (index === 1 && rule75Prediction.currentSequence[1]) {
-                        // 第二行显示当前序列的第二个小球
-                        return (
+                        ) : index === 1 && rule75Prediction.currentSequence[1] ? (
+                          // 第二行显示当前序列的第二个小球
                           <div
-                            key={index}
                             style={{ width: '40px', height: '40px' }}
                             className={`rounded-full cursor-pointer border-2 relative
                               ${rule75Prediction.currentSequence[1] === 'red' 
@@ -1405,39 +1421,24 @@ const App: React.FC = () => {
                               shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
                               transition-all duration-200 ease-in-out`}
                           />
-                        );
-                      } else if (index === 2 && rule75Prediction.predictedColor) {
-                        // 第三行显示预测的下一个小球
-                        return (
-                          <div className="relative">
-                            <div
-                              key={index}
-                              style={{ 
-                                width: '40px', 
-                                height: '40px',
-                                animation: 'colorPulse 3s ease-in-out infinite'
-                              }}
-                              className={`rounded-full cursor-pointer border-2 relative
-                                ${rule75Prediction.predictedColor === 'red' 
-                                  ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400' 
-                                  : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'}
-                                shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
-                                transition-all duration-200 ease-in-out`}
-                            />
-                            {/* 蓝色方框呼吸灯效果 */}
-                            <div 
-                              className="absolute inset-[-4px] rounded-full border-2 border-blue-400"
-                              style={{
-                                animation: 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-                              }}
-                            />
-                          </div>
-                        );
-                      } else {
-                        // 默认显示空白小球
-                        return (
+                        ) : index === 2 && rule75Prediction.predictedColor ? (
+                          // 第三行显示预测的下一个小球
                           <div
-                            key={index}
+                            style={{ 
+                              width: '40px', 
+                              height: '40px',
+                              animation: 'colorPulse 3s ease-in-out infinite'
+                            }}
+                            className={`rounded-full cursor-pointer border-2 relative
+                              ${rule75Prediction.predictedColor === 'red' 
+                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400' 
+                                : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'}
+                              shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                              transition-all duration-200 ease-in-out`}
+                          />
+                        ) : (
+                          // 默认显示空白小球
+                          <div
                             style={{ width: '40px', height: '40px' }}
                             className="rounded-full cursor-pointer border-2 border-blue-400 bg-gradient-to-b from-gray-50 to-white
                               shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
@@ -1445,9 +1446,19 @@ const App: React.FC = () => {
                               active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]
                               transition-all duration-200 ease-in-out"
                           />
-                        );
-                      }
-                    })}
+                        )}
+                        {/* 蓝色方框呼吸灯效果 */}
+                        {(index === 2 && rule75Prediction.predictedColor) && (
+                          <div 
+                            key="border-pulse"
+                            className="absolute inset-[-4px] rounded-full border-2 border-blue-400"
+                            style={{
+                              animation: 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                            }}
+                          />
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
