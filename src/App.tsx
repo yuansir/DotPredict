@@ -661,6 +661,7 @@ const App: React.FC = () => {
             windowStart: 0,
             isViewingHistory: false
           }));
+          setMatrixData(createEmptyMatrix()); // 清空3x16矩阵
         }
       } else {
         // 加载选定会话的数据
@@ -828,6 +829,7 @@ const App: React.FC = () => {
               windowStart: 0,
               isViewingHistory: false
             }));
+            setMatrixData(createEmptyMatrix()); // 清空3x16矩阵
           }
         } catch (error) {
           console.error('Error loading initial data:', error);
