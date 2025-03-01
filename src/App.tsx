@@ -1193,7 +1193,7 @@ const App: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                  <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg justify-self-center w-[52px]">
+                  <div className="grid grid-rows-3 gap-[6px] bg-blue-50/70 p-[6px] rounded-lg justify-self-center w-[52px]">
                     {matrixData.map((row, rowIndex) => {
                       const predictedColor = checkLastTwoColors(row);
                       return (
@@ -1231,7 +1231,7 @@ const App: React.FC = () => {
                     })}
                   </div>
                   {/* 规则列 */}
-                  <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg justify-self-center w-[52px]">
+                  <div className="grid grid-rows-3 gap-[6px] bg-blue-50/70 p-[6px] rounded-lg justify-self-center w-[52px]">
                     {[0, 1, 2].map((index) => (
                       <div key={index} className="relative">
                         {index === 0 && rule75Prediction.currentSequence[0] ? (
