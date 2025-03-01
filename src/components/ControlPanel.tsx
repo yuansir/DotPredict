@@ -273,7 +273,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         >
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl p-6">
             <div className="text-center mb-4">
-              <h2 className="text-xl font-bold text-gray-100">游戏规则</h2>
               <p className="text-sm text-gray-400 mt-1">了解如何玩转点阵预测游戏</p>
             </div>
             <RuleDisplay />

@@ -98,10 +98,6 @@ export const RuleDisplay: React.FC = () => {
               </li>
               <li className="flex items-center space-x-2">
                 <span>•</span>
-                <span>点击已放置的点可以删除</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <span>•</span>
                 <span>使用撤销按钮或 Ctrl+Z 撤销</span>
               </li>
               <li className="flex items-center space-x-2">
