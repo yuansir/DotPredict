@@ -311,7 +311,7 @@ const App: React.FC = () => {
   const useDebouncedCallback = (callback: Function, delay: number) => {
     const timeoutRef = useRef<NodeJS.Timeout>();
     const callbackRef = useRef<Function>();
-    
+
     // 更新回调引用，避免闭包问题
     useEffect(() => {
       callbackRef.current = callback;
@@ -344,7 +344,7 @@ const App: React.FC = () => {
             probability: prediction.probability.toFixed(2)
           });
         }
-        
+
         setPredictionDetails({
           color: prediction.color,
           probability: prediction.probability,
@@ -421,7 +421,7 @@ const App: React.FC = () => {
 
       // 使用nextPosition作为当前位置
       const currentPosition = nextPosition;
-      
+
       const newHistory = [...gameState.history];
       const move: Move = {
         position: currentPosition,
@@ -880,7 +880,7 @@ const App: React.FC = () => {
     sequenceNumber: number
   ) => {
     const sessionIdToUse = getSessionIdToUse();
-    
+
     // 只在开发环境下输出日志
     if (process.env.NODE_ENV === 'development') {
       console.log('保存移动记录，使用会话ID:', sessionIdToUse);
@@ -1155,22 +1155,28 @@ const App: React.FC = () => {
           {/* 2. 连续模式预测矩阵 */}
           <div className="mb-6">
             <div className="bg-white rounded-lg border border-gray-200 shadow-lg">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              {/* 主标题单独占一行 */}
+              <div className="px-6 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-medium text-gray-900">连续模式预测</h2>
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded">设定</span>
-                  <span className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded">75%规则</span>
-                </div>
               </div>
+
               <div className="p-6">
-                <div className="flex justify-center gap-4">
+                {/* 设定和规则标题行 - 与下方内容对齐 */}
+                <div className="grid grid-cols-[1fr_52px_52px] gap-[6px] mb-2">
+                  <div></div> {/* 空div占位，与矩阵对齐 */}
+                  <div className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded text-center w-[52px]">设定</div>
+                  <div className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded text-center w-[52px]">规则</div>
+                </div>
+
+                {/* 内容区域 */}
+                <div className="grid grid-cols-[1fr_52px_52px] gap-[6px]">
                   <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
                     {matrixData.map((row, rowIndex) => (
                       <div key={rowIndex} className="flex items-center gap-[6px]">
                         {row.map((color, colIndex) => (
                           <div
                             key={colIndex}
-                            style={{ width: '40px', height: '40px' }}
+                            style={{ width: '40px', height: '40px', margin: '0 auto' }}
                             className={`rounded-full cursor-pointer border-2 
                               ${color === 'red'
                                 ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400'
@@ -1187,7 +1193,7 @@ const App: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                  <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
+                  <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg justify-self-center w-[52px]">
                     {matrixData.map((row, rowIndex) => {
                       const predictedColor = checkLastTwoColors(row);
                       return (
@@ -1196,7 +1202,8 @@ const App: React.FC = () => {
                             style={{
                               width: '40px',
                               height: '40px',
-                              animation: !predictedColor ? 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'colorPulse 3s ease-in-out infinite'
+                              animation: !predictedColor ? 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'colorPulse 3s ease-in-out infinite',
+                              margin: '0 auto'
                             }}
                             className={`rounded-full cursor-pointer border-2 relative
                               ${predictedColor ?
@@ -1224,13 +1231,13 @@ const App: React.FC = () => {
                     })}
                   </div>
                   {/* 规则列 */}
-                  <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg">
+                  <div className="grid grid-rows-3 gap-[6px] bg-gray-100/50 p-[6px] rounded-lg justify-self-center w-[52px]">
                     {[0, 1, 2].map((index) => (
                       <div key={index} className="relative">
                         {index === 0 && rule75Prediction.currentSequence[0] ? (
                           // 第一行显示当前序列的第一个小球
                           <div
-                            style={{ width: '40px', height: '40px' }}
+                            style={{ width: '40px', height: '40px', margin: '0 auto' }}
                             className={`rounded-full cursor-pointer border-2 relative
                               ${rule75Prediction.currentSequence[0] === 'red'
                                 ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400'
@@ -1244,7 +1251,7 @@ const App: React.FC = () => {
                         ) : index === 1 && rule75Prediction.currentSequence[1] ? (
                           // 第二行显示当前序列的第二个小球
                           <div
-                            style={{ width: '40px', height: '40px' }}
+                            style={{ width: '40px', height: '40px', margin: '0 auto' }}
                             className={`rounded-full cursor-pointer border-2 relative
                               ${rule75Prediction.currentSequence[1] === 'red'
                                 ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400'
@@ -1261,7 +1268,8 @@ const App: React.FC = () => {
                             style={{
                               width: '40px',
                               height: '40px',
-                              animation: 'colorPulse 3s ease-in-out infinite'
+                              animation: 'colorPulse 3s ease-in-out infinite',
+                              margin: '0 auto'
                             }}
                             className={`rounded-full cursor-pointer border-2 relative
                               ${rule75Prediction.predictedColor === 'red'
@@ -1276,7 +1284,7 @@ const App: React.FC = () => {
                         ) : (
                           // 默认显示空白小球
                           <div
-                            style={{ width: '40px', height: '40px' }}
+                            style={{ width: '40px', height: '40px', margin: '0 auto' }}
                             className="rounded-full cursor-pointer border-2 border-blue-400 bg-gradient-to-b from-gray-50 to-white
                               shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
                               hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
