@@ -1167,10 +1167,14 @@ const App: React.FC = () => {
       return;
     }
 
+    // 保存原始长度用于数据库操作
+    const originalLength = gameState.history.length;
+
     // 1. 更新本地状态
     const newHistory = [...gameState.history];
     newHistory.pop(); // 移除最后一个操作
 
+    // 更新游戏状态
     setGameState((prev) => ({
       ...prev,
       history: newHistory,
@@ -1179,6 +1183,18 @@ const App: React.FC = () => {
       predictionStats: [],
     }));
 
+    // 同步更新allGameHistory和displayGameHistory
+    const updatedAllHistory = [...allGameHistory];
+    updatedAllHistory.pop();
+    setAllGameHistory(updatedAllHistory);
+    
+    const updatedDisplayHistory = [...displayGameHistory];
+    updatedDisplayHistory.pop();
+    setDisplayGameHistory(updatedDisplayHistory);
+
+    // 调用移除矩阵最后一个颜色的函数
+    removeLastColorFromMatrix();
+
     // 2. 从数据库删除最后一条记录
     try {
       const { error } = await supabase
@@ -1186,16 +1202,27 @@ const App: React.FC = () => {
         .delete()
         .eq('date', selectedDate)
         .eq('session_id', currentSessionId)
-        .eq('sequence_number', gameState.history.length);
+        .eq('sequence_number', originalLength); // 使用原始长度
 
       if (error) throw error;
+      
+      // 3. 更新存储中的游戏状态
+      try {
+        const sessionIdToUse = getSessionIdToUse();
+        await storage.saveGameStateByDate({
+          ...gameState,
+          history: newHistory,
+        }, selectedDate, sessionIdToUse);
+      } catch (storageError) {
+        console.error('Failed to save updated game state after undo:', storageError);
+      }
     } catch (error) {
       console.error('Error undoing move:', error);
       setAlertMessage('撤销操作失败');
       setAlertType('error');
       setShowAlert(true);
     }
-  }, [isRecordMode, gameState, selectedDate, currentSessionId]);
+  }, [isRecordMode, gameState, selectedDate, currentSessionId, removeLastColorFromMatrix, allGameHistory, displayGameHistory, getSessionIdToUse, storage]);
 
   // 当序列配置变更时
   useEffect(() => {
@@ -1455,6 +1482,7 @@ const App: React.FC = () => {
           </div>
 
           {/* 预测序列显示 */}
+          {/* 
           {isRecordMode && (
             <div className="mb-6">
               <PredictionSequenceDisplay
@@ -1467,6 +1495,7 @@ const App: React.FC = () => {
               />
             </div>
           )}
+          */}
 
           {/* 3. 控制面板 */}
           <div className="mb-6">

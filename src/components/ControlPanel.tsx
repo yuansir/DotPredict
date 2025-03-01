@@ -46,7 +46,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   probability,
   isRecordMode,
   onSequenceConfigChange,
-  sequenceConfig = { length: 4, isEnabled: true },
+  sequenceConfig = { length: 4, isEnabled: false },
   className = '',
   rule75Prediction
 }) => {
@@ -61,7 +61,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   }, [isRulesExpanded]);
 
   return (
-    <div className={`flex justify-between gap-6 ${className}`}>
+    <div className={`grid grid-cols-2 gap-6 ${className}`}>
       {/* 第一栏：颜色选择和基础操作 */}
       <div className="flex-1 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl p-6 space-y-6">
         {/* 标题和说明 */}
@@ -161,83 +161,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <span>清空数据</span>
           </button>
         </div>
-      </div>
-
-      {/* 第二栏：预测配置 */}
-      <div className="flex-1 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl p-6 space-y-6">
-        <div className="text-center space-y-2">
-          <h2 className="text-xl font-bold text-gray-100">预测配置</h2>
-          <p className="text-sm text-gray-400">设置预测参数</p>
-        </div>
-
-        {/* 序列预测设置 */}
-        {isRecordMode && onSequenceConfigChange && (
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400">启用预测</span>
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={sequenceConfig.isEnabled}
-                onChange={() => onSequenceConfigChange?.({
-                  isEnabled: !sequenceConfig.isEnabled
-                })}
-                className="form-checkbox h-5 w-5 text-blue-500 rounded border-gray-600 bg-gray-700
-                            focus:ring-blue-500 focus:ring-offset-gray-800"
-              />
-            </div>
-          </div>
-        )}
-        {isRecordMode && onSequenceConfigChange && (
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400">序列长度</span>
-            <select
-              value={sequenceConfig.length}
-              onChange={(e) => onSequenceConfigChange?.({
-                length: parseInt(e.target.value)
-              })}
-              className="bg-gray-700 text-gray-300 rounded px-3 py-1 border border-gray-600
-                          focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {sequenceLengthOptions.map(option => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* 预测信息显示 */}
-        {isRecordMode && (
-          <div className="bg-gray-700 rounded-lg p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-200">75%规则预测</h3>
-            </div>
-
-            {rule75Prediction.predictedColor ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30">
-                  <span className="text-gray-300">当前序列</span>
-                  <div className="flex gap-2">
-                    {rule75Prediction.currentSequence.map((color, index) => (
-                      <div
-                        key={index}
-                        className={`w-6 h-6 rounded-full ${color === 'red' ? 'bg-red-500' : 'bg-gray-900'}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30">
-                  <span className="text-gray-300">预测下一个</span>
-                  <div className={`w-6 h-6 rounded-full ${rule75Prediction.predictedColor === 'red' ? 'bg-red-500' : 'bg-gray-900'} animate-bounce-gentle`} />
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-2">
-                <span className="text-gray-500 italic">暂无预测</span>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* 第三栏：游戏规则 */}
