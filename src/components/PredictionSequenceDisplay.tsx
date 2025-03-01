@@ -11,10 +11,10 @@ interface PredictionSequenceDisplayProps {
 }
 
 export const PredictionSequenceDisplay: React.FC<PredictionSequenceDisplayProps> = ({
-  historicalColors,
+  historicalColors = [],
   predictedColor,
-  matchCount,
-  confidence,
+  matchCount = 0,
+  confidence = 0,
   sequenceLength,
   isLoading = false  // 默认为false
 }) => {
@@ -54,6 +54,14 @@ export const PredictionSequenceDisplay: React.FC<PredictionSequenceDisplayProps>
     </div>
   );
 
+  // 渲染空点的函数
+  const renderEmptyDot = (key: number) => (
+    <div
+      key={key}
+      className="relative w-4 h-4 rounded-full bg-gray-700/50 border border-gray-600/50"
+    />
+  );
+
   return (
     <div className="bg-gray-800/80 backdrop-blur-md rounded-xl p-6 mt-4 shadow-lg border border-gray-700">
       <h3 className="text-gray-200 text-sm mb-4 font-medium">预测序列分析</h3>
@@ -62,7 +70,12 @@ export const PredictionSequenceDisplay: React.FC<PredictionSequenceDisplayProps>
       <div className="flex items-center space-x-3 mb-4">
         <span className="text-gray-300 text-sm">当前序列：</span>
         <div className="flex space-x-2">
-          {historicalColors.map((color, index) => renderDot(color, index))}
+          {historicalColors.length > 0 ? (
+            historicalColors.map((color, index) => renderDot(color, index))
+          ) : (
+            // 如果没有历史记录，显示空点
+            Array.from({ length: sequenceLength }).map((_, index) => renderEmptyDot(index))
+          )}
         </div>
       </div>
       

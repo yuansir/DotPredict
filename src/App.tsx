@@ -709,7 +709,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDate, today, currentSessionId, latestSessionId, createEmptyMatrix, PAGE_SIZE]);
+  }, [selectedDate, today, currentSessionId, latestSessionId]);
 
   // 在日期变化时获取最新会话ID
   const fetchLatestSessionId = useCallback(async (date: string) => {
@@ -1264,7 +1264,7 @@ const App: React.FC = () => {
             />
           </div>
 
-          {/* 2. 连续模式预测矩阵 */}
+          {/* 2. 连续模式预测 */}
           <div className="mb-6">
             <div className="bg-white rounded-lg border border-gray-200 shadow-lg">
               {/* 主标题单独占一行 */}
@@ -1454,6 +1454,20 @@ const App: React.FC = () => {
             </div>
           </div>
 
+          {/* 预测序列显示 */}
+          {isRecordMode && (
+            <div className="mb-6">
+              <PredictionSequenceDisplay
+                historicalColors={getLastNColors(gameState.history, currentSequenceConfig.length)}
+                predictedColor={predictionDetails.color}
+                matchCount={predictionDetails.matchCount}
+                confidence={predictionDetails.probability}
+                sequenceLength={currentSequenceConfig.length}
+                isLoading={predictionDetails.isLoading}
+              />
+            </div>
+          )}
+
           {/* 3. 控制面板 */}
           <div className="mb-6">
             <ControlPanel
@@ -1476,18 +1490,6 @@ const App: React.FC = () => {
             {/* 注释掉8x8矩阵部分
             
             */}
-
-            {/* 预测序列显示 */}
-            {isRecordMode && currentSequenceConfig.isEnabled && gameState.history.length > 0 && (
-              <PredictionSequenceDisplay
-                historicalColors={getLastNColors(gameState.history, currentSequenceConfig.length)}
-                predictedColor={predictionDetails.color}
-                matchCount={predictionDetails.matchCount}
-                confidence={predictionDetails.probability}
-                sequenceLength={currentSequenceConfig.length}
-                isLoading={predictionDetails.isLoading}
-              />
-            )}
           </div>
         </div>
       </div>
