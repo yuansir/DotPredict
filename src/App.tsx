@@ -553,6 +553,11 @@ const App: React.FC = () => {
       };
 
       setGameState(newState);
+      
+      // 同步更新allGameHistory和displayGameHistory
+      const updatedHistory = [...allGameHistory, move];
+      setAllGameHistory(updatedHistory);
+      setDisplayGameHistory(updatedHistory);
 
       // 同步更新到3x16矩阵
       addColorToMatrix(color);
@@ -563,8 +568,8 @@ const App: React.FC = () => {
 
       // 延迟预测，避免频繁更新
       setTimeout(() => {
-        // 使用防抖的预测函数，保持使用allGameHistory用于预测
-        debouncedPredict([...allGameHistory, ...newHistory], nextEmpty);
+        // 使用防抖的预测函数，使用updatedHistory用于预测
+        debouncedPredict(updatedHistory, nextEmpty);
       }, 100);
 
       // 保存状态
@@ -581,7 +586,7 @@ const App: React.FC = () => {
 
     // 执行新的处理函数
     handleClick();
-  }, [isRecordMode, gameState, nextPosition, predictedPosition, predictedColor, predictedProbability, addColorToMatrix, allGameHistory, debouncedPredict, getSessionIdToUse, selectedDate, storage]);
+  }, [isRecordMode, gameState, nextPosition, predictedPosition, predictedColor, predictedProbability, addColorToMatrix, allGameHistory, displayGameHistory, debouncedPredict, getSessionIdToUse, selectedDate, storage]);
 
   // 处理会话选择
   const handleSessionChange = useCallback(async (sessionId: number) => {
