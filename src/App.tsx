@@ -1101,15 +1101,48 @@ const App: React.FC = () => {
   }, [displayGameHistory, isLoading, PATTERN_ROWS, PATTERN_COLS, createEmptyMatrix, currentPage, viewMode]);
 
   // 检查行中最后两个颜色的函数
-  const checkLastTwoColors = useCallback((row: (DotColor | null)[]) => {
-    const nonNullColors = row.filter((color) => color !== null) as DotColor[];
-    if (nonNullColors.length < 2) return null;
-
-    const lastTwoColors = nonNullColors.slice(-2);
-
-    // 如果最后两个颜色相同，返回该颜色，否则返回null
-    return lastTwoColors[0] === lastTwoColors[1] ? lastTwoColors[0] : null;
-  }, []);
+  const checkLastTwoColors = useCallback((row: (DotColor | null)[], rowIndex: number) => {
+    // 在连续模式下，我们需要基于所有历史数据进行预测，而不仅仅是当前显示的矩阵
+    if (viewMode === 'continuous') {
+      // 获取当前页面的起始索引
+      const startIndex = currentPage * PAGE_SIZE;
+      
+      // 计算当前行在所有历史数据中的实际索引
+      const historyRowIndex = rowIndex;
+      
+      // 获取当前行在所有历史数据中的所有颜色
+      // 注意：这里使用allGameHistory而不是displayGameHistory，确保使用所有数据
+      const rowColors: DotColor[] = [];
+      
+      for (let i = 0; i < allGameHistory.length; i++) {
+        const move = allGameHistory[i];
+        const col = Math.floor(i / PATTERN_ROWS);
+        const row = i % PATTERN_ROWS;
+        
+        if (row === historyRowIndex) {
+          rowColors.push(move.color);
+        }
+      }
+      
+      // 如果行中颜色不足两个，无法预测
+      if (rowColors.length < 2) return null;
+      
+      // 获取最后两个颜色
+      const lastTwoColors = rowColors.slice(-2);
+      
+      // 如果最后两个颜色相同，返回该颜色，否则返回null
+      return lastTwoColors[0] === lastTwoColors[1] ? lastTwoColors[0] : null;
+    } else {
+      // 非连续模式下，保持原有逻辑
+      const nonNullColors = row.filter((color) => color !== null) as DotColor[];
+      if (nonNullColors.length < 2) return null;
+      
+      const lastTwoColors = nonNullColors.slice(-2);
+      
+      // 如果最后两个颜色相同，返回该颜色，否则返回null
+      return lastTwoColors[0] === lastTwoColors[1] ? lastTwoColors[0] : null;
+    }
+  }, [viewMode, currentPage, PAGE_SIZE, PATTERN_ROWS, allGameHistory]);
 
   // 清除操作
   const handleClear = useCallback(async () => {
@@ -1363,7 +1396,7 @@ const App: React.FC = () => {
                   </div>
                   <div className="grid grid-rows-3 gap-[6px] bg-blue-50/70 p-[6px] rounded-lg justify-self-center w-[52px]">
                     {matrixData.map((row, rowIndex) => {
-                      const predictedColor = checkLastTwoColors(row);
+                      const predictedColor = checkLastTwoColors(row, rowIndex);
                       return (
                         <div key={rowIndex} className="relative">
                           <div
