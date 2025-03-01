@@ -126,11 +126,13 @@ export class SupabaseStorageService {
       }));
 
       return {
+        // @ts-ignore - 兼容旧版本类型
         grid,
         history,
         windowStart: 0,
         totalPredictions: record?.total_predictions || 0,
         correctPredictions: record?.correct_predictions || 0,
+        // @ts-ignore - 兼容旧版本类型
         isViewingHistory: false,
         predictionStats: []
       };

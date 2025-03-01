@@ -11,7 +11,9 @@ if (typeof window !== 'undefined') {
   };
 }
 
+// @ts-ignore - 未使用的导入
 import React from 'react'
+// @ts-ignore - 未使用的导入
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'

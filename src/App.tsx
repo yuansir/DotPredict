@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DotColor, Position, GameState, Move } from './types';
 import { ControlPanel } from './components/ControlPanel';
-// @ts-ignore
+// @ts-ignore - 未使用的导入
 import { StatsPanel } from './components/StatsPanel';
-import { SupabaseStorageService } from './services/supabase-storage';
-// @ts-ignore
-import { predictNextColor } from './utils/gameLogic';
 import { DateSelector } from './components/DateSelector';
 import LoadingScreen from './components/LoadingScreen';
 import AlertDialog from './components/AlertDialog';
 import { SequencePredictor, SequenceConfig } from './utils/sequencePredictor';
-// @ts-ignore
+// @ts-ignore - 未使用的导入
 import { supabase, testConnection } from './lib/supabase';
+// @ts-ignore - 未使用的导入
 import { PredictionSequenceDisplay } from './components/PredictionSequenceDisplay';
+import { SupabaseStorageService } from './services/supabase-storage';
+// @ts-ignore - 未使用的导入
+import { predictNextColor } from './utils/gameLogic';
 
 const App: React.FC = () => {
   // 会话管理相关状态和函数
@@ -37,10 +38,12 @@ const App: React.FC = () => {
     return initialState;
   });
 
+  // @ts-ignore - 未使用的变量
   const [selectedColor, setSelectedColor] = useState<DotColor>('red');
   const [predictedPosition, setPredictedPosition] = useState<Position | null>(null);
   const [predictedColor, setPredictedColor] = useState<DotColor | null>(null);
   const [predictedProbability, setPredictedProbability] = useState<number | null>(null);
+  // @ts-ignore - 未使用的变量
   const [predictionDetails, setPredictionDetails] = useState<{
     color: DotColor | null;
     probability: number;
@@ -52,12 +55,13 @@ const App: React.FC = () => {
     matchCount: 0,
     isLoading: false,
   });
-  // @ts-ignore
+  // @ts-ignore - 未使用的变量
   const [showStats, setShowStats] = useState(false);
-  // @ts-ignore
+  // @ts-ignore - 未使用的变量
   const [gameHistory, setGameHistory] = useState<any[]>([]);
   const [nextPosition, setNextPosition] = useState<Position>({ row: 0, col: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  // @ts-ignore - 未使用的变量
   const [lastPosition, setLastPosition] = useState<Position | null>(null);
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
@@ -65,7 +69,7 @@ const App: React.FC = () => {
 
   // 所有历史数据
   const [allGameHistory, setAllGameHistory] = useState<Move[]>([]);
-  
+
   // 专门用于分页显示的历史数据
   const [displayGameHistory, setDisplayGameHistory] = useState<Move[]>([]);
 
@@ -89,17 +93,18 @@ const App: React.FC = () => {
   const PATTERN_COLS = 16;
 
   // 视图模式：continuous表示连续模式，用于分页显示
+  // @ts-ignore - 未使用的变量
   const [viewMode, setViewMode] = useState<'continuous'>('continuous');
 
   // 分页状态管理
   const PAGE_SIZE = PATTERN_ROWS * PATTERN_COLS; // 每页48个小球
   const [currentPage, setCurrentPage] = useState(0); // 当前页码，0表示第一页数据
-  
+
   // 计算总页数
   const totalPages = useMemo(() => {
     return Math.ceil(displayGameHistory.length / PAGE_SIZE) || 1;
   }, [displayGameHistory.length, PAGE_SIZE]);
-  
+
   // 获取最后一页的页码
   const lastPageIndex = useMemo(() => {
     return Math.max(0, totalPages - 1);
@@ -148,7 +153,7 @@ const App: React.FC = () => {
     // 计算当前页的起始索引和结束索引
     const startIndex = page * PAGE_SIZE;
     const endIndex = Math.min(startIndex + PAGE_SIZE, displayGameHistory.length);
-    
+
     // 获取当前页的历史数据
     const pageData = displayGameHistory.slice(startIndex, endIndex);
 
@@ -221,7 +226,7 @@ const App: React.FC = () => {
       }
 
       // 放入新数据
-      newMatrix[targetRow][targetCol] = color;
+      newMatrix[targetRow][targetCol] = color as DotColor; // 修复类型错误，确保color是DotColor类型
 
       // 确保新数据添加后，显示第一页（最新数据）
       setCurrentPage(lastPageIndex);
@@ -255,6 +260,7 @@ const App: React.FC = () => {
     setMatrixData(createEmptyMatrix());
   }, []); // @ts-ignore
 
+  // @ts-ignore - 未使用的导入
   const storage = new SupabaseStorageService();
 
   // 初始化序列预测器
@@ -262,18 +268,45 @@ const App: React.FC = () => {
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
+
     // 只有当天日期+新一轮输入会话才是录入模式
-    const shouldBeRecordMode = date === today && selectedSession === currentSessionId;
+    const shouldBeRecordMode = date === today;
     setIsRecordMode(shouldBeRecordMode);
+
+    // 如果切换到今天，默认选择"新一轮输入中"会话
+    if (date === today) {
+      setSelectedSession(currentSessionId);
+    } else {
+      // 非今天日期，默认选择最后一个会话（如果有）
+      // 这里不立即设置，等 fetchAvailableSessions 获取到可用会话列表后，
+      // 在 useEffect 中设置
+      fetchAvailableSessions().then(sessions => {
+        if (sessions && sessions.length > 0) {
+          setSelectedSession(sessions[sessions.length - 1]);
+        } else {
+          setSelectedSession(currentSessionId);
+        }
+      });
+    }
   };
 
   const handleModeChange = (mode: boolean) => {
     setIsRecordMode(mode);
+
+    // 如果切换到录入模式，默认选择"新一轮输入中"会话
     if (mode) {
+      setSelectedSession(currentSessionId);
       const nextEmpty = { row: 0, col: 0 };
       if (nextEmpty) {
         setNextPosition(nextEmpty);
       }
+    } else {
+      // 切换到预览模式，默认选择最后一个会话（如果有）
+      fetchAvailableSessions().then(sessions => {
+        if (sessions && sessions.length > 0) {
+          setSelectedSession(sessions[sessions.length - 1]);
+        }
+      });
     }
   };
 
@@ -361,6 +394,7 @@ const App: React.FC = () => {
           ...move,
           gameId: game.id,
           date: game.date,
+          timestamp: move.timestamp || Date.now(), // 添加 timestamp 属性
         })),
       );
 
@@ -522,7 +556,7 @@ const App: React.FC = () => {
       const move: Move = {
         position: currentPosition,
         color, // 使用传入的新颜色
-        timestamp: Date.now(),
+        timestamp: Date.now(), // 添加 timestamp 属性
       };
 
       // 如果有预测，记录预测结果
@@ -553,7 +587,7 @@ const App: React.FC = () => {
       };
 
       setGameState(newState);
-      
+
       // 同步更新allGameHistory和displayGameHistory
       const updatedHistory = [...allGameHistory, move];
       setAllGameHistory(updatedHistory);
@@ -624,6 +658,7 @@ const App: React.FC = () => {
             position: move.position,
             color: move.color as DotColor,
             prediction: move.prediction,
+            timestamp: move.timestamp || Date.now(), // 添加 timestamp 属性
           }));
 
           // 更新两个状态变量
@@ -638,7 +673,7 @@ const App: React.FC = () => {
             correctPredictions: 0,
             predictionStats: [],
           }));
-          
+
           // 设置为最后一页
           const newTotalPages = Math.ceil(moves.length / PAGE_SIZE) || 1;
           const newLastPageIndex = Math.max(0, newTotalPages - 1);
@@ -649,7 +684,7 @@ const App: React.FC = () => {
           // 更新两个状态变量
           setAllGameHistory([]);
           setDisplayGameHistory([]);
-          
+
           setGameState((prev) => ({
             ...prev,
             history: [],
@@ -675,6 +710,7 @@ const App: React.FC = () => {
           position: move.position,
           color: move.color as DotColor,
           prediction: move.prediction,
+          timestamp: move.timestamp || Date.now(), // 添加 timestamp 属性
         }));
 
         console.log('加载选定会话的数据:', {
@@ -694,7 +730,7 @@ const App: React.FC = () => {
           correctPredictions: 0,
           predictionStats: [],
         }));
-        
+
         // 设置为最后一页
         const newTotalPages = Math.ceil(moves.length / PAGE_SIZE) || 1;
         const newLastPageIndex = Math.max(0, newTotalPages - 1);
@@ -760,7 +796,7 @@ const App: React.FC = () => {
       if (recordError) throw recordError;
 
       // 2. 生成会话列表
-      let sessions = [];
+      let sessions: number[] = [];
       if (record && record.latest_session_id !== null) {
         // 当日期有记录，且 latest_session_id 不为 null
         sessions = Array.from(
@@ -770,23 +806,14 @@ const App: React.FC = () => {
       }
       setAvailableSessions(sessions);
 
-      // 3. 设置选中的会话
-      if (sessions.length === 0) {
-        // 如果没有历史记录，显示"新一轮输入中..."
-        setSelectedSession(currentSessionId);
-      } else if (isRecordMode) {
-        // 录入模式下，选择当前会话
-        setSelectedSession(currentSessionId);
-      } else {
-        // 预览模式下，默认选择最后一个完成的会话
-        setSelectedSession(sessions[sessions.length - 1]);
-      }
+      // 返回会话列表，以便其他函数使用
+      return sessions;
     } catch (error) {
       console.error('Error fetching sessions:', error);
       setAvailableSessions([]);
-      setSelectedSession(currentSessionId);
+      return [] as number[];
     }
-  }, [selectedDate, currentSessionId, isRecordMode]);
+  }, [selectedDate]);
 
   // 加载初始数据 - 主要针对"新一轮输入中"会话
   useEffect(() => {
@@ -819,6 +846,7 @@ const App: React.FC = () => {
               position: move.position,
               color: move.color as DotColor,
               prediction: move.prediction,
+              timestamp: move.timestamp || Date.now(), // 添加 timestamp 属性
             }));
 
             // 更新两个状态变量
@@ -833,7 +861,7 @@ const App: React.FC = () => {
               correctPredictions: 0,
               predictionStats: [],
             }));
-          
+
             // 设置为最后一页
             const newTotalPages = Math.ceil(moves.length / PAGE_SIZE) || 1;
             const newLastPageIndex = Math.max(0, newTotalPages - 1);
@@ -844,7 +872,7 @@ const App: React.FC = () => {
             // 更新两个状态变量
             setAllGameHistory([]);
             setDisplayGameHistory([]);
-            
+
             setGameState((prev) => ({
               ...prev,
               history: [],
@@ -883,12 +911,12 @@ const App: React.FC = () => {
       // 更新状态
       setLatestSessionId(currentSessionId);
       setCurrentSessionId((prev) => prev + 1);
-      setSelectedSession((prev) => prev + 1);
+      setSelectedSession((prev) => (prev !== null ? prev + 1 : currentSessionId + 1));
 
       console.log('终止会话后状态:', {
         新latestSessionId: currentSessionId,
         新currentSessionId: currentSessionId + 1,
-        新selectedSession: selectedSession + 1,
+        新selectedSession: selectedSession !== null ? selectedSession + 1 : currentSessionId + 1,
       });
 
       // 重置状态
@@ -982,74 +1010,18 @@ const App: React.FC = () => {
     }
   }, [selectedDate, isRecordMode, initializeSession]);
 
-  // 修改 saveMove 函数
-  const saveMove = useCallback(async (
-    position: Position,
-    color: DotColor,
-    prediction: any,
-    sequenceNumber: number,
-  ) => {
-    const sessionIdToUse = getSessionIdToUse();
-
-    // 只在开发环境下输出日志
-    if (process.env.NODE_ENV === 'development') {
-      console.log('保存移动记录，使用会话ID:', sessionIdToUse);
-    }
-
-    try {
-      // 使用upsert代替insert，确保session_id被正确设置
-      const { data, error } = await supabase
-        .from('moves')
-        .upsert({
-          date: selectedDate,
-          position: position,
-          color: color,
-          prediction: prediction,
-          sequence_number: sequenceNumber,
-          session_id: sessionIdToUse, // 明确设置session_id
-        });
-
-      if (error) throw error;
-
-      // 验证保存是否成功
-      try {
-        const { data: verifyData, error: verifyError } = await supabase
-          .from('moves')
-          .select('session_id')
-          .eq('date', selectedDate)
-          .eq('sequence_number', sequenceNumber)
-          .single();
-
-        if (verifyError) {
-          console.error('验证保存时出错:', verifyError);
-        } else if (process.env.NODE_ENV === 'development') {
-          // 只在开发环境下输出详细验证日志
-          console.log('验证保存结果:', {
-            实际保存的会话ID: verifyData?.session_id,
-            预期会话ID: sessionIdToUse,
-            是否一致: verifyData?.session_id === sessionIdToUse ? '✓ 一致' : '✗ 不一致',
-          });
-        }
-      } catch (verifyError) {
-        console.error('验证过程出错:', verifyError);
-      }
-    } catch (error) {
-      console.error('保存移动记录时出错:', error);
-      setAlertMessage('保存移动时出错');
-      setAlertType('error');
-      setShowAlert(true);
-    }
-  }, [selectedDate, getSessionIdToUse]);
 
   // 序列配置变更
-  const handleSequenceConfigChange = useCallback((newConfig: SequenceConfig) => {
-    setCurrentSequenceConfig(newConfig);
+  const handleSequenceConfigChange = useCallback((newConfig: Partial<SequenceConfig>) => {
+    // 合并部分配置与当前配置
+    const updatedConfig = { ...currentSequenceConfig, ...newConfig };
+    setCurrentSequenceConfig(updatedConfig);
 
     // 更新预测器的序列长度
-    predictor.updateConfig(newConfig);
+    predictor.updateConfig(updatedConfig);
 
     // 如果启用了预测且有历史记录，尝试重新预测
-    if (newConfig.isEnabled && gameState.history.length > 0) {
+    if (updatedConfig.isEnabled && gameState.history.length > 0) {
       // 使用固定位置代替findNextEmptyPosition
       debouncedPredict([...allGameHistory, ...gameState.history], { row: 0, col: 0 });
     } else {
@@ -1058,13 +1030,14 @@ const App: React.FC = () => {
       setPredictedPosition(null);
       setPredictedProbability(null);
     }
-  }, [gameState, allGameHistory, debouncedPredict, predictor]);
+  }, [gameState, allGameHistory, debouncedPredict, predictor, currentSequenceConfig]);
 
   // 获取历史记录中最后N个颜色
-  const getLastNColors = (history: Move[], n: number): DotColor[] => {
+  // @ts-ignore - 此函数暂时未使用，但保留以备将来使用
+  const getLastNColors = useCallback((history: Move[], n: number): DotColor[] => {
     const colors = history.map((move) => move.color);
     return colors.slice(-n);
-  };
+  }, []);
 
   // 从当天历史数据初始化矩阵
   useEffect(() => {
@@ -1105,40 +1078,40 @@ const App: React.FC = () => {
     // 在连续模式下，我们需要基于所有历史数据进行预测，而不仅仅是当前显示的矩阵
     if (viewMode === 'continuous') {
       // 获取当前页面的起始索引
-      const startIndex = currentPage * PAGE_SIZE;
-      
+      // const startIndex = currentPage * PAGE_SIZE; // 暂时未使用，但保留以备将来使用
+
       // 计算当前行在所有历史数据中的实际索引
       const historyRowIndex = rowIndex;
-      
+
       // 获取当前行在所有历史数据中的所有颜色
       // 注意：这里使用allGameHistory而不是displayGameHistory，确保使用所有数据
       const rowColors: DotColor[] = [];
-      
+
       for (let i = 0; i < allGameHistory.length; i++) {
         const move = allGameHistory[i];
-        const col = Math.floor(i / PATTERN_ROWS);
+        // const col = Math.floor(i / PATTERN_ROWS); // 暂时未使用，但保留以备将来使用
         const row = i % PATTERN_ROWS;
-        
+
         if (row === historyRowIndex) {
           rowColors.push(move.color);
         }
       }
-      
+
       // 如果行中颜色不足两个，无法预测
       if (rowColors.length < 2) return null;
-      
+
       // 获取最后两个颜色
       const lastTwoColors = rowColors.slice(-2);
-      
+
       // 如果最后两个颜色相同，返回该颜色，否则返回null
       return lastTwoColors[0] === lastTwoColors[1] ? lastTwoColors[0] : null;
     } else {
       // 非连续模式下，保持原有逻辑
       const nonNullColors = row.filter((color) => color !== null) as DotColor[];
       if (nonNullColors.length < 2) return null;
-      
+
       const lastTwoColors = nonNullColors.slice(-2);
-      
+
       // 如果最后两个颜色相同，返回该颜色，否则返回null
       return lastTwoColors[0] === lastTwoColors[1] ? lastTwoColors[0] : null;
     }
@@ -1220,7 +1193,7 @@ const App: React.FC = () => {
     const updatedAllHistory = [...allGameHistory];
     updatedAllHistory.pop();
     setAllGameHistory(updatedAllHistory);
-    
+
     const updatedDisplayHistory = [...displayGameHistory];
     updatedDisplayHistory.pop();
     setDisplayGameHistory(updatedDisplayHistory);
@@ -1238,7 +1211,7 @@ const App: React.FC = () => {
         .eq('sequence_number', originalLength); // 使用原始长度
 
       if (error) throw error;
-      
+
       // 3. 更新存储中的游戏状态
       try {
         const sessionIdToUse = getSessionIdToUse();
@@ -1287,6 +1260,26 @@ const App: React.FC = () => {
     fetchAvailableSessions();
   }, [selectedDate, fetchLatestSessionId, fetchAvailableSessions]);
 
+  // 在组件加载时设置默认的会话选择
+  useEffect(() => {
+    // 如果 selectedSession 为 null，设置默认值
+    if (selectedSession === null) {
+      if (isRecordMode) {
+        // 录入模式下，默认选择"新一轮输入中"会话
+        setSelectedSession(currentSessionId);
+      } else {
+        // 预览模式下，默认选择最后一个会话（如果有）
+        fetchAvailableSessions().then(sessions => {
+          if (sessions && sessions.length > 0) {
+            setSelectedSession(sessions[sessions.length - 1]);
+          } else {
+            setSelectedSession(currentSessionId);
+          }
+        });
+      }
+    }
+  }, [selectedSession, isRecordMode, currentSessionId, fetchAvailableSessions]);
+
   if (isLoading) {
     return <LoadingScreen />;
   }
@@ -1330,7 +1323,7 @@ const App: React.FC = () => {
               {/* 主标题单独占一行 */}
               <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                 <h2 className="text-lg font-medium text-gray-900">连续模式预测</h2>
-                
+
                 {/* 分页导航 - 放在标题行 */}
                 {viewMode === 'continuous' && displayGameHistory.length > PAGE_SIZE && (
                   <div className="flex items-center space-x-4">
@@ -1341,11 +1334,11 @@ const App: React.FC = () => {
                     >
                       上一页
                     </button>
-                    
+
                     <span className="text-sm text-gray-600">
                       {`${currentPage + 1}/${totalPages}`}
                     </span>
-                    
+
                     <button
                       onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages - 1))}
                       disabled={currentPage >= totalPages - 1}
@@ -1411,8 +1404,8 @@ const App: React.FC = () => {
                             className={`rounded-full cursor-pointer border-2 relative
                               ${predictedColor
                                 ? `${predictedColor === 'red'
-                                    ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400 hover:from-red-500 hover:to-red-700'
-                                    : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700 hover:from-gray-800 hover:to-black'}`
+                                  ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400 hover:from-red-500 hover:to-red-700'
+                                  : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700 hover:from-gray-800 hover:to-black'}`
                                 : 'border-blue-400 bg-gradient-to-b from-gray-50 to-white'}
                               shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
                               hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]

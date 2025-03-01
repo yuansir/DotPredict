@@ -22,6 +22,7 @@ export const DateSelector: React.FC<DateSelectorProps> = ({
   onModeChange,
   className = '',
   currentSessionId = 1,
+  // @ts-ignore - 未使用的属性
   latestSessionId = null,
   availableSessions = [],
   selectedSession = null,
