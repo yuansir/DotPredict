@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DotColor, Position, GameState, Move } from './types';
 import { ControlPanel } from './components/ControlPanel';
 // @ts-ignore
@@ -50,7 +50,7 @@ const App: React.FC = () => {
     color: null,
     probability: 0,
     matchCount: 0,
-    isLoading: false
+    isLoading: false,
   });
   // @ts-ignore
   const [showStats, setShowStats] = useState(false);
@@ -65,11 +65,14 @@ const App: React.FC = () => {
 
   // 所有历史数据
   const [allGameHistory, setAllGameHistory] = useState<Move[]>([]);
+  
+  // 专门用于分页显示的历史数据
+  const [displayGameHistory, setDisplayGameHistory] = useState<Move[]>([]);
 
   // 序列配置状态
   const [currentSequenceConfig, setCurrentSequenceConfig] = useState<SequenceConfig>({
-    length: 5,  // 改为5
-    isEnabled: true
+    length: 5, // 改为5
+    isEnabled: true,
   });
 
   // 75%规则预测状态
@@ -78,27 +81,111 @@ const App: React.FC = () => {
     currentSequence: DotColor[];
   }>({
     predictedColor: null,
-    currentSequence: []
+    currentSequence: [],
   });
 
   // 连续模式预测矩阵常量
   const PATTERN_ROWS = 3;
   const PATTERN_COLS = 16;
 
+  // 视图模式：continuous表示连续模式，用于分页显示
+  const [viewMode, setViewMode] = useState<'continuous'>('continuous');
+
+  // 分页状态管理
+  const PAGE_SIZE = PATTERN_ROWS * PATTERN_COLS; // 每页48个小球
+  const [currentPage, setCurrentPage] = useState(0); // 当前页码，0表示第一页数据
+  
+  // 计算总页数
+  const totalPages = useMemo(() => {
+    return Math.ceil(displayGameHistory.length / PAGE_SIZE) || 1;
+  }, [displayGameHistory.length, PAGE_SIZE]);
+  
+  // 获取最后一页的页码
+  const lastPageIndex = useMemo(() => {
+    return Math.max(0, totalPages - 1);
+  }, [totalPages]);
+
+  // 当数据加载完成且总页数变化时，自动跳转到最后一页
+  useEffect(() => {
+    if (viewMode === 'continuous' && !isLoading) {
+      console.log('数据加载完成，设置页码为最后一页:', {
+        displayGameHistoryLength: displayGameHistory.length,
+        totalPages,
+        lastPageIndex,
+        isLoading
+      });
+      setCurrentPage(lastPageIndex);
+    }
+  }, [totalPages, lastPageIndex, viewMode, isLoading, displayGameHistory.length]);
+
   // 初始化空矩阵函数
   const createEmptyMatrix = useCallback(() => {
-    const newMatrix: (DotColor | null)[][] = Array(PATTERN_ROWS).fill(null).map(() => Array(PATTERN_COLS).fill(null));
+    const newMatrix: (DotColor | null)[][] = Array(PATTERN_ROWS).fill(null).map(() =>
+      Array(PATTERN_COLS).fill(null),
+    );
     return newMatrix;
   }, []);
 
   // 矩阵状态
   const [matrixData, setMatrixData] = useState(createEmptyMatrix());
 
+  // 获取分页矩阵数据
+  const getPagedMatrixData = useCallback((page: number) => {
+    if (isLoading || displayGameHistory.length === 0) {
+      return createEmptyMatrix();
+    }
+
+    console.log('获取分页数据:', {
+      displayGameHistoryLength: displayGameHistory.length,
+      page,
+      totalPages,
+      PAGE_SIZE
+    });
+
+    // 创建一个新的空矩阵
+    const newMatrix = createEmptyMatrix();
+
+    // 计算当前页的起始索引和结束索引
+    const startIndex = page * PAGE_SIZE;
+    const endIndex = Math.min(startIndex + PAGE_SIZE, displayGameHistory.length);
+    
+    // 获取当前页的历史数据
+    const pageData = displayGameHistory.slice(startIndex, endIndex);
+
+    console.log('当前页数据:', {
+      startIndex,
+      endIndex,
+      pageDataLength: pageData.length
+    });
+
+    // 将历史数据填充到矩阵中（按照从左到右，从上到下的顺序）
+    let index = 0;
+    for (let col = 0; col < PATTERN_COLS; col++) {
+      for (let row = 0; row < PATTERN_ROWS; row++) {
+        if (index < pageData.length) {
+          newMatrix[row][col] = pageData[index].color;
+          index++;
+        }
+      }
+    }
+
+    return newMatrix;
+  }, [displayGameHistory, createEmptyMatrix, PAGE_SIZE, totalPages, isLoading]);
+
+  // 监听页码变化，更新矩阵数据
+  useEffect(() => {
+    if (viewMode === 'continuous') {
+      console.log('页码变化，更新矩阵数据:', { currentPage, displayGameHistoryLength: displayGameHistory.length });
+      const pagedData = getPagedMatrixData(currentPage);
+      setMatrixData(pagedData);
+    }
+  }, [currentPage, getPagedMatrixData, viewMode, displayGameHistory.length]);
+
   // 添加新颜色到矩阵
   const addColorToMatrix = useCallback((color: string) => {
-    setMatrixData(prevMatrix => {
+    setMatrixData((prevMatrix) => {
       // 创建新矩阵副本
-      const newMatrix = prevMatrix.map(row => [...row]);
+      const newMatrix = prevMatrix.map((row) => [...row]);
 
       // 找到第一个空位置（严格按照从左到右，每列从上到下）
       let targetCol = 0;
@@ -136,15 +223,18 @@ const App: React.FC = () => {
       // 放入新数据
       newMatrix[targetRow][targetCol] = color;
 
+      // 确保新数据添加后，显示第一页（最新数据）
+      setCurrentPage(lastPageIndex);
+
       return newMatrix;
     });
-  }, []);
+  }, [lastPageIndex]);
 
   // 从矩阵中移除最后一个颜色
   const removeLastColorFromMatrix = useCallback(() => {
-    setMatrixData(prevMatrix => {
+    setMatrixData((prevMatrix) => {
       // 创建新矩阵副本
-      const newMatrix = prevMatrix.map(row => [...row]);
+      const newMatrix = prevMatrix.map((row) => [...row]);
 
       // 从右到左，从下到上查找最后一个非空位置
       for (let col = PATTERN_COLS - 1; col >= 0; col--) {
@@ -200,7 +290,6 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [gameState]);
 
-
   useEffect(() => {
     const loadState = async () => {
       setIsLoading(true);
@@ -228,7 +317,7 @@ const App: React.FC = () => {
             history: [],
             totalPredictions: 0,
             correctPredictions: 0,
-            predictionStats: []
+            predictionStats: [],
           });
           setNextPosition({ row: 0, col: 0 });
           setLastPosition(null);
@@ -239,7 +328,7 @@ const App: React.FC = () => {
           history: [],
           totalPredictions: 0,
           correctPredictions: 0,
-          predictionStats: []
+          predictionStats: [],
         });
         setNextPosition({ row: 0, col: 0 });
         setLastPosition(null);
@@ -267,12 +356,12 @@ const App: React.FC = () => {
       console.log('获取到的所有历史游戏数据:', allGames);
 
       // 按时间顺序合并所有游戏的历史数据
-      const completeHistory = allGames.flatMap(game =>
+      const completeHistory = allGames.flatMap((game) =>
         (game.history || []).map((move: Move) => ({
           ...move,
           gameId: game.id,
-          date: game.date
-        }))
+          date: game.date,
+        })),
       );
 
       console.log('合并后的完整历史数据:', completeHistory);
@@ -300,7 +389,7 @@ const App: React.FC = () => {
       // 只在开发环境下输出日志
       if (process.env.NODE_ENV === 'development') {
         console.log('更新预测器的历史数据:', {
-          totalLength: updatedHistory.length
+          totalLength: updatedHistory.length,
         });
       }
       predictor.updateHistory(updatedHistory);
@@ -333,7 +422,7 @@ const App: React.FC = () => {
   const debouncedPredict = useDebouncedCallback((history: Move[], nextPos: Position | null) => {
     if (history.length >= currentSequenceConfig.length && nextPos) {
       // 开始预测时设置loading状态
-      setPredictionDetails(prev => ({ ...prev, isLoading: true }));
+      setPredictionDetails((prev) => ({ ...prev, isLoading: true }));
 
       const prediction = predictor.predictNextColor();
       if (prediction) {
@@ -341,7 +430,7 @@ const App: React.FC = () => {
         if (process.env.NODE_ENV === 'development') {
           console.log('预测结果:', {
             color: prediction.color,
-            probability: prediction.probability.toFixed(2)
+            probability: prediction.probability.toFixed(2),
           });
         }
 
@@ -349,7 +438,7 @@ const App: React.FC = () => {
           color: prediction.color,
           probability: prediction.probability,
           matchCount: prediction.matchCount,
-          isLoading: false  // 预测完成，关闭loading
+          isLoading: false, // 预测完成，关闭loading
         });
         setPredictedColor(prediction.color);
         setPredictedPosition(nextPos);
@@ -359,7 +448,7 @@ const App: React.FC = () => {
           color: null,
           probability: 0,
           matchCount: 0,
-          isLoading: false  // 预测完成，关闭loading
+          isLoading: false, // 预测完成，关闭loading
         });
         setPredictedColor(null);
         setPredictedPosition(null);
@@ -373,7 +462,7 @@ const App: React.FC = () => {
     if (history.length < 2) {
       return {
         predictedColor: null,
-        currentSequence: []
+        currentSequence: [],
       };
     }
 
@@ -385,18 +474,18 @@ const App: React.FC = () => {
       'blackblack': 'red',
       'redred': 'black',
       'blackred': 'red',
-      'redblack': 'black'
+      'redblack': 'black',
     };
 
     return {
       predictedColor: rules[sequence] || null,
-      currentSequence: lastTwo
+      currentSequence: lastTwo,
     };
   };
 
   // 更新75%规则预测
   useEffect(() => {
-    const newPrediction = predict75Rule(gameState.history.map(move => move.color));
+    const newPrediction = predict75Rule(gameState.history.map((move) => move.color));
     setRule75Prediction(newPrediction);
   }, [gameState.history]);
 
@@ -404,7 +493,7 @@ const App: React.FC = () => {
   const getSessionIdToUse = useCallback(() => {
     return isRecordMode
       ? currentSessionId
-      : (selectedSession || 1);
+      : selectedSession || 1;
   }, [isRecordMode, currentSessionId, selectedSession]);
 
   // 颜色选择处理函数
@@ -425,7 +514,7 @@ const App: React.FC = () => {
       const newHistory = [...gameState.history];
       const move: Move = {
         position: currentPosition,
-        color,  // 使用传入的新颜色
+        color, // 使用传入的新颜色
         timestamp: Date.now(),
       };
 
@@ -435,15 +524,15 @@ const App: React.FC = () => {
         currentPosition.col === predictedPosition.col) {
         move.prediction = {
           color: predictedColor,
-          isCorrect: predictedColor === color,  // 使用新颜色比较
-          probability: predictedProbability || 0
+          isCorrect: predictedColor === color, // 使用新颜色比较
+          probability: predictedProbability || 0,
         };
 
         // 更新预测统计
         const newState = {
           ...gameState,
           totalPredictions: gameState.totalPredictions + 1,
-          correctPredictions: gameState.correctPredictions + (predictedColor === color ? 1 : 0)
+          correctPredictions: gameState.correctPredictions + (predictedColor === color ? 1 : 0),
         };
         setGameState(newState);
       }
@@ -453,7 +542,7 @@ const App: React.FC = () => {
       // 更新游戏状态
       const newState = {
         ...gameState,
-        history: newHistory
+        history: newHistory,
       };
 
       setGameState(newState);
@@ -467,7 +556,7 @@ const App: React.FC = () => {
 
       // 延迟预测，避免频繁更新
       setTimeout(() => {
-        // 使用防抖的预测函数
+        // 使用防抖的预测函数，保持使用allGameHistory用于预测
         debouncedPredict([...allGameHistory, ...newHistory], nextEmpty);
       }, 100);
 
@@ -504,14 +593,14 @@ const App: React.FC = () => {
           selectedDate,
           latestSessionId,
           currentSessionId,
-          condition: `session_id > ${latestSessionId || 0}`
+          condition: `session_id > ${latestSessionId || 0}`,
         });
 
         const { data, error } = await supabase
           .from('moves')
           .select('*')
           .eq('date', selectedDate)
-          .gt('session_id', latestSessionId || 0)  // 大于latest_session_id的数据
+          .gt('session_id', latestSessionId || 0) // 大于latest_session_id的数据
           .order('sequence_number', { ascending: true });
 
         if (error) throw error;
@@ -519,33 +608,45 @@ const App: React.FC = () => {
         // 如果有数据，加载它
         if (data && data.length > 0) {
           console.log('加载未终止的当前会话数据:', data.length, data);
-          const moves = data.map(move => ({
+          const moves = data.map((move) => ({
             position: move.position,
             color: move.color as DotColor,
-            prediction: move.prediction
+            prediction: move.prediction,
           }));
 
+          // 更新两个状态变量
           setAllGameHistory(moves);
+          setDisplayGameHistory(moves);
 
           // 更新游戏状态
-          setGameState(prev => ({
+          setGameState((prev) => ({
             ...prev,
             history: moves,
             totalPredictions: 0,
             correctPredictions: 0,
-            predictionStats: []
+            predictionStats: [],
           }));
+          
+          // 设置为最后一页
+          const newTotalPages = Math.ceil(moves.length / PAGE_SIZE) || 1;
+          const newLastPageIndex = Math.max(0, newTotalPages - 1);
+          console.log('设置为最后一页:', { newTotalPages, newLastPageIndex });
+          setCurrentPage(newLastPageIndex);
         } else {
           console.log('没有未终止的当前会话数据，显示空矩阵');
-          setAllGameHistory([]); // 清空所有游戏历史，确保矩阵不显示历史数据
-          setGameState(prev => ({
+          // 更新两个状态变量
+          setAllGameHistory([]);
+          setDisplayGameHistory([]);
+          
+          setGameState((prev) => ({
             ...prev,
             history: [],
             totalPredictions: 0,
             correctPredictions: 0,
-            predictionStats: []
+            predictionStats: [],
           }));
           setMatrixData(createEmptyMatrix()); // 清空3x16矩阵
+          setCurrentPage(0); // 重置页码
         }
       } else {
         // 加载选定会话的数据
@@ -558,22 +659,35 @@ const App: React.FC = () => {
 
         if (error) throw error;
 
-        const moves = data.map(move => ({
+        const moves = data.map((move) => ({
           position: move.position,
           color: move.color as DotColor,
-          prediction: move.prediction
+          prediction: move.prediction,
         }));
 
+        console.log('加载选定会话的数据:', {
+          sessionId,
+          dataLength: moves.length
+        });
+
+        // 更新两个状态变量
         setAllGameHistory(moves);
+        setDisplayGameHistory(moves);
 
         // 更新游戏状态
-        setGameState(prev => ({
+        setGameState((prev) => ({
           ...prev,
           history: moves,
           totalPredictions: 0,
           correctPredictions: 0,
-          predictionStats: []
+          predictionStats: [],
         }));
+        
+        // 设置为最后一页
+        const newTotalPages = Math.ceil(moves.length / PAGE_SIZE) || 1;
+        const newLastPageIndex = Math.max(0, newTotalPages - 1);
+        console.log('设置为最后一页:', { newTotalPages, newLastPageIndex });
+        setCurrentPage(newLastPageIndex);
       }
     } catch (error) {
       console.error('Error loading session data:', error);
@@ -583,7 +697,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDate, latestSessionId, currentSessionId]);
+  }, [selectedDate, today, currentSessionId, latestSessionId, createEmptyMatrix, PAGE_SIZE]);
 
   // 在日期变化时获取最新会话ID
   const fetchLatestSessionId = useCallback(async (date: string) => {
@@ -639,7 +753,7 @@ const App: React.FC = () => {
         // 当日期有记录，且 latest_session_id 不为 null
         sessions = Array.from(
           { length: record.latest_session_id },
-          (_, i) => i + 1
+          (_, i) => i + 1,
         );
       }
       setAvailableSessions(sessions);
@@ -673,7 +787,7 @@ const App: React.FC = () => {
             selectedDate,
             latestSessionId,
             currentSessionId,
-            condition: `session_id > ${latestSessionId || 0}`
+            condition: `session_id > ${latestSessionId || 0}`,
           });
 
           // 查询大于latest_session_id的数据（未终止的当前会话数据）
@@ -681,7 +795,7 @@ const App: React.FC = () => {
             .from('moves')
             .select('*')
             .eq('date', selectedDate)
-            .gt('session_id', latestSessionId || 0)  // 大于latest_session_id的数据
+            .gt('session_id', latestSessionId || 0) // 大于latest_session_id的数据
             .order('sequence_number', { ascending: true });
 
           if (error) throw error;
@@ -689,33 +803,45 @@ const App: React.FC = () => {
           // 如果有数据，加载它
           if (data && data.length > 0) {
             console.log('加载未终止的当前会话数据:', data.length, data);
-            const moves = data.map(move => ({
+            const moves = data.map((move) => ({
               position: move.position,
               color: move.color as DotColor,
-              prediction: move.prediction
+              prediction: move.prediction,
             }));
 
+            // 更新两个状态变量
             setAllGameHistory(moves);
+            setDisplayGameHistory(moves);
 
             // 更新游戏状态
-            setGameState(prev => ({
+            setGameState((prev) => ({
               ...prev,
               history: moves,
               totalPredictions: 0,
               correctPredictions: 0,
-              predictionStats: []
+              predictionStats: [],
             }));
+          
+            // 设置为最后一页
+            const newTotalPages = Math.ceil(moves.length / PAGE_SIZE) || 1;
+            const newLastPageIndex = Math.max(0, newTotalPages - 1);
+            console.log('设置为最后一页:', { newTotalPages, newLastPageIndex });
+            setCurrentPage(newLastPageIndex);
           } else {
             console.log('没有未终止的当前会话数据，显示空矩阵');
-            setAllGameHistory([]); // 清空所有游戏历史，确保矩阵不显示历史数据
-            setGameState(prev => ({
+            // 更新两个状态变量
+            setAllGameHistory([]);
+            setDisplayGameHistory([]);
+            
+            setGameState((prev) => ({
               ...prev,
               history: [],
               totalPredictions: 0,
               correctPredictions: 0,
-              predictionStats: []
+              predictionStats: [],
             }));
             setMatrixData(createEmptyMatrix()); // 清空3x16矩阵
+            setCurrentPage(0); // 重置页码
           }
         } catch (error) {
           console.error('Error loading initial data:', error);
@@ -737,7 +863,7 @@ const App: React.FC = () => {
       console.log('终止会话前状态:', {
         selectedDate,
         currentSessionId,
-        latestSessionId
+        latestSessionId,
       });
 
       // 1. 检查记录是否存在
@@ -754,7 +880,7 @@ const App: React.FC = () => {
           .from('daily_records')
           .update({
             latest_session_id: currentSessionId,
-            updated_at: new Date()
+            updated_at: new Date(),
           })
           .eq('date', selectedDate);
         error = updateError;
@@ -766,7 +892,7 @@ const App: React.FC = () => {
             date: selectedDate,
             latest_session_id: currentSessionId,
             total_predictions: 0,
-            correct_predictions: 0
+            correct_predictions: 0,
           });
         error = insertError;
       }
@@ -775,23 +901,23 @@ const App: React.FC = () => {
 
       // 更新状态
       setLatestSessionId(currentSessionId);
-      setCurrentSessionId(prev => prev + 1);
-      setSelectedSession(prev => prev + 1);
+      setCurrentSessionId((prev) => prev + 1);
+      setSelectedSession((prev) => prev + 1);
 
       console.log('终止会话后状态:', {
         新latestSessionId: currentSessionId,
         新currentSessionId: currentSessionId + 1,
-        新selectedSession: selectedSession + 1
+        新selectedSession: selectedSession + 1,
       });
 
       // 重置状态
       handlePatternReset();
-      setGameState(prev => ({
+      setGameState((prev) => ({
         ...prev,
         history: [],
         totalPredictions: 0,
         correctPredictions: 0,
-        predictionStats: []
+        predictionStats: [],
       }));
 
       // 清除矩阵数据
@@ -820,7 +946,7 @@ const App: React.FC = () => {
         .eq('date', selectedDate)
         .single();
 
-      let newSessionId = 1;  // 默认为 1
+      let newSessionId = 1; // 默认为 1
 
       // 2. 根据不同情况设置会话ID
       if (record && record.latest_session_id !== null) {
@@ -839,21 +965,21 @@ const App: React.FC = () => {
           .from('daily_records')
           .insert({
             date: selectedDate,
-            latest_session_id: null,  // 初始为 null
+            latest_session_id: null, // 初始为 null
             total_predictions: 0,
-            correct_predictions: 0
+            correct_predictions: 0,
           });
 
         if (insertError) throw insertError;
       }
 
       // 5. 重置游戏状态
-      setGameState(prev => ({
+      setGameState((prev) => ({
         ...prev,
         history: [],
         totalPredictions: 0,
         correctPredictions: 0,
-        predictionStats: []
+        predictionStats: [],
       }));
 
       return newSessionId;
@@ -877,7 +1003,7 @@ const App: React.FC = () => {
     position: Position,
     color: DotColor,
     prediction: any,
-    sequenceNumber: number
+    sequenceNumber: number,
   ) => {
     const sessionIdToUse = getSessionIdToUse();
 
@@ -896,7 +1022,7 @@ const App: React.FC = () => {
           color: color,
           prediction: prediction,
           sequence_number: sequenceNumber,
-          session_id: sessionIdToUse  // 明确设置session_id
+          session_id: sessionIdToUse, // 明确设置session_id
         });
 
       if (error) throw error;
@@ -917,13 +1043,12 @@ const App: React.FC = () => {
           console.log('验证保存结果:', {
             实际保存的会话ID: verifyData?.session_id,
             预期会话ID: sessionIdToUse,
-            是否一致: verifyData?.session_id === sessionIdToUse ? '✓ 一致' : '✗ 不一致'
+            是否一致: verifyData?.session_id === sessionIdToUse ? '✓ 一致' : '✗ 不一致',
           });
         }
       } catch (verifyError) {
         console.error('验证过程出错:', verifyError);
       }
-
     } catch (error) {
       console.error('保存移动记录时出错:', error);
       setAlertMessage('保存移动时出错');
@@ -953,24 +1078,27 @@ const App: React.FC = () => {
 
   // 获取历史记录中最后N个颜色
   const getLastNColors = (history: Move[], n: number): DotColor[] => {
-    const colors = history.map(move => move.color);
+    const colors = history.map((move) => move.color);
     return colors.slice(-n);
   };
 
   // 从当天历史数据初始化矩阵
   useEffect(() => {
-    // 确保数据已加载完成
-    if (!isLoading && gameState.history.length > 0) {
+    // 确保数据已加载完成且不是在分页模式下
+    if (!isLoading && displayGameHistory.length > 0 && viewMode !== 'continuous') {
       const maxBalls = PATTERN_ROWS * PATTERN_COLS; // 48个
-      const history = gameState.history;
+      const history = displayGameHistory;
       const startIndex = Math.max(0, history.length - maxBalls);
       const displayHistory = history.slice(startIndex); // 只取最后48个
 
       // 只在开发环境下输出日志
       if (process.env.NODE_ENV === 'development') {
-        console.log('初始化3x16矩阵:', {
+        console.log('初始化3x16矩阵(非分页模式):', {
           totalHistory: history.length,
-          displayHistory: displayHistory.length
+          displayHistory: displayHistory.length,
+          displayGameHistoryLength: displayGameHistory.length,
+          currentPage,
+          viewMode
         });
       }
 
@@ -986,11 +1114,11 @@ const App: React.FC = () => {
 
       setMatrixData(newMatrix);
     }
-  }, [gameState.history, isLoading]);
+  }, [displayGameHistory, isLoading, PATTERN_ROWS, PATTERN_COLS, createEmptyMatrix, currentPage, viewMode]);
 
   // 检查行中最后两个颜色的函数
   const checkLastTwoColors = useCallback((row: (DotColor | null)[]) => {
-    const nonNullColors = row.filter(color => color !== null) as DotColor[];
+    const nonNullColors = row.filter((color) => color !== null) as DotColor[];
     if (nonNullColors.length < 2) return null;
 
     const lastTwoColors = nonNullColors.slice(-2);
@@ -1006,12 +1134,12 @@ const App: React.FC = () => {
       await storage.clearAllData();
 
       // 重置本地状态
-      setGameState(prev => ({
+      setGameState((prev) => ({
         ...prev,
         history: [],
         totalPredictions: 0,
         correctPredictions: 0,
-        predictionStats: []
+        predictionStats: [],
       }));
 
       // 清空矩阵数据
@@ -1025,7 +1153,7 @@ const App: React.FC = () => {
       console.log('清空数据后重置会话ID:', {
         currentSessionId: 1,
         latestSessionId: null,
-        selectedSession: 1
+        selectedSession: 1,
       });
 
       setAlertMessage('已清空所有数据');
@@ -1059,12 +1187,12 @@ const App: React.FC = () => {
     const newHistory = [...gameState.history];
     newHistory.pop(); // 移除最后一个操作
 
-    setGameState(prev => ({
+    setGameState((prev) => ({
       ...prev,
       history: newHistory,
       totalPredictions: 0,
       correctPredictions: 0,
-      predictionStats: []
+      predictionStats: [],
     }));
 
     // 2. 从数据库删除最后一条记录
@@ -1156,16 +1284,45 @@ const App: React.FC = () => {
           <div className="mb-6">
             <div className="bg-white rounded-lg border border-gray-200 shadow-lg">
               {/* 主标题单独占一行 */}
-              <div className="px-6 py-4 border-b border-gray-200">
+              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                 <h2 className="text-lg font-medium text-gray-900">连续模式预测</h2>
+                
+                {/* 分页导航 - 放在标题行 */}
+                {viewMode === 'continuous' && displayGameHistory.length > PAGE_SIZE && (
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 0))}
+                      disabled={currentPage <= 0}
+                      className="px-3 py-1 bg-blue-500 text-white rounded-md disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                      上一页
+                    </button>
+                    
+                    <span className="text-sm text-gray-600">
+                      {`${currentPage + 1}/${totalPages}`}
+                    </span>
+                    
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages - 1))}
+                      disabled={currentPage >= totalPages - 1}
+                      className="px-3 py-1 bg-blue-500 text-white rounded-md disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                      下一页
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="p-6">
                 {/* 设定和规则标题行 - 与下方内容对齐 */}
                 <div className="grid grid-cols-[1fr_52px_52px] gap-[6px] mb-2">
                   <div></div> {/* 空div占位，与矩阵对齐 */}
-                  <div className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded text-center w-[52px]">设定</div>
-                  <div className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded text-center w-[52px]">规则</div>
+                  <div className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded text-center w-[52px]">
+                    设定
+                  </div>
+                  <div className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded text-center w-[52px]">
+                    规则
+                  </div>
                 </div>
 
                 {/* 内容区域 */}
@@ -1202,14 +1359,16 @@ const App: React.FC = () => {
                             style={{
                               width: '40px',
                               height: '40px',
-                              animation: !predictedColor ? 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'colorPulse 3s ease-in-out infinite',
-                              margin: '0 auto'
+                              animation: !predictedColor
+                                ? 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                                : 'colorPulse 3s ease-in-out infinite',
+                              margin: '0 auto',
                             }}
                             className={`rounded-full cursor-pointer border-2 relative
-                              ${predictedColor ?
-                                `${predictedColor === 'red' ?
-                                  'bg-gradient-to-b from-red-400 to-red-600 border-red-400 hover:from-red-500 hover:to-red-700' :
-                                  'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700 hover:from-gray-800 hover:to-black'}`
+                              ${predictedColor
+                                ? `${predictedColor === 'red'
+                                    ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400 hover:from-red-500 hover:to-red-700'
+                                    : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700 hover:from-gray-800 hover:to-black'}`
                                 : 'border-blue-400 bg-gradient-to-b from-gray-50 to-white'}
                               shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
                               hover:shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3)]
@@ -1222,7 +1381,7 @@ const App: React.FC = () => {
                               key="border-pulse"
                               className="absolute inset-[-4px] rounded-full border-2 border-blue-400"
                               style={{
-                                animation: 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                                animation: 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                               }}
                             />
                           )}
@@ -1269,7 +1428,7 @@ const App: React.FC = () => {
                               width: '40px',
                               height: '40px',
                               animation: 'colorPulse 3s ease-in-out infinite',
-                              margin: '0 auto'
+                              margin: '0 auto',
                             }}
                             className={`rounded-full cursor-pointer border-2 relative
                               ${rule75Prediction.predictedColor === 'red'
@@ -1299,7 +1458,7 @@ const App: React.FC = () => {
                             key="border-pulse"
                             className="absolute inset-[-4px] rounded-full border-2 border-blue-400"
                             style={{
-                              animation: 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                              animation: 'borderPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                             }}
                           />
                         )}
@@ -1373,7 +1532,7 @@ const App: React.FC = () => {
               transform: scale(1.05);
             }
           }
-        `
+        `,
       }} />
 
       {/* 弹窗和加载组件 */}
