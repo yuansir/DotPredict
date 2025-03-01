@@ -491,9 +491,16 @@ const App: React.FC = () => {
 
   // 获取当前应使用的会话ID
   const getSessionIdToUse = useCallback(() => {
-    return isRecordMode
-      ? currentSessionId
-      : selectedSession || 1;
+    // 如果是录入模式，始终使用currentSessionId
+    // 如果是预览模式，使用selectedSession
+    // 确保在终止会话后使用新的会话ID
+    if (isRecordMode) {
+      console.log('使用录入模式会话ID:', currentSessionId);
+      return currentSessionId;
+    } else {
+      console.log('使用预览模式会话ID:', selectedSession || 1);
+      return selectedSession || 1;
+    }
   }, [isRecordMode, currentSessionId, selectedSession]);
 
   // 颜色选择处理函数
@@ -858,46 +865,15 @@ const App: React.FC = () => {
   }, [selectedDate, selectedSession, currentSessionId, latestSessionId]);
 
   // 终止当前会话
-  const handleEndSession = async () => {
+  const endCurrentSession = async () => {
     try {
-      console.log('终止会话前状态:', {
-        selectedDate,
-        currentSessionId,
-        latestSessionId,
-      });
-
-      // 1. 检查记录是否存在
-      const { data: existingRecord } = await supabase
+      // 1. 更新daily_records表
+      const { error: updateError } = await supabase
         .from('daily_records')
-        .select('id')
-        .eq('date', selectedDate)
-        .single();
+        .update({ latest_session_id: currentSessionId })
+        .eq('date', selectedDate);
 
-      let error;
-      if (existingRecord) {
-        // 2. 如果存在，使用 update
-        const { error: updateError } = await supabase
-          .from('daily_records')
-          .update({
-            latest_session_id: currentSessionId,
-            updated_at: new Date(),
-          })
-          .eq('date', selectedDate);
-        error = updateError;
-      } else {
-        // 3. 如果不存在，使用 insert
-        const { error: insertError } = await supabase
-          .from('daily_records')
-          .insert({
-            date: selectedDate,
-            latest_session_id: currentSessionId,
-            total_predictions: 0,
-            correct_predictions: 0,
-          });
-        error = insertError;
-      }
-
-      if (error) throw error;
+      if (updateError) throw updateError;
 
       // 更新状态
       setLatestSessionId(currentSessionId);
@@ -920,8 +896,11 @@ const App: React.FC = () => {
         predictionStats: [],
       }));
 
-      // 清除矩阵数据
+      // 清除矩阵数据和历史数据
       setMatrixData(createEmptyMatrix());
+      setAllGameHistory([]);
+      setDisplayGameHistory([]);
+      setCurrentPage(0); // 重置页码
 
       setAlertMessage('会话已终止，可以开始新的输入');
       setAlertType('info');
@@ -1483,7 +1462,7 @@ const App: React.FC = () => {
               onSequenceConfigChange={handleSequenceConfigChange}
               sequenceConfig={currentSequenceConfig}
               rule75Prediction={rule75Prediction}
-              onEndSession={handleEndSession}
+              onEndSession={endCurrentSession}
             />
           </div>
 
