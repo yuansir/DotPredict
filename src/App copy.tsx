@@ -54,7 +54,7 @@ const App: React.FC = () => {
 
   const [selectedDate, setSelectedDate] = useState<string>(today);
   // 初始化时，如果是今天且会话ID为1（新一轮输入），则为录入模式
-  const [isRecordMode, setIsRecordMode] = useState<boolean>(selectedDate === today);  
+  const [isRecordMode, setIsRecordMode] = useState<boolean>(selectedDate === today);
 
   const [gameState, setGameState] = useState<GameState>(() => {
     const initialState: GameState = {
@@ -599,8 +599,8 @@ const App: React.FC = () => {
 
   // 获取当前应使用的会话ID
   const getSessionIdToUse = useCallback(() => {
-    return isRecordMode && !gameState.isViewingHistory 
-      ? currentSessionId 
+    return isRecordMode && !gameState.isViewingHistory
+      ? currentSessionId
       : (selectedSession || 1);
   }, [isRecordMode, gameState.isViewingHistory, currentSessionId, selectedSession]);
 
@@ -608,22 +608,22 @@ const App: React.FC = () => {
   const handleSessionChange = useCallback(async (sessionId: number) => {
     setSelectedSession(sessionId);
     setIsLoading(true);
-    
+
     // 只有当天日期+新一轮输入会话才是录入模式
     const shouldBeRecordMode = selectedDate === today && sessionId === currentSessionId;
     setIsRecordMode(shouldBeRecordMode);
-    
+
     try {
       // 如果选择的是"新一轮输入中"会话
       if (sessionId === currentSessionId) {
         // 查询大于latest_session_id的数据（未终止的当前会话数据）
-        console.log('查询新一轮输入中的数据, 条件:', { 
-          selectedDate, 
-          latestSessionId, 
+        console.log('查询新一轮输入中的数据, 条件:', {
+          selectedDate,
+          latestSessionId,
           currentSessionId,
           condition: `session_id > ${latestSessionId || 0}`
         });
-        
+
         const { data, error } = await supabase
           .from('moves')
           .select('*')
@@ -643,7 +643,7 @@ const App: React.FC = () => {
           }));
 
           setAllGameHistory(moves);
-          
+
           // 更新游戏状态
           setGameState(prev => ({
             ...prev,
@@ -681,7 +681,7 @@ const App: React.FC = () => {
         }));
 
         setAllGameHistory(moves);
-        
+
         // 更新游戏状态
         setGameState(prev => ({
           ...prev,
@@ -708,7 +708,7 @@ const App: React.FC = () => {
         .select('latest_session_id')
         .eq('date', date)
         .maybeSingle();
-      
+
       if (error) {
         // 如果是没有找到记录，不需要显示错误
         if (error.code === 'PGRST116') {
@@ -717,7 +717,7 @@ const App: React.FC = () => {
         }
         throw error;
       }
-      
+
       // 如果没有数据，设置为 null
       if (!data) {
         setLatestSessionId(null);
@@ -745,20 +745,20 @@ const App: React.FC = () => {
         .select('latest_session_id')
         .eq('date', selectedDate)
         .single();
-      
+
       if (recordError) throw recordError;
-      
+
       // 2. 生成会话列表
       let sessions = [];
       if (record && record.latest_session_id !== null) {
         // 当日期有记录，且 latest_session_id 不为 null
         sessions = Array.from(
-          { length: record.latest_session_id }, 
+          { length: record.latest_session_id },
           (_, i) => i + 1
         );
       }
       setAvailableSessions(sessions);
-      
+
       // 3. 设置选中的会话
       if (sessions.length === 0) {
         // 如果没有历史记录，显示"新一轮输入中..."
@@ -784,9 +784,9 @@ const App: React.FC = () => {
       if (selectedSession === currentSessionId) {
         setIsLoading(true);
         try {
-          console.log('初始化加载数据 - 查询条件:', { 
-            selectedDate, 
-            latestSessionId, 
+          console.log('初始化加载数据 - 查询条件:', {
+            selectedDate,
+            latestSessionId,
             currentSessionId,
             condition: `session_id > ${latestSessionId || 0}`
           });
@@ -811,7 +811,7 @@ const App: React.FC = () => {
             }));
 
             setAllGameHistory(moves);
-            
+
             // 更新游戏状态
             setGameState(prev => ({
               ...prev,
@@ -866,7 +866,7 @@ const App: React.FC = () => {
         // 2. 如果存在，使用 update
         const { error: updateError } = await supabase
           .from('daily_records')
-          .update({ 
+          .update({
             latest_session_id: currentSessionId,
             updated_at: new Date()
           })
@@ -886,18 +886,18 @@ const App: React.FC = () => {
       }
 
       if (error) throw error;
-      
+
       // 更新状态
       setLatestSessionId(currentSessionId);
       setCurrentSessionId(prev => prev + 1);
       setSelectedSession(prev => prev + 1);
-      
+
       console.log('终止会话后状态:', {
         新latestSessionId: currentSessionId,
         新currentSessionId: currentSessionId + 1,
         新selectedSession: selectedSession + 1
       });
-      
+
       // 重置状态
       handlePatternReset();
       setGameState(prev => ({
@@ -933,7 +933,7 @@ const App: React.FC = () => {
         .select('latest_session_id')
         .eq('date', selectedDate)
         .single();
-      
+
       let newSessionId = 1;  // 默认为 1
 
       // 2. 根据不同情况设置会话ID
@@ -999,7 +999,7 @@ const App: React.FC = () => {
       当前会话ID: currentSessionId,
       选中会话ID: selectedSession
     });
-    
+
     try {
       // 使用upsert代替insert，确保session_id被正确设置
       const { data, error } = await supabase
@@ -1014,7 +1014,7 @@ const App: React.FC = () => {
         });
 
       if (error) throw error;
-      
+
       // 验证保存是否成功
       try {
         const { data: verifyData, error: verifyError } = await supabase
@@ -1023,7 +1023,7 @@ const App: React.FC = () => {
           .eq('date', selectedDate)
           .eq('sequence_number', sequenceNumber)
           .single();
-          
+
         if (verifyError) {
           console.error('验证保存时出错:', verifyError);
         } else {
@@ -1036,7 +1036,7 @@ const App: React.FC = () => {
       } catch (verifyError) {
         console.error('验证过程出错:', verifyError);
       }
-      
+
     } catch (error) {
       console.error('保存移动记录时出错:', error);
       setAlertMessage('保存移动时出错');
@@ -1048,10 +1048,10 @@ const App: React.FC = () => {
   // 序列配置变更
   const handleSequenceConfigChange = useCallback((newConfig: SequenceConfig) => {
     setCurrentSequenceConfig(newConfig);
-    
+
     // 更新预测器的序列长度
     predictor.setSequenceLength(newConfig.length);
-    
+
     // 如果启用了预测且有历史记录，尝试重新预测
     if (newConfig.isEnabled && gameState.history.length > 0) {
       const nextEmpty = findNextEmptyPosition(gameState.grid);
@@ -1109,9 +1109,9 @@ const App: React.FC = () => {
   const checkLastTwoColors = useCallback((row: (DotColor | null)[]) => {
     const nonNullColors = row.filter(color => color !== null) as DotColor[];
     if (nonNullColors.length < 2) return null;
-    
+
     const lastTwoColors = nonNullColors.slice(-2);
-    
+
     // 如果最后两个颜色相同，返回该颜色，否则返回null
     return lastTwoColors[0] === lastTwoColors[1] ? lastTwoColors[0] : null;
   }, []);
@@ -1151,7 +1151,7 @@ const App: React.FC = () => {
     try {
       // 找到历史记录中对应的序号
       const sequenceNumber = index + 1;
-      
+
       const { error } = await supabase
         .from('moves')
         .delete()
@@ -1160,7 +1160,7 @@ const App: React.FC = () => {
         .eq('sequence_number', sequenceNumber);
 
       if (error) throw error;
-      
+
       // 4. 重新排序后续的序号
       // 这里可能需要额外的逻辑来处理序号重排
     } catch (error) {
@@ -1193,7 +1193,7 @@ const App: React.FC = () => {
       setCurrentSessionId(1);
       setLatestSessionId(null);
       setSelectedSession(1);
-      
+
       console.log('清空数据后重置会话ID:', {
         currentSessionId: 1,
         latestSessionId: null,
@@ -1267,7 +1267,7 @@ const App: React.FC = () => {
   // 返回最新状态
   const handleReturnToLatest = useCallback(() => {
     const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
-    
+
     setGameState(prev => ({
       ...prev,
       windowStart: maxStart,
@@ -1332,7 +1332,7 @@ const App: React.FC = () => {
                 <h2 className="text-lg font-medium text-gray-900">连续模式预测</h2>
                 <div className="flex items-center space-x-4">
                   <span className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded">设定</span>
-                  <span className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded">75%规则</span>
+                  <span className="text-sm font-medium text-gray-600 px-2 py-1 border border-gray-200 rounded">规则</span>
                 </div>
               </div>
               <div className="p-6">
@@ -1345,10 +1345,10 @@ const App: React.FC = () => {
                             key={colIndex}
                             style={{ width: '40px', height: '40px' }}
                             className={`rounded-full cursor-pointer border-2 
-                              ${color === 'red' 
-                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400' 
-                                : color === 'black' 
-                                  ? 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700' 
+                              ${color === 'red'
+                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400'
+                                : color === 'black'
+                                  ? 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'
                                   : 'bg-white border-gray-300'}
                               hover:shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
                               active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]
@@ -1383,7 +1383,7 @@ const App: React.FC = () => {
                           />
                           {/* 蓝色方框呼吸灯效果 */}
                           {predictedColor && (
-                            <div 
+                            <div
                               key="border-pulse"
                               className="absolute inset-[-4px] rounded-full border-2 border-blue-400"
                               style={{
@@ -1404,8 +1404,8 @@ const App: React.FC = () => {
                           <div
                             style={{ width: '40px', height: '40px' }}
                             className={`rounded-full cursor-pointer border-2 relative
-                              ${rule75Prediction.currentSequence[0] === 'red' 
-                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400' 
+                              ${rule75Prediction.currentSequence[0] === 'red'
+                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400'
                                 : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'}
                               shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
                               transition-all duration-200 ease-in-out`}
@@ -1416,8 +1416,8 @@ const App: React.FC = () => {
                           <div
                             style={{ width: '40px', height: '40px' }}
                             className={`rounded-full cursor-pointer border-2 relative
-                              ${rule75Prediction.currentSequence[1] === 'red' 
-                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400' 
+                              ${rule75Prediction.currentSequence[1] === 'red'
+                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400'
                                 : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'}
                               shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
                               transition-all duration-200 ease-in-out`}
@@ -1426,14 +1426,14 @@ const App: React.FC = () => {
                         ) : index === 2 && rule75Prediction.predictedColor ? (
                           // 第三行显示预测的下一个小球
                           <div
-                            style={{ 
-                              width: '40px', 
+                            style={{
+                              width: '40px',
                               height: '40px',
                               animation: 'colorPulse 3s ease-in-out infinite'
                             }}
                             className={`rounded-full cursor-pointer border-2 relative
-                              ${rule75Prediction.predictedColor === 'red' 
-                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400' 
+                              ${rule75Prediction.predictedColor === 'red'
+                                ? 'bg-gradient-to-b from-red-400 to-red-600 border-red-400'
                                 : 'bg-gradient-to-b from-gray-700 to-gray-900 border-gray-700'}
                               shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]
                               transition-all duration-200 ease-in-out`}
@@ -1453,7 +1453,7 @@ const App: React.FC = () => {
                         )}
                         {/* 蓝色方框呼吸灯效果 */}
                         {(index === 2 && rule75Prediction.predictedColor) && (
-                          <div 
+                          <div
                             key="border-pulse"
                             className="absolute inset-[-4px] rounded-full border-2 border-blue-400"
                             style={{
