@@ -117,7 +117,6 @@ export class SupabaseStorageService {
       if (movesError) throw movesError;
 
       // 3. 构建游戏状态
-      const grid = this.reconstructGrid(moves || []);
       const history = (moves || []).map(m => ({
         position: m.position as Position,
         color: m.color as DotColor,
@@ -126,8 +125,6 @@ export class SupabaseStorageService {
       }));
 
       return {
-        // @ts-ignore - 兼容旧版本类型
-        grid,
         history,
         windowStart: 0,
         totalPredictions: record?.total_predictions || 0,
@@ -307,6 +304,7 @@ export class SupabaseStorageService {
     }
   }
 
+  // @ts-ignore: 保留未使用的方法以备将来使用
   private reconstructGrid(moves: any[]): (DotColor | null)[][] {
     const grid = Array(8).fill(null).map(() => Array(8).fill(null));
     moves.forEach(move => {

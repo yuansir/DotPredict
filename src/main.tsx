@@ -11,7 +11,7 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// @ts-ignore - 未使用的导入
+// React 在 JSX 转换中隐式使用
 import React from 'react'
 // @ts-ignore - 未使用的导入
 import ReactDOM from 'react-dom/client'
@@ -19,5 +19,7 @@ import App from './App'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <App />
+  <React.Fragment>
+    <App />
+  </React.Fragment>
 )
