@@ -1107,7 +1107,7 @@ const App: React.FC = () => {
 
   // 获取历史记录中最后N个颜色
   // @ts-ignore: 保留未使用的函数以备将来使用
-  const getLastNColors = (history: Move[], n: number): DotColor[] => {
+  const getLastNColors = useCallback((history: Move[], n: number): DotColor[] => {
     const colors = history.map((move) => move.color);
     return colors.slice(-n);
   }, []);
