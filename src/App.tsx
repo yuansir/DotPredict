@@ -1,18 +1,22 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DotColor, Position, GameState, Move } from './types';
 import { ControlPanel } from './components/ControlPanel';
+import { DateSelector } from './components/DateSelector';
+import { GameMatrix } from './components/GameMatrix';
+import { PredictionDisplay } from './components/PredictionDisplay';
+// @ts-ignore: 保留未使用的导入以备将来使用
+import { PredictionSequenceDisplay } from './components/PredictionSequenceDisplay';
+import { StatsDisplay } from './components/StatsDisplay';
 // @ts-ignore
 import { StatsPanel } from './components/StatsPanel';
 import { SupabaseStorageService } from './services/supabase-storage';
 // @ts-ignore
 import { predictNextColor } from './utils/gameLogic';
-import { DateSelector } from './components/DateSelector';
 import LoadingScreen from './components/LoadingScreen';
 import AlertDialog from './components/AlertDialog';
 import { SequencePredictor, SequenceConfig } from './utils/sequencePredictor';
 // @ts-ignore
 import { supabase, testConnection } from './lib/supabase';
-import { PredictionSequenceDisplay } from './components/PredictionSequenceDisplay';
 
 const App: React.FC = () => {
   // 会话管理相关状态和函数
@@ -37,10 +41,15 @@ const App: React.FC = () => {
     return initialState;
   });
 
+  // 颜色选择状态
+  // @ts-ignore: 保留未使用的状态变量以备将来使用
   const [selectedColor, setSelectedColor] = useState<DotColor>('red');
+
   const [predictedPosition, setPredictedPosition] = useState<Position | null>(null);
   const [predictedColor, setPredictedColor] = useState<DotColor | null>(null);
   const [predictedProbability, setPredictedProbability] = useState<number | null>(null);
+  // 预测状态
+  // @ts-ignore: 保留未使用的状态变量以备将来使用
   const [predictionDetails, setPredictionDetails] = useState<{
     color: DotColor | null;
     probability: number;
@@ -58,6 +67,8 @@ const App: React.FC = () => {
   const [gameHistory, setGameHistory] = useState<any[]>([]);
   const [nextPosition, setNextPosition] = useState<Position>({ row: 0, col: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  // 最后一个位置（用于撤销）
+  // @ts-ignore: 保留未使用的状态变量以备将来使用
   const [lastPosition, setLastPosition] = useState<Position | null>(null);
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
@@ -88,7 +99,8 @@ const App: React.FC = () => {
   const PATTERN_ROWS = 3;
   const PATTERN_COLS = 16;
 
-  // 视图模式：continuous表示连续模式，用于分页显示
+  // 视图模式（连续或分页）
+  // @ts-ignore: 保留未使用的状态变量以备将来使用
   const [viewMode, setViewMode] = useState<'continuous'>('continuous');
 
   // 分页状态管理
