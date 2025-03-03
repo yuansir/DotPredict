@@ -25,6 +25,9 @@ export interface GameState {
     accuracy: number;
     totalPredictions: number;
   }[];
+  grid?: (DotColor | null)[][];
+  windowStart?: number;
+  isViewingHistory?: boolean;
 }
 
 export interface Pattern {

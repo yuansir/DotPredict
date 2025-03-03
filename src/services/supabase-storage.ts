@@ -117,7 +117,6 @@ export class SupabaseStorageService {
       if (movesError) throw movesError;
 
       // 3. 构建游戏状态
-      const grid = this.reconstructGrid(moves || []);
       const history = (moves || []).map(m => ({
         position: m.position as Position,
         color: m.color as DotColor,
@@ -126,7 +125,6 @@ export class SupabaseStorageService {
       }));
 
       return {
-        grid,
         history,
         windowStart: 0,
         totalPredictions: record?.total_predictions || 0,

@@ -174,6 +174,7 @@ const App: React.FC = () => {
   }, []);
 
   // 从矩阵中移除最后一个颜色
+  // @ts-ignore: 保留未使用的函数以备将来使用
   const removeLastColorFromMatrix = useCallback(() => {
     setMatrixData(prevMatrix => {
       // 创建新矩阵副本
