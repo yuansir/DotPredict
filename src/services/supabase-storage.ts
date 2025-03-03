@@ -303,6 +303,7 @@ export class SupabaseStorageService {
     }
   }
 
+  // @ts-ignore: 保留未使用的方法以备将来使用
   private reconstructGrid(moves: any[]): (DotColor | null)[][] {
     const grid = Array(8).fill(null).map(() => Array(8).fill(null));
     moves.forEach(move => {

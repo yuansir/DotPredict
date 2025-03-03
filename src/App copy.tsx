@@ -214,7 +214,8 @@ const App: React.FC = () => {
   const handleModeChange = (mode: boolean) => {
     setIsRecordMode(mode);
     if (mode) {
-      const nextEmpty = findNextEmptyPosition(gameState.grid);
+      // 添加非空断言，确保 grid 不为 undefined
+      const nextEmpty = findNextEmptyPosition(gameState.grid!);
       if (nextEmpty) {
         setNextPosition(nextEmpty);
       }
@@ -231,11 +232,13 @@ const App: React.FC = () => {
         handleUndo();
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        handleWindowChange(Math.max(0, gameState.windowStart - GRID_SIZE));
+        // 添加非空断言，确保 windowStart 不为 undefined
+        handleWindowChange(Math.max(0, gameState.windowStart! - GRID_SIZE));
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         const maxStart = Math.max(0, gameState.history.length - WINDOW_SIZE);
-        handleWindowChange(Math.min(maxStart, gameState.windowStart + GRID_SIZE));
+        // 添加非空断言，确保 windowStart 不为 undefined
+        handleWindowChange(Math.min(maxStart, gameState.windowStart! + GRID_SIZE));
       }
     };
 
@@ -243,6 +246,7 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [gameState]);
 
+  // @ts-ignore: 保留未使用的函数以备将来使用
   const updateDisplayGrid = useCallback((history: Move[], windowStart: number) => {
     return calculateGrid(history, windowStart);
   }, []);

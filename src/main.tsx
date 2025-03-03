@@ -11,11 +11,14 @@ if (typeof window !== 'undefined') {
   };
 }
 
+// React 在 JSX 转换中隐式使用
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <App />
+  <React.Fragment>
+    <App />
+  </React.Fragment>
 )

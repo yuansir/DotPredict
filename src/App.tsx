@@ -1042,14 +1042,16 @@ const App: React.FC = () => {
   }, [selectedDate, getSessionIdToUse]);
 
   // 序列配置变更
-  const handleSequenceConfigChange = useCallback((newConfig: SequenceConfig) => {
-    setCurrentSequenceConfig(newConfig);
+  const handleSequenceConfigChange = useCallback((newConfig: Partial<SequenceConfig>) => {
+    // 合并部分配置与当前配置
+    const updatedConfig = { ...currentSequenceConfig, ...newConfig };
+    setCurrentSequenceConfig(updatedConfig);
 
     // 更新预测器的序列长度
-    predictor.updateConfig(newConfig);
+    predictor.updateConfig(updatedConfig);
 
     // 如果启用了预测且有历史记录，尝试重新预测
-    if (newConfig.isEnabled && gameState.history.length > 0) {
+    if (updatedConfig.isEnabled && gameState.history.length > 0) {
       // 使用固定位置代替findNextEmptyPosition
       debouncedPredict([...allGameHistory, ...gameState.history], { row: 0, col: 0 });
     } else {
@@ -1058,7 +1060,7 @@ const App: React.FC = () => {
       setPredictedPosition(null);
       setPredictedProbability(null);
     }
-  }, [gameState, allGameHistory, debouncedPredict, predictor]);
+  }, [gameState, allGameHistory, debouncedPredict, predictor, currentSequenceConfig]);
 
   // 获取历史记录中最后N个颜色
   const getLastNColors = (history: Move[], n: number): DotColor[] => {
