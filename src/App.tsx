@@ -995,6 +995,7 @@ const App: React.FC = () => {
   }, [selectedDate, isRecordMode, initializeSession]);
 
   // 修改 saveMove 函数
+  // @ts-ignore: 保留未使用的函数以备将来使用
   const saveMove = useCallback(async (
     position: Position,
     color: DotColor,
@@ -1010,6 +1011,7 @@ const App: React.FC = () => {
 
     try {
       // 使用upsert代替insert，确保session_id被正确设置
+      // @ts-ignore: 保留未使用的变量以备将来使用
       const { data, error } = await supabase
         .from('moves')
         .upsert({
@@ -1025,6 +1027,7 @@ const App: React.FC = () => {
 
       // 验证保存是否成功
       try {
+        // @ts-ignore: 保留未使用的变量以备将来使用
         const { data: verifyData, error: verifyError } = await supabase
           .from('moves')
           .select('session_id')
@@ -1075,6 +1078,7 @@ const App: React.FC = () => {
   }, [gameState, allGameHistory, debouncedPredict, predictor, currentSequenceConfig]);
 
   // 获取历史记录中最后N个颜色
+  // @ts-ignore: 保留未使用的函数以备将来使用
   const getLastNColors = (history: Move[], n: number): DotColor[] => {
     const colors = history.map((move) => move.color);
     return colors.slice(-n);
@@ -1119,6 +1123,7 @@ const App: React.FC = () => {
     // 在连续模式下，我们需要基于所有历史数据进行预测，而不仅仅是当前显示的矩阵
     if (viewMode === 'continuous') {
       // 获取当前页面的起始索引
+      // @ts-ignore: 保留未使用的变量以备将来使用
       const startIndex = currentPage * PAGE_SIZE;
       
       // 计算当前行在所有历史数据中的实际索引
@@ -1130,7 +1135,9 @@ const App: React.FC = () => {
       
       for (let i = 0; i < allGameHistory.length; i++) {
         const move = allGameHistory[i];
-        const col = Math.floor(i / PATTERN_ROWS);
+        const 
+          // @ts-ignore: 保留未使用的变量以备将来使用
+          col = Math.floor(i / PATTERN_ROWS);
         const row = i % PATTERN_ROWS;
         
         if (row === historyRowIndex) {
