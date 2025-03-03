@@ -482,7 +482,7 @@ const App: React.FC = () => {
     setGameState(prev => ({
       ...prev,
       history: [...prev.history, move],
-      grid: calculateGrid([...prev.history, move], prev.windowStart)
+      grid: calculateGrid([...prev.history, move], prev.windowStart!)
     }));
 
     // 更新最后点击的位置
@@ -490,7 +490,7 @@ const App: React.FC = () => {
 
     // 如果启用了预测，尝试预测下一步
     if (currentSequenceConfig.isEnabled && currentSequenceConfig.length > 0) {
-      const nextEmpty = findNextEmptyPosition(gameState.grid);
+      const nextEmpty = findNextEmptyPosition(gameState.grid!);
       if (nextEmpty) {
         debouncedPredict([...allGameHistory, ...gameState.history, move], nextEmpty);
       }
@@ -517,7 +517,7 @@ const App: React.FC = () => {
     }
 
     setSelectedColor(color);
-    const nextPosition = findNextEmptyPosition(gameState.grid);
+    const nextPosition = findNextEmptyPosition(gameState.grid!);
 
     if (nextPosition) {
       const position = nextPosition;
@@ -558,7 +558,7 @@ const App: React.FC = () => {
         const newState = {
           ...gameState,
           history: newHistory,
-          grid: calculateGrid(newHistory, gameState.windowStart)
+          grid: calculateGrid(newHistory, gameState.windowStart!)
         };
 
         setGameState(newState);
@@ -567,7 +567,7 @@ const App: React.FC = () => {
         addColorToMatrix(color);
 
         // 找到下一个空位置
-        const nextEmpty = findNextEmptyPosition(newState.grid);
+        const nextEmpty = findNextEmptyPosition(newState.grid!);
         if (nextEmpty) {
           setNextPosition(nextEmpty);
 
@@ -653,7 +653,7 @@ const App: React.FC = () => {
           setGameState(prev => ({
             ...prev,
             history: moves,
-            grid: calculateGrid(moves, prev.windowStart),
+            grid: calculateGrid(moves, prev.windowStart!),
             isViewingHistory: false
           }));
         } else {
@@ -691,7 +691,7 @@ const App: React.FC = () => {
         setGameState(prev => ({
           ...prev,
           history: moves,
-          grid: calculateGrid(moves, prev.windowStart),
+          grid: calculateGrid(moves, prev.windowStart!),
           isViewingHistory: false
         }));
       }
@@ -821,7 +821,7 @@ const App: React.FC = () => {
             setGameState(prev => ({
               ...prev,
               history: moves,
-              grid: calculateGrid(moves, prev.windowStart),
+              grid: calculateGrid(moves, prev.windowStart!),
               isViewingHistory: false
             }));
           } else {
@@ -908,7 +908,7 @@ const App: React.FC = () => {
       setGameState(prev => ({
         ...prev,
         history: [],
-        grid: createEmptyGrid(),
+        grid: calculateGrid([], 0),
         windowStart: 0,
         isViewingHistory: false
       }));
@@ -1059,7 +1059,7 @@ const App: React.FC = () => {
 
     // 如果启用了预测且有历史记录，尝试重新预测
     if (newConfig.isEnabled && gameState.history.length > 0) {
-      const nextEmpty = findNextEmptyPosition(gameState.grid);
+      const nextEmpty = findNextEmptyPosition(gameState.grid!);
       if (nextEmpty) {
         debouncedPredict([...allGameHistory, ...gameState.history], nextEmpty);
       }
@@ -1149,7 +1149,7 @@ const App: React.FC = () => {
     setGameState(prev => ({
       ...prev,
       history: newHistory,
-      grid: calculateGrid(newHistory, prev.windowStart)
+      grid: calculateGrid(newHistory, prev.windowStart!)
     }));
 
     // 3. 从数据库删除对应记录
@@ -1239,7 +1239,7 @@ const App: React.FC = () => {
     setGameState(prev => ({
       ...prev,
       history: newHistory,
-      grid: calculateGrid(newHistory, prev.windowStart)
+      grid: calculateGrid(newHistory, prev.windowStart!)
     }));
 
     // 2. 从数据库删除最后一条记录
