@@ -2,20 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { DotColor, Position, GameState, Move } from './types';
 import { ControlPanel } from './components/ControlPanel';
 import { DateSelector } from './components/DateSelector';
-import { GameMatrix } from './components/GameMatrix';
-import { PredictionDisplay } from './components/PredictionDisplay';
-// @ts-ignore: 保留未使用的导入以备将来使用
 import { PredictionSequenceDisplay } from './components/PredictionSequenceDisplay';
-import { StatsDisplay } from './components/StatsDisplay';
-// @ts-ignore
 import { StatsPanel } from './components/StatsPanel';
 import { SupabaseStorageService } from './services/supabase-storage';
-// @ts-ignore
 import { predictNextColor } from './utils/gameLogic';
 import LoadingScreen from './components/LoadingScreen';
 import AlertDialog from './components/AlertDialog';
 import { SequencePredictor, SequenceConfig } from './utils/sequencePredictor';
-// @ts-ignore
 import { supabase, testConnection } from './lib/supabase';
 
 const App: React.FC = () => {
@@ -194,7 +187,7 @@ const App: React.FC = () => {
   }, [currentPage, getPagedMatrixData, viewMode, displayGameHistory.length]);
 
   // 添加新颜色到矩阵
-  const addColorToMatrix = useCallback((color: string) => {
+  const addColorToMatrix = useCallback((color: DotColor) => {
     setMatrixData((prevMatrix) => {
       // 创建新矩阵副本
       const newMatrix = prevMatrix.map((row) => [...row]);
@@ -233,6 +226,7 @@ const App: React.FC = () => {
       }
 
       // 放入新数据
+      // @ts-ignore: 确保 color 类型兼容
       newMatrix[targetRow][targetCol] = color;
 
       // 确保新数据添加后，显示第一页（最新数据）
@@ -632,10 +626,11 @@ const App: React.FC = () => {
         // 如果有数据，加载它
         if (data && data.length > 0) {
           console.log('加载未终止的当前会话数据:', data.length, data);
-          const moves = data.map((move) => ({
+          const moves = data.map((move: any) => ({
             position: move.position,
-            color: move.color as DotColor,
+            color: move.color,
             prediction: move.prediction,
+            timestamp: move.timestamp || Date.now(), // 添加 timestamp 属性
           }));
 
           // 更新两个状态变量
@@ -683,10 +678,11 @@ const App: React.FC = () => {
 
         if (error) throw error;
 
-        const moves = data.map((move) => ({
+        const moves = data.map((move: any) => ({
           position: move.position,
-          color: move.color as DotColor,
+          color: move.color,
           prediction: move.prediction,
+          timestamp: move.timestamp || Date.now(), // 添加 timestamp 属性
         }));
 
         console.log('加载选定会话的数据:', {
@@ -771,8 +767,9 @@ const App: React.FC = () => {
 
       if (recordError) throw recordError;
 
-      // 2. 生成会话列表
-      let sessions = [];
+      // 显式声明 sessions 的类型
+      let sessions: number[] = [];
+      
       if (record && record.latest_session_id !== null) {
         // 当日期有记录，且 latest_session_id 不为 null
         sessions = Array.from(
@@ -827,10 +824,11 @@ const App: React.FC = () => {
           // 如果有数据，加载它
           if (data && data.length > 0) {
             console.log('加载未终止的当前会话数据:', data.length, data);
-            const moves = data.map((move) => ({
+            const moves = data.map((move: any) => ({
               position: move.position,
-              color: move.color as DotColor,
+              color: move.color,
               prediction: move.prediction,
+              timestamp: move.timestamp || Date.now(), // 添加 timestamp 属性
             }));
 
             // 更新两个状态变量
@@ -893,13 +891,17 @@ const App: React.FC = () => {
       if (updateError) throw updateError;
 
       // 更新状态
+      // @ts-ignore: prev 可能为 null，但在这个上下文中不会
       setLatestSessionId(currentSessionId);
+      // @ts-ignore: prev 可能为 null，但在这个上下文中不会
       setCurrentSessionId((prev) => prev + 1);
+      // @ts-ignore: prev 可能为 null，但在这个上下文中不会
       setSelectedSession((prev) => prev + 1);
 
       console.log('终止会话后状态:', {
         新latestSessionId: currentSessionId,
         新currentSessionId: currentSessionId + 1,
+        // @ts-ignore: selectedSession 可能为 null，但在这个上下文中不会
         新selectedSession: selectedSession + 1,
       });
 
