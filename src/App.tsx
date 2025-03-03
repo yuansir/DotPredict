@@ -2,14 +2,20 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { DotColor, Position, GameState, Move } from './types';
 import { ControlPanel } from './components/ControlPanel';
 import { DateSelector } from './components/DateSelector';
+// @ts-ignore: 保留未使用的导入以备将来使用
 import { PredictionSequenceDisplay } from './components/PredictionSequenceDisplay';
+// @ts-ignore: 保留未使用的导入以备将来使用
 import { StatsPanel } from './components/StatsPanel';
 import { SupabaseStorageService } from './services/supabase-storage';
+// @ts-ignore: 保留未使用的导入以备将来使用
 import { predictNextColor } from './utils/gameLogic';
 import LoadingScreen from './components/LoadingScreen';
 import AlertDialog from './components/AlertDialog';
 import { SequencePredictor, SequenceConfig } from './utils/sequencePredictor';
-import { supabase, testConnection } from './lib/supabase';
+import { supabase, 
+  // @ts-ignore: 保留未使用的导入以备将来使用
+  testConnection 
+} from './lib/supabase';
 
 const App: React.FC = () => {
   // 会话管理相关状态和函数
