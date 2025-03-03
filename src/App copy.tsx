@@ -332,7 +332,8 @@ const App: React.FC = () => {
         (game.history || []).map((move: Move) => ({
           ...move,
           gameId: game.id,
-          date: game.date
+          date: game.date,
+          timestamp: move.timestamp || Date.now() // 添加 timestamp 属性
         }))
       );
 
@@ -644,7 +645,8 @@ const App: React.FC = () => {
           const moves = data.map(move => ({
             position: move.position,
             color: move.color as DotColor,
-            prediction: move.prediction
+            prediction: move.prediction,
+            timestamp: move.timestamp || Date.now() // 添加 timestamp 属性
           }));
 
           setAllGameHistory(moves);
@@ -682,7 +684,8 @@ const App: React.FC = () => {
         const moves = data.map(move => ({
           position: move.position,
           color: move.color as DotColor,
-          prediction: move.prediction
+          prediction: move.prediction,
+          timestamp: move.timestamp || Date.now() // 添加 timestamp 属性
         }));
 
         setAllGameHistory(moves);
@@ -754,7 +757,7 @@ const App: React.FC = () => {
       if (recordError) throw recordError;
 
       // 2. 生成会话列表
-      let sessions = [];
+      let sessions: number[] = [];
       if (record && record.latest_session_id !== null) {
         // 当日期有记录，且 latest_session_id 不为 null
         sessions = Array.from(
@@ -812,7 +815,8 @@ const App: React.FC = () => {
             const moves = data.map(move => ({
               position: move.position,
               color: move.color as DotColor,
-              prediction: move.prediction
+              prediction: move.prediction,
+              timestamp: move.timestamp || Date.now() // 添加 timestamp 属性
             }));
 
             setAllGameHistory(moves);
@@ -895,12 +899,12 @@ const App: React.FC = () => {
       // 更新状态
       setLatestSessionId(currentSessionId);
       setCurrentSessionId(prev => prev + 1);
-      setSelectedSession(prev => prev + 1);
+      setSelectedSession(prev => prev !== null ? prev + 1 : 1);
 
       console.log('终止会话后状态:', {
         新latestSessionId: currentSessionId,
         新currentSessionId: currentSessionId + 1,
-        新selectedSession: selectedSession + 1
+        新selectedSession: selectedSession !== null ? selectedSession + 1 : 1
       });
 
       // 重置状态
