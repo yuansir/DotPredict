@@ -2,13 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { DotColor, Position, GameState, Move } from './types';
 import { ControlPanel } from './components/ControlPanel';
 import { DateSelector } from './components/DateSelector';
-// @ts-ignore: 保留未使用的导入以备将来使用
-import { PredictionSequenceDisplay } from './components/PredictionSequenceDisplay';
-// @ts-ignore: 保留未使用的导入以备将来使用
-import { StatsPanel } from './components/StatsPanel';
 import { SupabaseStorageService } from './services/supabase-storage';
-// @ts-ignore: 保留未使用的导入以备将来使用
-import { predictNextColor } from './utils/gameLogic';
 import LoadingScreen from './components/LoadingScreen';
 import AlertDialog from './components/AlertDialog';
 import { supabase } from './lib/supabase';
@@ -47,9 +41,30 @@ const App: React.FC = () => {
 
   // 保留UI所需的预测状态变量，但不实际使用预测逻辑
   const [predictedPosition, setPredictedPosition] = useState<Position | null>(null);
-  const [predictedColor, setPredictedColor] = useState<DotColor | null>(null);
-  const [predictedProbability, setPredictedProbability] = useState<number | null>(null);
-  
+  const [predictedColor, setPredictedColor] = useState<DotColor | null>('black');
+  const [predictedProbability, setPredictedProbability] = useState<number | null>(0);
+  const [predictionDetails, setPredictionDetails] = useState({
+    color: 'black' as DotColor,
+    probability: 0,
+    matchCount: 0,
+    isLoading: false
+  });
+
+  // 保留序列配置状态，但默认禁用预测
+  const [currentSequenceConfig, setCurrentSequenceConfig] = useState<SequenceConfig>({
+    length: 4,
+    isEnabled: false
+  });
+
+  // 保留75%规则预测状态，但不执行实际预测
+  const [rule75Prediction, setRule75Prediction] = useState<{
+    predictedColor: DotColor | null;
+    currentSequence: DotColor[];
+  }>({
+    predictedColor: null,
+    currentSequence: []
+  });
+
   const [nextPosition, setNextPosition] = useState<Position>({ row: 0, col: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [lastPosition, setLastPosition] = useState<Position | null>(null);
@@ -62,21 +77,6 @@ const App: React.FC = () => {
 
   // 专门用于分页显示的历史数据
   const [displayGameHistory, setDisplayGameHistory] = useState<Move[]>([]);
-
-  // 保留UI所需的序列配置状态，但不实际使用预测逻辑
-  const [currentSequenceConfig, setCurrentSequenceConfig] = useState<SequenceConfig>({
-    length: 5,
-    isEnabled: true,
-  });
-
-  // 保留UI所需的75%规则预测状态，但不实际使用预测逻辑
-  const [rule75Prediction, setRule75Prediction] = useState<{
-    predictedColor: DotColor | null;
-    currentSequence: DotColor[];
-  }>({
-    predictedColor: null,
-    currentSequence: [],
-  });
 
   // 连续模式预测矩阵常量
   const PATTERN_ROWS = 3;
@@ -293,7 +293,7 @@ const App: React.FC = () => {
   const predict75Rule = useCallback((history: DotColor[]) => {
     // 返回空结果，不执行实际预测
     return {
-      predictedColor: null as unknown as DotColor,
+      predictedColor: 'black' as DotColor, // 使用默认颜色替代null
       currentSequence: history.slice(-2),
     };
   }, []);
@@ -329,7 +329,7 @@ const App: React.FC = () => {
       currentPosition.col === predictedPosition.col) {
       // 保留移动中的prediction结构但不使用实际预测
       move.prediction = {
-        color: null,
+        color: 'black' as DotColor, // 使用默认颜色替代null
         isCorrect: false,
         probability: 0,
       };
@@ -389,7 +389,7 @@ const App: React.FC = () => {
   }, [isRecordMode, nextPosition, gameState, addColorToMatrix, allGameHistory, displayGameHistory, getSessionIdToUse, selectedDate, storage]);
 
   // 处理列表显示样式，用于实时渲染
-  const checkLastTwoColors = useCallback(() => {
+  const checkLastTwoColors = useCallback((row: (DotColor | null)[], rowIndex: number) => {
     // 简化函数，返回null表示无预测
     return null;
   }, []);
