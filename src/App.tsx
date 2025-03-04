@@ -11,11 +11,13 @@ import { SupabaseStorageService } from './services/supabase-storage';
 import { predictNextColor } from './utils/gameLogic';
 import LoadingScreen from './components/LoadingScreen';
 import AlertDialog from './components/AlertDialog';
-import { SequencePredictor, SequenceConfig } from './utils/sequencePredictor';
-import { supabase, 
-  // @ts-ignore: 保留未使用的导入以备将来使用
-  testConnection 
-} from './lib/supabase';
+import { supabase } from './lib/supabase';
+
+// 保留类型定义，但不导入实际的预测器
+interface SequenceConfig {
+  length: number;
+  isEnabled: boolean;
+}
 
 const App: React.FC = () => {
   // 会话管理相关状态和函数
@@ -41,33 +43,15 @@ const App: React.FC = () => {
   });
 
   // 颜色选择状态
-  // @ts-ignore: 保留未使用的状态变量以备将来使用
   const [selectedColor, setSelectedColor] = useState<DotColor>('red');
 
+  // 保留UI所需的预测状态变量，但不实际使用预测逻辑
   const [predictedPosition, setPredictedPosition] = useState<Position | null>(null);
   const [predictedColor, setPredictedColor] = useState<DotColor | null>(null);
   const [predictedProbability, setPredictedProbability] = useState<number | null>(null);
-  // 预测状态
-  // @ts-ignore: 保留未使用的状态变量以备将来使用
-  const [predictionDetails, setPredictionDetails] = useState<{
-    color: DotColor | null;
-    probability: number;
-    matchCount: number;
-    isLoading: boolean;
-  }>({
-    color: null,
-    probability: 0,
-    matchCount: 0,
-    isLoading: false,
-  });
-  // @ts-ignore - 未使用的变量
-  const [showStats, setShowStats] = useState(false);
-  // @ts-ignore - 未使用的变量
-  const [gameHistory, setGameHistory] = useState<any[]>([]);
+  
   const [nextPosition, setNextPosition] = useState<Position>({ row: 0, col: 0 });
   const [isLoading, setIsLoading] = useState(true);
-  // 最后一个位置（用于撤销）
-  // @ts-ignore: 保留未使用的状态变量以备将来使用
   const [lastPosition, setLastPosition] = useState<Position | null>(null);
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
@@ -79,13 +63,13 @@ const App: React.FC = () => {
   // 专门用于分页显示的历史数据
   const [displayGameHistory, setDisplayGameHistory] = useState<Move[]>([]);
 
-  // 序列配置状态
+  // 保留UI所需的序列配置状态，但不实际使用预测逻辑
   const [currentSequenceConfig, setCurrentSequenceConfig] = useState<SequenceConfig>({
-    length: 5, // 改为5
+    length: 5,
     isEnabled: true,
   });
 
-  // 75%规则预测状态
+  // 保留UI所需的75%规则预测状态，但不实际使用预测逻辑
   const [rule75Prediction, setRule75Prediction] = useState<{
     predictedColor: DotColor | null;
     currentSequence: DotColor[];
@@ -99,7 +83,6 @@ const App: React.FC = () => {
   const PATTERN_COLS = 16;
 
   // 视图模式（连续或分页）
-  // @ts-ignore: 保留未使用的状态变量以备将来使用
   const [viewMode, setViewMode] = useState<'continuous'>('continuous');
 
   // 分页状态管理
@@ -119,12 +102,14 @@ const App: React.FC = () => {
   // 当数据加载完成且总页数变化时，自动跳转到最后一页
   useEffect(() => {
     if (viewMode === 'continuous' && !isLoading) {
-      console.log('数据加载完成，设置页码为最后一页:', {
-        displayGameHistoryLength: displayGameHistory.length,
-        totalPages,
-        lastPageIndex,
-        isLoading
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('数据加载完成，设置页码为最后一页:', {
+          displayGameHistoryLength: displayGameHistory.length,
+          totalPages,
+          lastPageIndex,
+          isLoading
+        });
+      }
       setCurrentPage(lastPageIndex);
     }
   }, [totalPages, lastPageIndex, viewMode, isLoading, displayGameHistory.length]);
@@ -146,12 +131,14 @@ const App: React.FC = () => {
       return createEmptyMatrix();
     }
 
-    console.log('获取分页数据:', {
-      displayGameHistoryLength: displayGameHistory.length,
-      page,
-      totalPages,
-      PAGE_SIZE
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('获取分页数据:', {
+        displayGameHistoryLength: displayGameHistory.length,
+        page,
+        totalPages,
+        PAGE_SIZE
+      });
+    }
 
     // 创建一个新的空矩阵
     const newMatrix = createEmptyMatrix();
@@ -163,11 +150,13 @@ const App: React.FC = () => {
     // 获取当前页的历史数据
     const pageData = displayGameHistory.slice(startIndex, endIndex);
 
-    console.log('当前页数据:', {
-      startIndex,
-      endIndex,
-      pageDataLength: pageData.length
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('当前页数据:', {
+        startIndex,
+        endIndex,
+        pageDataLength: pageData.length
+      });
+    }
 
     // 将历史数据填充到矩阵中（按照从左到右，从上到下的顺序）
     let index = 0;
@@ -186,7 +175,9 @@ const App: React.FC = () => {
   // 监听页码变化，更新矩阵数据
   useEffect(() => {
     if (viewMode === 'continuous') {
-      console.log('页码变化，更新矩阵数据:', { currentPage, displayGameHistoryLength: displayGameHistory.length });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('页码变化，更新矩阵数据:', { currentPage, displayGameHistoryLength: displayGameHistory.length });
+      }
       const pagedData = getPagedMatrixData(currentPage);
       setMatrixData(pagedData);
     }
@@ -260,374 +251,148 @@ const App: React.FC = () => {
 
       return newMatrix;
     });
-  }, []);
+  }, [PATTERN_COLS, PATTERN_ROWS]);
 
-  // @ts-ignore
-  const handlePatternReset = useCallback(() => {
+  // 重置矩阵
+  const resetMatrix = useCallback(() => {
     setMatrixData(createEmptyMatrix());
-  }, []); // @ts-ignore
+  }, [createEmptyMatrix]);
 
-  // @ts-ignore - 未使用的导入
-  const storage = new SupabaseStorageService();
-
-  // 初始化序列预测器
-  const [predictor] = useState(() => new SequencePredictor(currentSequenceConfig));
-
-  const handleDateChange = (date: string) => {
-    setSelectedDate(date);
-
-    // 只有当天日期+新一轮输入会话才是录入模式
-    const shouldBeRecordMode = date === today;
-    setIsRecordMode(shouldBeRecordMode);
-
-    // 如果切换到今天，默认选择"新一轮输入中"会话
-    if (date === today) {
-      setSelectedSession(currentSessionId);
-    } else {
-      // 非今天日期，默认选择最后一个会话（如果有）
-      // 这里不立即设置，等 fetchAvailableSessions 获取到可用会话列表后，
-      // 在 useEffect 中设置
-      fetchAvailableSessions().then(sessions => {
-        if (sessions && sessions.length > 0) {
-          setSelectedSession(sessions[sessions.length - 1]);
-        } else {
-          setSelectedSession(currentSessionId);
-        }
-      });
-    }
-  };
-
-  const handleModeChange = (mode: boolean) => {
-    setIsRecordMode(mode);
-
-    // 如果切换到录入模式，默认选择"新一轮输入中"会话
-    if (mode) {
-      setSelectedSession(currentSessionId);
-      const nextEmpty = { row: 0, col: 0 };
-      if (nextEmpty) {
-        setNextPosition(nextEmpty);
-      }
-    } else {
-      // 切换到预览模式，默认选择最后一个会话（如果有）
-      fetchAvailableSessions().then(sessions => {
-        if (sessions && sessions.length > 0) {
-          setSelectedSession(sessions[sessions.length - 1]);
-        }
-      });
-    }
-  };
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        handleUndo();
-      }
-      // 移除左右箭头键处理，因为它们用于8x8矩阵的窗口滚动
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState]);
-
-  useEffect(() => {
-    const loadState = async () => {
-      setIsLoading(true);
-      try {
-        const savedState = await storage.loadGameStateByDate(selectedDate);
-
-        if (savedState) {
-          // 移除windowStart相关代码
-          const stateWithStats = {
-            ...savedState,
-            predictionStats: savedState.predictionStats || [],
-          };
-
-          setGameState(stateWithStats);
-
-          const nextEmpty = { row: 0, col: 0 };
-          if (nextEmpty) {
-            setNextPosition(nextEmpty);
-          }
-          if (savedState.history.length > 0) {
-            setLastPosition(savedState.history[savedState.history.length - 1].position);
-          }
-        } else {
-          setGameState({
-            history: [],
-            totalPredictions: 0,
-            correctPredictions: 0,
-            predictionStats: [],
-          });
-          setNextPosition({ row: 0, col: 0 });
-          setLastPosition(null);
-        }
-      } catch (error) {
-        console.error('Failed to load game state:', error);
-        setGameState({
-          history: [],
-          totalPredictions: 0,
-          correctPredictions: 0,
-          predictionStats: [],
-        });
-        setNextPosition({ row: 0, col: 0 });
-        setLastPosition(null);
-
-        // 提供更详细的错误信息
-        let errorMessage = '加载游戏状态失败';
-        if (error instanceof Error) {
-          errorMessage = error.message;
-        }
-        setAlertMessage(errorMessage);
-        setAlertType('error');
-        setShowAlert(true);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadState();
-  }, [selectedDate, today]);
-
-  // 加载所有历史数据
-  const loadAllHistory = async () => {
-    try {
-      const allGames = await storage.getAllHistory();
-      console.log('获取到的所有历史游戏数据:', allGames);
-
-      // 按时间顺序合并所有游戏的历史数据
-      const completeHistory = allGames.flatMap((game) =>
-        (game.history || []).map((move: Move) => ({
-          ...move,
-          gameId: game.id,
-          date: game.date,
-          timestamp: move.timestamp || Date.now(), // 添加 timestamp 属性
-        })),
-      );
-
-      console.log('合并后的完整历史数据:', completeHistory);
-      setAllGameHistory(completeHistory);
-
-      // 更新预测器的历史数据
-      if (completeHistory.length > 0) {
-        console.log('更新预测器的历史数据，包含当前游戏:', [...completeHistory, ...gameState.history]);
-        predictor.updateHistory([...completeHistory, ...gameState.history]);
-      }
-    } catch (error) {
-      console.error('Error loading all history:', error);
-    }
-  };
-
-  // 组件加载时获取所有历史数据
-  useEffect(() => {
-    loadAllHistory();
-  }, []);
-
-  // 当前游戏历史更新时，只更新预测器的历史数据
-  useEffect(() => {
-    if (allGameHistory.length > 0) {
-      const updatedHistory = [...allGameHistory, ...gameState.history];
-      // 只在开发环境下输出日志
-      if (process.env.NODE_ENV === 'development') {
-        console.log('更新预测器的历史数据:', {
-          totalLength: updatedHistory.length,
-        });
-      }
-      predictor.updateHistory(updatedHistory);
-    }
-  }, [gameState.history, allGameHistory]);
-
-  // 自定义防抖 Hook
-  const useDebouncedCallback = (callback: Function, delay: number) => {
-    const timeoutRef = useRef<NodeJS.Timeout>();
-    const callbackRef = useRef<Function>();
-
-    // 更新回调引用，避免闭包问题
-    useEffect(() => {
-      callbackRef.current = callback;
-    }, [callback]);
-
-    return useCallback((...args: any[]) => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      timeoutRef.current = setTimeout(() => {
-        if (callbackRef.current) {
-          callbackRef.current(...args);
-        }
-      }, delay);
-    }, [delay]);
-  };
-
-  // 使用防抖的预测函数 - 增加延迟到300ms，减少频繁调用
-  const debouncedPredict = useDebouncedCallback((history: Move[], nextPos: Position | null) => {
-    if (history.length >= currentSequenceConfig.length && nextPos) {
-      // 开始预测时设置loading状态
-      setPredictionDetails((prev) => ({ ...prev, isLoading: true }));
-
-      const prediction = predictor.predictNextColor();
-      if (prediction) {
-        // 只在开发环境下输出日志
-        if (process.env.NODE_ENV === 'development') {
-          console.log('预测结果:', {
-            color: prediction.color,
-            probability: prediction.probability.toFixed(2),
-          });
-        }
-
-        setPredictionDetails({
-          color: prediction.color,
-          probability: prediction.probability,
-          matchCount: prediction.matchCount,
-          isLoading: false, // 预测完成，关闭loading
-        });
-        setPredictedColor(prediction.color);
-        setPredictedPosition(nextPos);
-        setPredictedProbability(prediction.probability);
-      } else {
-        setPredictionDetails({
-          color: null,
-          probability: 0,
-          matchCount: 0,
-          isLoading: false, // 预测完成，关闭loading
-        });
-        setPredictedColor(null);
-        setPredictedPosition(null);
-        setPredictedProbability(null);
-      }
-    }
-  }, 300); // 增加到300ms减少频繁调用
-
-  // 75%规则预测逻辑
-  const predict75Rule = (history: DotColor[]) => {
-    if (history.length < 2) {
-      return {
-        predictedColor: null,
-        currentSequence: [],
-      };
-    }
-
-    const lastTwo = history.slice(-2);
-    const sequence = lastTwo.join('');
-
-    // 75%规则映射
-    const rules: { [key: string]: DotColor } = {
-      'blackblack': 'red',
-      'redred': 'black',
-      'blackred': 'red',
-      'redblack': 'black',
-    };
-
-    return {
-      predictedColor: rules[sequence] || null,
-      currentSequence: lastTwo,
-    };
-  };
-
-  // 更新75%规则预测
-  useEffect(() => {
-    const newPrediction = predict75Rule(gameState.history.map((move) => move.color));
-    setRule75Prediction(newPrediction);
-  }, [gameState.history]);
-
-  // 获取当前应使用的会话ID
+  // 获取当前使用的会话ID
   const getSessionIdToUse = useCallback(() => {
     // 如果是录入模式，始终使用currentSessionId
     // 如果是预览模式，使用selectedSession
     // 确保在终止会话后使用新的会话ID
     if (isRecordMode) {
-      console.log('使用录入模式会话ID:', currentSessionId);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('使用录入模式会话ID:', currentSessionId);
+      }
       return currentSessionId;
     } else {
-      console.log('使用预览模式会话ID:', selectedSession || 1);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('使用预览模式会话ID:', selectedSession || 1);
+      }
       return selectedSession || 1;
     }
   }, [isRecordMode, currentSessionId, selectedSession]);
 
-  // 颜色选择处理函数
-  const handleColorSelect = useCallback((color: DotColor) => {
+  // 存储服务实例
+  const storage = useMemo(() => new SupabaseStorageService(), []);
+
+  // 保留一个空的函数，替代原来的debouncedPredict
+  const debouncedPredict = useCallback(() => {
+    // 空函数，不执行任何预测逻辑
+  }, []);
+
+  // 检查是否应该显示预测
+  const shouldShowPrediction = useMemo(() => {
+    return currentSequenceConfig.isEnabled && predictedColor !== null;
+  }, [currentSequenceConfig.isEnabled, predictedColor]);
+
+  // 简化75%规则预测逻辑，只返回空结果
+  const predict75Rule = useCallback((history: DotColor[]) => {
+    // 返回空结果，不执行实际预测
+    return {
+      predictedColor: null as unknown as DotColor,
+      currentSequence: history.slice(-2),
+    };
+  }, []);
+
+  // 更新75%规则预测（简化后只保留UI所需的数据结构）
+  useEffect(() => {
+    const newPrediction = predict75Rule(gameState.history.map((move) => move.color));
+    setRule75Prediction(newPrediction);
+  }, [gameState.history, predict75Rule]);
+
+  // 添加新的移动
+  const addNewMove = useCallback(async (color: DotColor) => {
     if (!isRecordMode) {
       setAlertMessage('预览模式下不能修改数据');
+      setAlertType('warning');
       setShowAlert(true);
       return;
     }
 
-    // 创建一个新的处理函数，使用新的颜色值
-    const handleClick = async () => {
-      if (!isRecordMode) return;
+    // 使用nextPosition作为当前位置
+    const currentPosition = nextPosition;
 
-      // 使用nextPosition作为当前位置
-      const currentPosition = nextPosition;
-
-      const newHistory = [...gameState.history];
-      const move: Move = {
-        position: currentPosition,
-        color, // 使用传入的新颜色
-        timestamp: Date.now(), // 添加 timestamp 属性
-      };
-
-      // 如果有预测，记录预测结果
-      if (predictedPosition && predictedColor &&
-        currentPosition.row === predictedPosition.row &&
-        currentPosition.col === predictedPosition.col) {
-        move.prediction = {
-          color: predictedColor,
-          isCorrect: predictedColor === color, // 使用新颜色比较
-          probability: predictedProbability || 0,
-        };
-
-        // 更新预测统计
-        const newState = {
-          ...gameState,
-          totalPredictions: gameState.totalPredictions + 1,
-          correctPredictions: gameState.correctPredictions + (predictedColor === color ? 1 : 0),
-        };
-        setGameState(newState);
-      }
-
-      newHistory.push(move);
-
-      // 更新游戏状态
-      const newState = {
-        ...gameState,
-        history: newHistory,
-      };
-
-      setGameState(newState);
-
-      // 同步更新allGameHistory和displayGameHistory
-      const updatedHistory = [...allGameHistory, move];
-      setAllGameHistory(updatedHistory);
-      setDisplayGameHistory(updatedHistory);
-
-      // 同步更新到3x16矩阵
-      addColorToMatrix(color);
-
-      // 找到下一个空位置
-      const nextEmpty = { row: 0, col: 0 };
-      setNextPosition(nextEmpty);
-
-      // 延迟预测，避免频繁更新
-      setTimeout(() => {
-        // 使用防抖的预测函数，使用updatedHistory用于预测
-        debouncedPredict(updatedHistory, nextEmpty);
-      }, 100);
-
-      // 保存状态
-      try {
-        const sessionIdToUse = getSessionIdToUse();
-        await storage.saveGameStateByDate(newState, selectedDate, sessionIdToUse);
-      } catch (error) {
-        console.error('Failed to save game state:', error);
-        setAlertMessage('保存游戏状态失败');
-        setAlertType('error');
-        setShowAlert(true);
-      }
+    const newHistory = [...gameState.history];
+    const move: Move = {
+      position: currentPosition,
+      color, // 使用传入的新颜色
+      timestamp: Date.now(), // 添加 timestamp 属性
     };
 
-    // 执行新的处理函数
-    handleClick();
-  }, [isRecordMode, gameState, nextPosition, predictedPosition, predictedColor, predictedProbability, addColorToMatrix, allGameHistory, displayGameHistory, debouncedPredict, getSessionIdToUse, selectedDate, storage]);
+    // 保留UI结构但不执行实际预测逻辑
+    if (predictedPosition && predictedColor &&
+      currentPosition.row === predictedPosition.row &&
+      currentPosition.col === predictedPosition.col) {
+      // 保留移动中的prediction结构但不使用实际预测
+      move.prediction = {
+        color: null,
+        isCorrect: false,
+        probability: 0,
+      };
+    }
+
+    newHistory.push(move);
+
+    // 更新游戏状态
+    const newState = {
+      ...gameState,
+      history: newHistory,
+    };
+
+    setGameState(newState);
+
+    // 添加到3x16矩阵
+    addColorToMatrix(color);
+
+    // 找到下一个位置（NextPosition）
+    const nextEmpty = { row: 0, col: 0 }; // 简化为固定位置
+    setNextPosition(nextEmpty);
+    if (newHistory.length > 0) {
+      setLastPosition(newHistory[newHistory.length - 1].position);
+    }
+
+    // 同步更新allGameHistory和displayGameHistory
+    const updatedAllHistory = [...allGameHistory, move];
+    setAllGameHistory(updatedAllHistory);
+
+    const updatedDisplayHistory = [...displayGameHistory, move];
+    setDisplayGameHistory(updatedDisplayHistory);
+
+    try {
+      // 获取要使用的会话ID
+      const sessionIdToUse = getSessionIdToUse();
+
+      // 将移动数据保存到 Supabase
+      const { error } = await supabase.from('moves').insert({
+        date: selectedDate,
+        session_id: sessionIdToUse,
+        position: JSON.stringify(move.position),
+        color: move.color,
+        sequence_number: newHistory.length,
+        timestamp: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+
+      // 保存游戏状态
+      await storage.saveGameStateByDate(newState, selectedDate, sessionIdToUse);
+    } catch (error) {
+      console.error('Error adding move:', error);
+      setAlertMessage('保存移动数据失败');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  }, [isRecordMode, nextPosition, gameState, addColorToMatrix, allGameHistory, displayGameHistory, getSessionIdToUse, selectedDate, storage]);
+
+  // 处理列表显示样式，用于实时渲染
+  const checkLastTwoColors = useCallback(() => {
+    // 简化函数，返回null表示无预测
+    return null;
+  }, []);
 
   // 处理会话选择
   const handleSessionChange = useCallback(async (sessionId: number) => {
@@ -932,7 +697,7 @@ const App: React.FC = () => {
       });
 
       // 重置状态
-      handlePatternReset();
+      resetMatrix();
       setGameState((prev) => ({
         ...prev,
         history: [],
@@ -1089,21 +854,7 @@ const App: React.FC = () => {
     // 合并部分配置与当前配置
     const updatedConfig = { ...currentSequenceConfig, ...newConfig };
     setCurrentSequenceConfig(updatedConfig);
-
-    // 更新预测器的序列长度
-    predictor.updateConfig(updatedConfig);
-
-    // 如果启用了预测且有历史记录，尝试重新预测
-    if (updatedConfig.isEnabled && gameState.history.length > 0) {
-      // 使用固定位置代替findNextEmptyPosition
-      debouncedPredict([...allGameHistory, ...gameState.history], { row: 0, col: 0 });
-    } else {
-      // 如果禁用了预测，清除预测状态
-      setPredictedColor(null);
-      setPredictedPosition(null);
-      setPredictedProbability(null);
-    }
-  }, [gameState, allGameHistory, debouncedPredict, predictor, currentSequenceConfig]);
+  }, [currentSequenceConfig]);
 
   // 获取历史记录中最后N个颜色
   // @ts-ignore: 保留未使用的函数以备将来使用
@@ -1146,52 +897,136 @@ const App: React.FC = () => {
     }
   }, [displayGameHistory, isLoading, PATTERN_ROWS, PATTERN_COLS, createEmptyMatrix, currentPage, viewMode]);
 
-  // 检查行中最后两个颜色的函数
-  const checkLastTwoColors = useCallback((row: (DotColor | null)[], rowIndex: number) => {
-    // 在连续模式下，我们需要基于所有历史数据进行预测，而不仅仅是当前显示的矩阵
-    if (viewMode === 'continuous') {
-      // 获取当前页面的起始索引
-      // @ts-ignore: 保留未使用的变量以备将来使用
-      const startIndex = currentPage * PAGE_SIZE;
-      
-      // 计算当前行在所有历史数据中的实际索引
-      const historyRowIndex = rowIndex;
+  // 获取当前页的历史数据
+  const getCurrentPagedHistory = useCallback(() => {
+    const startIndex = currentPage * PAGE_SIZE;
+    const endIndex = Math.min(startIndex + PAGE_SIZE, displayGameHistory.length);
+    return displayGameHistory.slice(startIndex, endIndex);
+  }, [currentPage, PAGE_SIZE, displayGameHistory]);
 
-      // 获取当前行在所有历史数据中的所有颜色
-      // 注意：这里使用allGameHistory而不是displayGameHistory，确保使用所有数据
-      const rowColors: DotColor[] = [];
+  // 获取游戏进度百分比
+  const getProgressPercentage = useCallback(() => {
+    if (displayGameHistory.length === 0) return 0;
+    return Math.min(100, Math.floor((displayGameHistory.length / (PATTERN_ROWS * PATTERN_COLS)) * 100));
+  }, [displayGameHistory.length, PATTERN_ROWS, PATTERN_COLS]);
 
-      for (let i = 0; i < allGameHistory.length; i++) {
-        const move = allGameHistory[i];
-        const 
-          // @ts-ignore: 保留未使用的变量以备将来使用
-          col = Math.floor(i / PATTERN_ROWS);
-        const row = i % PATTERN_ROWS;
+  // 初始化会话
+  useEffect(() => {
+    const fetchAndSetLatestSessionId = async () => {
+      try {
+        // 获取最新的会话ID
+        const { data, error } = await supabase
+          .from('sessions')
+          .select('id')
+          .order('id', { ascending: false })
+          .limit(1);
 
-        if (row === historyRowIndex) {
-          rowColors.push(move.color);
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          setLatestSessionId(data[0].id);
+          setCurrentSessionId(data[0].id + 1); // 设置为最新ID+1
+        } else {
+          // 如果没有会话，设置为1
+          setCurrentSessionId(1);
         }
+      } catch (error) {
+        console.error('Error fetching latest session ID:', error);
+        // 默认设置为1
+        setCurrentSessionId(1);
       }
+    };
 
-      // 如果行中颜色不足两个，无法预测
-      if (rowColors.length < 2) return null;
+    fetchAndSetLatestSessionId();
+  }, []);
 
-      // 获取最后两个颜色
-      const lastTwoColors = rowColors.slice(-2);
+  // 预测组件，在这里我们保留了UI但移除了实际的预测功能
+  const renderPrediction = () => {
+    if (!shouldShowPrediction) return null;
+    
+    return (
+      <div className="prediction-container">
+        {predictedColor && (
+          <div className="prediction">
+            <div className="predicted-color">
+              预测: <span className={`color-dot ${predictedColor}`}></span>
+            </div>
+            <div className="prediction-probability">
+              概率: {predictedProbability ? `${(predictedProbability * 100).toFixed(0)}%` : 'N/A'}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
-      // 如果最后两个颜色相同，返回该颜色，否则返回null
-      return lastTwoColors[0] === lastTwoColors[1] ? lastTwoColors[0] : null;
+  // 渲染75%规则的预测结果
+  const render75RulePrediction = () => {
+    return (
+      <div className="rule-75-container">
+        {rule75Prediction.currentSequence.length > 0 && (
+          <>
+            <div className="sequence-container">
+              序列: {renderSequence(rule75Prediction.currentSequence)}
+            </div>
+            {rule75Prediction.predictedColor && (
+              <div className="predicted-color">
+                预测: <span className={`color-dot ${rule75Prediction.predictedColor}`}></span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  // 日期选择处理函数
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date);
+
+    // 只有当天日期才是录入模式
+    const shouldBeRecordMode = date === today;
+    setIsRecordMode(shouldBeRecordMode);
+
+    // 如果切换到今天，默认选择会话1
+    if (date === today) {
+      setSelectedSession(currentSessionId);
     } else {
-      // 非连续模式下，保持原有逻辑
-      const nonNullColors = row.filter((color) => color !== null) as DotColor[];
-      if (nonNullColors.length < 2) return null;
-
-      const lastTwoColors = nonNullColors.slice(-2);
-
-      // 如果最后两个颜色相同，返回该颜色，否则返回null
-      return lastTwoColors[0] === lastTwoColors[1] ? lastTwoColors[0] : null;
+      // 非今天日期，暂时不设置会话
+      // 等待会话列表加载后再设置
+      setSelectedSession(null);
     }
-  }, [viewMode, currentPage, PAGE_SIZE, PATTERN_ROWS, allGameHistory]);
+  };
+
+  // 模式切换处理函数
+  const handleModeChange = (mode: boolean) => {
+    setIsRecordMode(mode);
+
+    if (mode) {
+      // 切换到录入模式，使用当前会话ID
+      setSelectedSession(currentSessionId);
+    } else {
+      // 切换到预览模式，暂时不设置会话
+      setSelectedSession(null);
+    }
+  };
+
+  // 颜色选择处理函数
+  const handleColorSelect = (color: DotColor) => {
+    // 使用addNewMove函数添加新颜色
+    addNewMove(color);
+  };
+
+  // 显示颜色序列
+  const renderSequence = (colors: DotColor[]) => {
+    return (
+      <div className="sequence">
+        {colors.map((color, index) => (
+          <div key={index} className={`sequence-item ${color}`} />
+        ))}
+      </div>
+    );
+  };
 
   // 清除操作
   const handleClear = useCallback(async () => {
@@ -1209,18 +1044,20 @@ const App: React.FC = () => {
       }));
 
       // 清空矩阵数据
-      setMatrixData(createEmptyMatrix());
+      resetMatrix();
 
       // 重置会话ID状态
       setCurrentSessionId(1);
       setLatestSessionId(null);
       setSelectedSession(1);
 
-      console.log('清空数据后重置会话ID:', {
-        currentSessionId: 1,
-        latestSessionId: null,
-        selectedSession: 1,
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('清空数据后重置会话ID:', {
+          currentSessionId: 1,
+          latestSessionId: null,
+          selectedSession: 1,
+        });
+      }
 
       setAlertMessage('已清空所有数据');
       setAlertType('info');
@@ -1231,7 +1068,7 @@ const App: React.FC = () => {
       setAlertType('error');
       setShowAlert(true);
     }
-  }, [setCurrentSessionId, setLatestSessionId, setSelectedSession]);
+  }, [storage, resetMatrix]);
 
   // 撤销上一步操作
   const handleUndo = useCallback(async () => {
@@ -1306,55 +1143,11 @@ const App: React.FC = () => {
     }
   }, [isRecordMode, gameState, selectedDate, currentSessionId, removeLastColorFromMatrix, allGameHistory, displayGameHistory, getSessionIdToUse, storage]);
 
-  // 当序列配置变更时
-  useEffect(() => {
-    const newConfig = currentSequenceConfig;
-    predictor.updateConfig(newConfig);
-
-    // 如果启用了预测且有历史记录，尝试重新预测
-    if (newConfig.isEnabled && gameState.history.length > 0) {
-      // 使用固定位置代替findNextEmptyPosition
-      debouncedPredict([...allGameHistory, ...gameState.history], { row: 0, col: 0 });
-    } else {
-      // 如果禁用了预测，清除预测状态
-      setPredictedColor(null);
-      setPredictedPosition(null);
-      setPredictedProbability(null);
-    }
-  }, [gameState, allGameHistory, debouncedPredict, predictor]);
-
   // 在日期变化时获取会话列表
   useEffect(() => {
     fetchLatestSessionId(selectedDate);
     fetchAvailableSessions();
   }, [selectedDate, fetchLatestSessionId, fetchAvailableSessions]);
-
-  // 初始化组件
-  useEffect(() => {
-    // 在组件首次加载时初始化
-    fetchLatestSessionId(selectedDate);
-    fetchAvailableSessions();
-  }, [selectedDate, fetchLatestSessionId, fetchAvailableSessions]);
-
-  // 在组件加载时设置默认的会话选择
-  useEffect(() => {
-    // 如果 selectedSession 为 null，设置默认值
-    if (selectedSession === null) {
-      if (isRecordMode) {
-        // 录入模式下，默认选择"新一轮输入中"会话
-        setSelectedSession(currentSessionId);
-      } else {
-        // 预览模式下，默认选择最后一个会话（如果有）
-        fetchAvailableSessions().then(sessions => {
-          if (sessions && sessions.length > 0) {
-            setSelectedSession(sessions[sessions.length - 1]);
-          } else {
-            setSelectedSession(currentSessionId);
-          }
-        });
-      }
-    }
-  }, [selectedSession, isRecordMode, currentSessionId, fetchAvailableSessions]);
 
   if (isLoading) {
     return <LoadingScreen />;
