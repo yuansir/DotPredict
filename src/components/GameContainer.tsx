@@ -1,7 +1,6 @@
 import React from 'react';
 import { useGameContext } from '../contexts/GameContext';
 import { ControlPanel } from './ControlPanel';
-import { DateSelector } from './DateSelector';
 
 /**
  * GameContainer组件 - 游戏主容器，管理游戏界面和交互
@@ -62,28 +61,26 @@ export const GameContainer: React.FC = () => {
             </svg>
             日期选择
           </span>
-          
+
           {/* 模式切换按钮 */}
           <div className="flex rounded-md shadow-sm" role="group">
             <button
               type="button"
               onClick={() => toggleHistoryMode(false)}
-              className={`px-4 py-2 text-sm font-medium ${
-                !gameState.isViewingHistory
+              className={`px-4 py-2 text-sm font-medium ${!gameState.isViewingHistory
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-50'
-              } border border-gray-300 rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white`}
+                } border border-gray-300 rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white`}
             >
               录入模式
             </button>
             <button
               type="button"
               onClick={() => toggleHistoryMode(true)}
-              className={`px-4 py-2 text-sm font-medium ${
-                gameState.isViewingHistory
+              className={`px-4 py-2 text-sm font-medium ${gameState.isViewingHistory
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-50'
-              } border border-gray-300 rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white`}
+                } border border-gray-300 rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white`}
             >
               预览模式
             </button>
@@ -199,7 +196,7 @@ export const GameContainer: React.FC = () => {
               <div className="w-16 text-center text-sm font-medium text-gray-700 whitespace-nowrap">连续性</div>
               <div className="w-16 text-center text-sm font-medium text-gray-700 whitespace-nowrap">规则</div>
             </div>
-            
+
             {/* 预测列内容 */}
             {[0, 1, 2].map((row) => (
               <div key={`prediction-row-${row}`} className="flex mb-3 items-center">
@@ -207,21 +204,15 @@ export const GameContainer: React.FC = () => {
                 <div
                   className="w-8 h-8 rounded-full border-2 border-blue-400 flex items-center justify-center mr-4 bg-white"
                 >
-                  {row === 0 && (
-                    <div className="w-6 h-6 rounded-full bg-black"></div>
-                  )}
-                  {row === 1 && (
-                    <div className="w-6 h-6 rounded-full bg-black"></div>
-                  )}
-                  {row === 2 && (
-                    <div className="w-6 h-6 rounded-full bg-red-500"></div>
-                  )}
+                  {/* TODO: 连续性预测逻辑暂时禁用，未来将重新实现 */}
+                  {/* 注释掉原有小球渲染代码 */}
                 </div>
 
                 {/* 预测列2 - 规则 */}
                 <div
                   className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white"
                 >
+                  {/* TODO: 规则预测逻辑暂时禁用，未来将重新实现 */}
                   {/* 这里可以根据需要添加预测内容 */}
                 </div>
               </div>

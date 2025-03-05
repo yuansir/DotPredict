@@ -17,12 +17,12 @@ export class GameService {
         .select('*')
         .eq('date', date)
         .order('sequence_number', { ascending: true });
-      
+
       // 如果提供了sessionId，则按会话筛选
       if (sessionId !== undefined) {
         query = query.eq('session_id', sessionId);
       }
-      
+
       // 执行查询
       const { data: moves, error: movesError } = await query;
 
@@ -91,7 +91,7 @@ export class GameService {
           console.warn('Invalid timestamp detected, using current time instead:', move.timestamp);
           createdAt = new Date().toISOString();
         }
-        
+
         return {
           date,
           position: move.position,
@@ -115,7 +115,7 @@ export class GameService {
       // 4. 插入新记录
       if (moves.length > 0) {
         console.log('保存游戏状态，使用会话ID:', sessionId, '总记录数:', moves.length);
-        
+
         const { error: movesError } = await supabase
           .from('moves')
           .insert(moves);
@@ -145,11 +145,11 @@ export class GameService {
       // 统计每个会话的记录数
       const sessionCounts: Record<number, number> = {};
       const sessionTimes: Record<number, Date> = {};
-      
+
       data?.forEach(move => {
         const sessionId = move.session_id;
         sessionCounts[sessionId] = (sessionCounts[sessionId] || 0) + 1;
-        
+
         // 记录最早的时间
         const moveTime = new Date(move.created_at);
         if (!sessionTimes[sessionId] || moveTime < sessionTimes[sessionId]) {
@@ -169,15 +169,15 @@ export class GameService {
       });
 
       // 添加一个"新输入"会话选项
-      const latestSessionId = sessions.length > 0 
+      const latestSessionId = sessions.length > 0
         ? Math.max(...sessions.map(s => s.id))
         : 0;
-      
+
       sessions.push({
         id: latestSessionId + 1,
         moveCount: 0,
         startTime: new Date(),
-        label: '新一轮输入中'
+        label: '新一轮输入中...'
       });
 
       return sessions;
@@ -214,7 +214,7 @@ export class GameService {
   async endSession(date: string, sessionId: number): Promise<void> {
     try {
       console.log('正在终止会话:', { date, sessionId });
-      
+
       // 更新daily_records表，设置latest_session_id
       const { error: recordError } = await supabase
         .from('daily_records')
@@ -227,7 +227,7 @@ export class GameService {
         });
 
       if (recordError) throw recordError;
-      
+
       console.log('会话终止成功:', { date, sessionId });
     } catch (error) {
       console.error('终止会话出错:', error);
@@ -241,16 +241,16 @@ export class GameService {
   async clearSessionData(date: string, sessionId: number): Promise<void> {
     try {
       console.log('正在清空会话数据:', { date, sessionId });
-      
+
       // 1. 首先删除moves表中的记录
       const { error: movesError } = await supabase
         .from('moves')
         .delete()
         .eq('date', date)
         .eq('session_id', sessionId);
-        
+
       if (movesError) throw movesError;
-      
+
       // 2. 更新daily_records表中的计数
       // 注意：我们不删除daily_records记录，只是将计数归零
       const { error: recordError } = await supabase
@@ -263,9 +263,9 @@ export class GameService {
         }, {
           onConflict: 'date'
         });
-        
+
       if (recordError) throw recordError;
-      
+
       console.log('会话数据清空成功:', { date, sessionId });
     } catch (error) {
       console.error('清空会话数据出错:', error);
@@ -288,7 +288,7 @@ export class GameService {
         }, {
           onConflict: 'date'
         });
-        
+
       if (error) throw error;
       return true;
     } catch (error) {
