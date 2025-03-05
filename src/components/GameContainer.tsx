@@ -38,12 +38,6 @@ export const GameContainer: React.FC = () => {
     }
   };
 
-  // 处理添加颜色的函数
-  const handleAddColor = (row: number, col: number) => {
-    // 此处可以添加点击矩阵单元格的逻辑
-    console.log(`Clicked on cell at row ${row}, col ${col}`);
-  };
-
   return (
     <div className="game-container max-w-7xl mx-auto">
       {/* 标题和说明 */}
@@ -182,7 +176,7 @@ export const GameContainer: React.FC = () => {
                     <div
                       key={`cell-${row}-${col}`}
                       className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center mr-2"
-                      onClick={() => !gameState.isViewingHistory && handleAddColor(row, col)}
+                      onClick={() => !gameState.isViewingHistory && handleColorSelect(matrixData[row] && matrixData[row][col] === 'red' ? 'black' : 'red')}
                     >
                       {cellColor && (
                         <div

@@ -18,6 +18,7 @@ export function useMatrixManagement(gameState: GameState, setGameState: (state: 
 
   /**
    * 获取下一个可用位置
+   * 按照从上到下、从左到右的顺序填充
    */
   const calculateNextPosition = useCallback((history: Move[]): Position => {
     if (history.length === 0) {
@@ -27,13 +28,13 @@ export function useMatrixManagement(gameState: GameState, setGameState: (state: 
     const lastMove = history[history.length - 1];
     const { row, col } = lastMove.position;
     
-    // 如果当前列已到最后，移到下一行
-    if (col === PATTERN_COLS - 1) {
-      return { row: (row + 1) % PATTERN_ROWS, col: 0 };
+    // 如果当前行已到最后一行，移到下一列的第一行
+    if (row === PATTERN_ROWS - 1) {
+      return { row: 0, col: col + 1 };
     }
     
-    // 否则继续在当前行的下一列
-    return { row, col: col + 1 };
+    // 否则继续在当前列的下一行
+    return { row: row + 1, col };
   }, [PATTERN_COLS, PATTERN_ROWS]);
 
   /**
