@@ -40,19 +40,35 @@ export function useGameActions(
   const handleColorSelect = useCallback(async (color: DotColor) => {
     if (gameState.isViewingHistory) return;
     
+    console.log('[DEBUG] handleColorSelect - 放置球前:', {
+      historyLength: gameState.history.length,
+      color
+    });
+    
     // 添加颜色到矩阵
     addColorToMatrix(color);
     
     // 由于addColorToMatrix会调用setGameState更新状态，
     // 我们需要使用回调方式获取最新状态并保存
     setGameState(currentState => {
-      // 使用防抖保存最新状态
-      debouncedSave(currentState);
+      const updatedState = {
+        ...currentState,
+        // 确保历史记录正确更新
+        lastUpdateTime: new Date().toISOString()
+      };
       
-      // 返回相同的状态，这样不会触发额外的重渲染
-      return currentState;
+      // 使用防抖保存最新状态
+      debouncedSave(updatedState);
+      
+      console.log('[DEBUG] handleColorSelect - 放置球后:', {
+        historyLength: updatedState.history.length,
+        lastUpdateTime: updatedState.lastUpdateTime
+      });
+      
+      // 返回更新后的状态，强制触发重渲染
+      return updatedState;
     });
-  }, [addColorToMatrix, debouncedSave, setGameState]);
+  }, [addColorToMatrix, debouncedSave, setGameState, gameState.history.length]);
 
   /**
    * 处理撤销操作

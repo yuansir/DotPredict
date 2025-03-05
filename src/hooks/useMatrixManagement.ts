@@ -67,6 +67,8 @@ export function useMatrixManagement(gameState: GameState, setGameState: (state: 
     const pos = nextPosition;
     const timestamp = Date.now();
     
+    console.log('[DEBUG] addColorToMatrix - 执行, 当前位置:', pos);
+    
     // 更新状态
     setLastPosition(pos);
     
@@ -87,10 +89,48 @@ export function useMatrixManagement(gameState: GameState, setGameState: (state: 
     setGameState({
       ...gameState,
       history: newHistory,
+      lastUpdateTime: new Date().toISOString() // 添加额外时间戳，确保状态更新
     });
     
-    // 计算下一个位置
-    setNextPosition(calculateNextPosition(newHistory));
+    // 先快速更新nextPosition (可能会因为批处理被优化掉)
+    const quickNextPosition = calculateNextPosition(newHistory);
+    setNextPosition({
+      ...quickNextPosition,
+      _forceUpdate: Date.now() // 添加时间戳确保引用变化
+    });
+    
+    // 然后延时处理，确保状态更新和UI渲染分离
+    setTimeout(() => {
+      // 重新计算下一个位置，双保险
+      const newNextPosition = calculateNextPosition(newHistory);
+      console.log('[DEBUG] addColorToMatrix - 延时计算新的下一个位置:', newNextPosition);
+      
+      // 强制重置下一个位置状态，即使坐标相同也创建新的引用对象
+      setNextPosition(prev => {
+        return {
+          ...newNextPosition,
+          _forceUpdate: Date.now() + 1 // 添加强制更新字段，确保和快速更新时不同
+        };
+      });
+      
+      console.log('[DEBUG] addColorToMatrix - 强制更新nextPosition完成:', {
+        newNextPosition,
+        time: new Date().toISOString(),
+        forceUpdateValue: Date.now() + 1
+      });
+      
+      // 触发特殊事件通知预测更新
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('matrix-updated', { 
+          detail: { 
+            timestamp: Date.now(),
+            historyLength: newHistory.length,
+            position: newNextPosition
+          } 
+        });
+        window.dispatchEvent(event);
+      }
+    }, 10); // 略微延长延时，确保渲染队列处理
   }, [nextPosition, matrixData, gameState, setGameState, calculateNextPosition]);
 
   /**

@@ -1,8 +1,10 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react';
 import { useGameContext } from '../contexts/GameContext';
 import { ControlPanel } from './ControlPanel';
 import { useAlert } from '../contexts/AlertContext';
 import { MatrixPagination } from './MatrixPagination';
+import { DotColor } from '../types';
+import PredictionArea from './PredictionArea'; // 导入预测区域组件
 
 /**
  * GameContainer组件 - 游戏主容器，管理游戏界面和交互
@@ -14,25 +16,22 @@ export const GameContainer: React.FC = () => {
     gameState,
     availableSessions,
     currentSessionId,
+    isLoading,
     matrixData,
     nextPosition,
+    totalPages,
+    currentPageMatrix,
+    matrixTotalPages,
+    matrixCurrentPage,
     handleSessionChange,
-    endCurrentSession,
     handleColorSelect,
     handleUndo,
     handleClear,
-    displayItems,
-    currentPage,
-    totalPages,
-    goToPage,
-    goToNextPage,
-    goToPreviousPage,
-    goToFirstPage,
-    goToLastPage,
     toggleHistoryMode,
-    getLastNColors,
-    checkLastTwoColors,
-    currentPageMatrix, // 使用当前页的矩阵数据
+    endCurrentSession,
+    continuityPredictions,
+    continuityPredictionRow,
+    predictionUpdateId
   } = useGameContext();
   
   const { showAlert } = useAlert();
@@ -75,6 +74,16 @@ export const GameContainer: React.FC = () => {
     safeHandleColorSelect(newColor);
   }, [gameState.isViewingHistory, currentPageMatrix, safeHandleColorSelect]);
 
+  // 处理预测颜色数据转换
+  const continuityPredictionColors = useMemo(() => {
+    return continuityPredictions;
+  }, [continuityPredictions, predictionUpdateId]);
+
+  // 当前预测行索引
+  const currentPredictionRow = useMemo(() => {
+    return continuityPredictionRow;
+  }, [continuityPredictionRow, predictionUpdateId]);
+
   // 构建矩阵
   const matrix = useMemo(() => {
     // 使用分页后的矩阵数据
@@ -105,6 +114,18 @@ export const GameContainer: React.FC = () => {
       </div>
     ));
   }, [currentPageMatrix, gameState.isViewingHistory, nextPosition, handleDotClick]);
+
+  // 日志记录预测数据
+  useEffect(() => {
+    console.log('[DEBUG] GameContainer - UI渲染前预测数据:', {
+      continuityPredictionColors,
+      currentPredictionRow,
+      continuityPredictionsJSON: JSON.stringify(continuityPredictionColors),
+      gameStateHistory: gameState.history.length,
+      predictionUpdateId,
+      renderTime: new Date().toISOString()
+    });
+  }, [continuityPredictionColors, currentPredictionRow, gameState.history.length, predictionUpdateId]);
 
   return (
     <div className="game-container max-w-7xl mx-auto">
@@ -244,35 +265,12 @@ export const GameContainer: React.FC = () => {
             </div>
           </div>
 
-          {/* 预测列区域 - 带背景色和标题 */}
-          <div className="relative ml-6 bg-blue-50 px-3 py-3 rounded-lg border border-blue-100">
-            {/* 预测列标题 - 绝对定位 */}
-            <div className="absolute -top-6 left-0 right-0 flex justify-around px-3">
-              <div className="w-16 text-center text-sm font-medium text-gray-700 whitespace-nowrap">连续性</div>
-              <div className="w-16 text-center text-sm font-medium text-gray-700 whitespace-nowrap">规则</div>
-            </div>
-
-            {/* 预测列内容 */}
-            {[0, 1, 2].map((row) => (
-              <div key={`prediction-row-${row}`} className="flex mb-3 items-center">
-                {/* 预测列1 - 连续性 */}
-                <div
-                  className="w-8 h-8 rounded-full border-2 border-blue-400 flex items-center justify-center mr-4 bg-white"
-                >
-                  {/* TODO: 连续性预测逻辑暂时禁用，未来将重新实现 */}
-                  {/* 注释掉原有小球渲染代码 */}
-                </div>
-
-                {/* 预测列2 - 规则 */}
-                <div
-                  className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white"
-                >
-                  {/* TODO: 规则预测逻辑暂时禁用，未来将重新实现 */}
-                  {/* 这里可以根据需要添加预测内容 */}
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* 使用独立的预测区域组件 */}
+          <PredictionArea 
+            continuityPredictionColors={continuityPredictionColors}
+            currentPredictionRow={currentPredictionRow}
+            predictionUpdateId={predictionUpdateId}
+          />
         </div>
       </div>
 
