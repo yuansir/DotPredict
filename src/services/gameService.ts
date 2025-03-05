@@ -237,8 +237,9 @@ export class GameService {
 
   /**
    * 清空当前会话的所有数据
+   * @returns 包含操作成功状态和新会话ID的对象
    */
-  async clearSessionData(date: string, sessionId: number): Promise<void> {
+  async clearSessionData(date: string, sessionId: number): Promise<{ success: boolean, latestSessionId?: number }> {
     try {
       console.log('正在清空会话数据:', { date, sessionId });
 
@@ -266,10 +267,30 @@ export class GameService {
 
       if (recordError) throw recordError;
 
-      console.log('会话数据清空成功:', { date, sessionId });
+      // 3. 获取当前最大会话ID以生成新的会话ID
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('moves')
+        .select('session_id')
+        .eq('date', date)
+        .order('session_id', { ascending: false })
+        .limit(1);
+      
+      if (sessionError) throw sessionError;
+      
+      // 计算新的会话ID
+      let newSessionId = 1; // 默认从1开始
+      if (sessionData && sessionData.length > 0) {
+        newSessionId = sessionData[0].session_id + 1;
+      }
+
+      console.log('会话数据清空成功:', { date, sessionId, newSessionId });
+      return { 
+        success: true, 
+        latestSessionId: newSessionId 
+      };
     } catch (error) {
       console.error('清空会话数据出错:', error);
-      throw error;
+      return { success: false };
     }
   }
 

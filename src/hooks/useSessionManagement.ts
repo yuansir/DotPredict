@@ -43,13 +43,19 @@ export function useSessionManagement(selectedDate: string) {
   const fetchLatestSessionId = useCallback(async () => {
     try {
       const latestId = await gameService.getLatestSessionId(selectedDate);
+      
       // 如果没有找到会话，创建第一个会话记录
-      if (latestId === 0) {
+      if (latestId === 0 || latestId === null) {
+        console.log('未找到现有会话，初始化日期记录');
         // 初始化日期记录
         await gameService.initializeDailyRecord(selectedDate, 1);
         return 1;
       }
-      return latestId;
+      
+      // 返回下一个会话ID (当前最大ID + 1)
+      const nextSessionId = latestId + 1;
+      console.log(`获取到最新会话ID: ${latestId}，下一个会话ID: ${nextSessionId}`);
+      return nextSessionId;
     } catch (error) {
       console.error('Error fetching latest session ID:', error);
       // 错误时也初始化数据
@@ -150,7 +156,7 @@ export function useSessionManagement(selectedDate: string) {
     setIsLoading(true);
     try {
       // 清空服务端数据
-      await gameService.clearSessionData(selectedDate, currentSessionId);
+      const result = await gameService.clearSessionData(selectedDate, currentSessionId);
       
       // 清空本地状态
       setGameState({
@@ -161,14 +167,28 @@ export function useSessionManagement(selectedDate: string) {
         isViewingHistory: false
       });
       
-      return true; // 返回成功标志
+      // 如果操作成功且获得了新的会话ID
+      if (result.success && result.latestSessionId) {
+        // 重新加载会话列表
+        await loadAvailableSessions();
+        
+        // 设置新的会话ID
+        setCurrentSessionId(result.latestSessionId);
+        
+        showAlert('数据已成功清空', 'info');
+      } else if (!result.success) {
+        showAlert('清空数据失败，请重试', 'error');
+      }
+      
+      return result.success; // 返回成功标志
     } catch (error) {
       console.error('Error clearing session data:', error);
+      showAlert('清空数据失败，请重试', 'error');
       return false; // 返回失败标志
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDate, currentSessionId]);
+  }, [selectedDate, currentSessionId, loadAvailableSessions, showAlert]);
 
   /**
    * 结束当前会话
@@ -183,24 +203,29 @@ export function useSessionManagement(selectedDate: string) {
       
       // 获取新的会话ID
       const newSessionId = await fetchLatestSessionId();
-      setCurrentSessionId(newSessionId);
-      
-      // 清空游戏状态
-      setGameState({
-        history: [],
-        totalPredictions: 0,
-        correctPredictions: 0,
-        predictionStats: [],
-        isViewingHistory: false
-      });
-      
-      // 添加成功提示
-      showAlert('本轮输入已成功终止', 'info');
+      if (newSessionId) {
+        setCurrentSessionId(newSessionId);
+        
+        // 清空游戏状态
+        setGameState({
+          history: [],
+          totalPredictions: 0,
+          correctPredictions: 0,
+          predictionStats: [],
+          isViewingHistory: false
+        });
+        
+        // 添加成功提示
+        showAlert('本轮输入已成功终止', 'info');
+      } else {
+        showAlert('终止输入后无法获取新会话ID', 'warning');
+      }
     } catch (error) {
       console.error('Error ending session:', error);
       showAlert('终止输入失败，请重试', 'error');
     } finally {
       setIsSessionEnding(false);
+      setIsLoading(false);
     }
   }, [selectedDate, currentSessionId, loadAvailableSessions, fetchLatestSessionId, showAlert]);
 
