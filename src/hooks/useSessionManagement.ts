@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Session, GameState } from '../types';
 import { gameService } from '../services/gameService';
+import { useAlert } from '../contexts/AlertContext';
 
 /**
  * useSessionManagement - 管理会话相关的状态和操作
@@ -18,6 +19,9 @@ export function useSessionManagement(selectedDate: string) {
     isViewingHistory: false
   });
   const [isLoading, setIsLoading] = useState(true);
+  
+  // 使用提示系统
+  const { showAlert } = useAlert();
 
   /**
    * 加载可用会话列表
@@ -173,11 +177,14 @@ export function useSessionManagement(selectedDate: string) {
     setIsSessionEnding(true);
     try {
       await gameService.endSession(selectedDate, currentSessionId);
+      
       // 更新可用会话列表
       await loadAvailableSessions();
+      
       // 获取新的会话ID
       const newSessionId = await fetchLatestSessionId();
       setCurrentSessionId(newSessionId);
+      
       // 清空游戏状态
       setGameState({
         history: [],
@@ -186,12 +193,16 @@ export function useSessionManagement(selectedDate: string) {
         predictionStats: [],
         isViewingHistory: false
       });
+      
+      // 添加成功提示
+      showAlert('本轮输入已成功终止', 'info');
     } catch (error) {
       console.error('Error ending session:', error);
+      showAlert('终止输入失败，请重试', 'error');
     } finally {
       setIsSessionEnding(false);
     }
-  }, [selectedDate, currentSessionId, loadAvailableSessions, fetchLatestSessionId]);
+  }, [selectedDate, currentSessionId, loadAvailableSessions, fetchLatestSessionId, showAlert]);
 
   // 初始化会话和加载数据
   useEffect(() => {

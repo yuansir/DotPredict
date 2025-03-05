@@ -215,7 +215,7 @@ export class GameService {
     try {
       console.log('正在终止会话:', { date, sessionId });
       
-      // 1. 更新daily_records表，设置latest_session_id
+      // 更新daily_records表，设置latest_session_id
       const { error: recordError } = await supabase
         .from('daily_records')
         .upsert({
@@ -227,18 +227,6 @@ export class GameService {
         });
 
       if (recordError) throw recordError;
-      
-      // 2. 记录会话结束状态
-      const { error: sessionError } = await supabase
-        .from('sessions')
-        .upsert({
-          date,
-          session_id: sessionId,
-          is_completed: true,
-          end_time: new Date().toISOString()
-        });
-
-      if (sessionError) throw sessionError;
       
       console.log('会话终止成功:', { date, sessionId });
     } catch (error) {
