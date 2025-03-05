@@ -106,10 +106,39 @@ export function useSessionManagement(selectedDate: string) {
   const saveGameState = useCallback(async (state: GameState) => {
     try {
       await gameService.saveGameState(state, selectedDate, currentSessionId);
+      return true; // 返回成功标志
     } catch (error) {
       console.error('Error saving game state:', error);
+      return false; // 返回失败标志
     }
   }, [selectedDate, currentSessionId]);
+
+  /**
+   * 清空当前会话数据
+   */
+  const clearCurrentSessionData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // 清空服务端数据
+      await gameService.clearSessionData(selectedDate, currentSessionId);
+      
+      // 清空本地状态
+      setGameState({
+        history: [],
+        totalPredictions: 0,
+        correctPredictions: 0,
+        predictionStats: [],
+        isViewingHistory: false
+      });
+      
+      return true; // 返回成功标志
+    } catch (error) {
+      console.error('Error clearing session data:', error);
+      return false; // 返回失败标志
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedDate, currentSessionId, setGameState]);
 
   /**
    * 结束当前会话
@@ -186,6 +215,7 @@ export function useSessionManagement(selectedDate: string) {
     // 操作
     setGameState,
     saveGameState,
+    clearCurrentSessionData,
     handleSessionChange,
     endCurrentSession,
     loadSessionData

@@ -213,8 +213,23 @@ export class GameService {
    */
   async endSession(date: string, sessionId: number): Promise<void> {
     try {
-      // 记录会话结束状态
-      const { error } = await supabase
+      console.log('正在终止会话:', { date, sessionId });
+      
+      // 1. 更新daily_records表，设置latest_session_id
+      const { error: recordError } = await supabase
+        .from('daily_records')
+        .upsert({
+          date,
+          latest_session_id: sessionId,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'date'
+        });
+
+      if (recordError) throw recordError;
+      
+      // 2. 记录会话结束状态
+      const { error: sessionError } = await supabase
         .from('sessions')
         .upsert({
           date,
@@ -223,9 +238,49 @@ export class GameService {
           end_time: new Date().toISOString()
         });
 
-      if (error) throw error;
+      if (sessionError) throw sessionError;
+      
+      console.log('会话终止成功:', { date, sessionId });
     } catch (error) {
-      console.error('Error ending session:', error);
+      console.error('终止会话出错:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 清空当前会话的所有数据
+   */
+  async clearSessionData(date: string, sessionId: number): Promise<void> {
+    try {
+      console.log('正在清空会话数据:', { date, sessionId });
+      
+      // 1. 首先删除moves表中的记录
+      const { error: movesError } = await supabase
+        .from('moves')
+        .delete()
+        .eq('date', date)
+        .eq('session_id', sessionId);
+        
+      if (movesError) throw movesError;
+      
+      // 2. 更新daily_records表中的计数
+      // 注意：我们不删除daily_records记录，只是将计数归零
+      const { error: recordError } = await supabase
+        .from('daily_records')
+        .upsert({
+          date,
+          total_predictions: 0,
+          correct_predictions: 0,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'date'
+        });
+        
+      if (recordError) throw recordError;
+      
+      console.log('会话数据清空成功:', { date, sessionId });
+    } catch (error) {
+      console.error('清空会话数据出错:', error);
       throw error;
     }
   }
