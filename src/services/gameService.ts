@@ -284,6 +284,30 @@ export class GameService {
       throw error;
     }
   }
+
+  /**
+   * 初始化日期记录，确保daily_records表中存在对应日期的记录
+   */
+  async initializeDailyRecord(date: string, sessionId: number): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from('daily_records')
+        .upsert({
+          date,
+          latest_session_id: sessionId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'date'
+        });
+        
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error initializing daily record:', error);
+      return false;
+    }
+  }
 }
 
 // 导出单例实例

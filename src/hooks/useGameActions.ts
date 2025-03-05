@@ -78,23 +78,21 @@ export function useGameActions(
   const handleClear = useCallback(async () => {
     if (gameState.isViewingHistory) return;
     
-    if (window.confirm('确定要清空所有数据吗？此操作无法撤销。')) {
-      try {
-        // 清空本地UI和数据库中的所有相关数据
-        const success = await clearCurrentSessionData();
-        
-        // 本地UI更新（在clearCurrentSessionData内部已处理）
-        clearAllData();
-        
-        if (success) {
-          showAlert('数据已成功清空', 'info');
-        } else {
-          showAlert('清空数据时发生错误', 'error');
-        }
-      } catch (error) {
-        console.error('清空操作失败:', error);
+    try {
+      // 清空本地UI和数据库中的所有相关数据
+      const success = await clearCurrentSessionData();
+      
+      // 本地UI更新（在clearCurrentSessionData内部已处理）
+      clearAllData();
+      
+      if (success) {
+        showAlert('数据已成功清空', 'info');
+      } else {
         showAlert('清空数据时发生错误', 'error');
       }
+    } catch (error) {
+      console.error('清空操作失败:', error);
+      showAlert('清空数据时发生错误', 'error');
     }
   }, [clearCurrentSessionData, clearAllData, showAlert]);
 

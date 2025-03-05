@@ -67,7 +67,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     saveGameState,
     handleSessionChange,
     endCurrentSession,
-    loadSessionData
+    loadSessionData,
+    clearCurrentSessionData
   } = useSessionManagement(selectedDate);
   
   // 初始化矩阵管理
@@ -106,13 +107,9 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     saveGameState,
     addColorToMatrix,
     undoLastMove,
-    clearAllData
+    clearAllData,
+    clearCurrentSessionData
   );
-  
-  // 当日期变更时更新数据
-  useEffect(() => {
-    loadSessionData();
-  }, [selectedDate, loadSessionData]);
   
   // 提供上下文值
   const contextValue: GameContextType = {

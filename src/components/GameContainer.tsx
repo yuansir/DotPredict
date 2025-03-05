@@ -28,7 +28,9 @@ export const GameContainer: React.FC = () => {
     goToPreviousPage,
     goToFirstPage,
     goToLastPage,
-    toggleHistoryMode
+    toggleHistoryMode,
+    getLastNColors,
+    checkLastTwoColors
   } = useGameContext();
 
   // 处理完成编辑的函数
