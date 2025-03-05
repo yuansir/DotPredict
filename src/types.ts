@@ -47,3 +47,13 @@ export interface Prediction {
   color: DotColor;
   probability: number;
 }
+
+/**
+ * 会话信息接口
+ */
+export interface Session {
+  id: number;
+  moveCount: number;
+  startTime: Date;
+  label: string;
+}
