@@ -100,11 +100,15 @@ export function useGameActions(
    * 切换历史查看模式
    */
   const toggleHistoryMode = useCallback((isViewing: boolean) => {
-    setGameState({
-      ...gameState,
-      isViewingHistory: isViewing
-    });
-  }, [gameState, setGameState]);
+    // 只有当模式确实改变时才更新状态
+    if (gameState.isViewingHistory !== isViewing) {
+      console.log(`切换模式: ${gameState.isViewingHistory ? '预览' : '录入'} -> ${isViewing ? '预览' : '录入'}`);
+      setGameState(prevState => ({
+        ...prevState,
+        isViewingHistory: isViewing
+      }));
+    }
+  }, [setGameState, gameState.isViewingHistory]);
 
   return {
     handleColorSelect,

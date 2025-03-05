@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { DotColor, Position, GameState, Move, Session } from '../types';
 import { useSessionManagement } from '../hooks/useSessionManagement';
 import { useMatrixManagement } from '../hooks/useMatrixManagement';
@@ -110,6 +110,101 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     clearAllData,
     clearCurrentSessionData
   );
+
+  // 添加防循环保护ref
+  const processedStateRef = useRef<{
+    sessionId: number;
+    isViewingHistory: boolean;
+    date: string;
+  } | null>(null);
+
+  // 创建状态管理ref
+  const modeTransitionRef = useRef({
+    isTransitioning: false,
+    pendingMode: null as boolean | null,
+    lastUpdate: {
+      date: '',
+      sessionId: 0,
+      mode: false
+    }
+  });
+
+  // 创建安全的模式切换函数
+  const safeToggleHistoryMode = useCallback((isViewing: boolean) => {
+    const current = modeTransitionRef.current;
+    
+    // 检查是否与上次更新相同
+    if (current.lastUpdate.date === selectedDate && 
+        current.lastUpdate.sessionId === currentSessionId &&
+        current.lastUpdate.mode === isViewing) {
+      return; // 避免重复更新
+    }
+    
+    // 更新最后一次更新记录
+    current.lastUpdate = {
+      date: selectedDate,
+      sessionId: currentSessionId,
+      mode: isViewing
+    };
+    
+    // 更新模式
+    toggleHistoryMode(isViewing);
+  }, [selectedDate, currentSessionId, toggleHistoryMode]);
+
+  // 自动检测历史日期并切换到预览模式
+  useEffect(() => {
+    // 检查是否是历史日期
+    const today = new Date().toISOString().split('T')[0];
+    const isHistoricalDate = selectedDate !== today;
+    
+    // 重置状态管理ref
+    modeTransitionRef.current.isTransitioning = false;
+    modeTransitionRef.current.pendingMode = null;
+    
+    // 对于历史日期，切换到预览模式
+    if (isHistoricalDate && !gameState.isViewingHistory) {
+      console.log('历史日期，切换到预览模式:', selectedDate);
+      safeToggleHistoryMode(true);
+    }
+  }, [selectedDate, gameState.isViewingHistory, safeToggleHistoryMode]);
+
+  // 基于会话状态自动切换预览模式
+  useEffect(() => {
+    // 如果当前未处于加载状态，且有会话列表
+    if (isLoading || availableSessions.length === 0) return;
+    
+    // 避免在转换中重复更新
+    if (modeTransitionRef.current.isTransitioning) return;
+    
+    const selectedSession = availableSessions.find(s => s.id === currentSessionId);
+    const isNewSession = selectedSession?.label === '新一轮输入中...';
+    const today = new Date().toISOString().split('T')[0];
+    const isCurrentDay = selectedDate === today;
+    
+    // 只有当天的"新一轮输入中"会话才是录入模式，其他都是预览模式
+    const shouldBeInViewMode = !isCurrentDay || !isNewSession;
+    
+    // 只有当当前模式与期望模式不匹配时才切换
+    if (shouldBeInViewMode !== gameState.isViewingHistory) {
+      // 标记正在转换
+      modeTransitionRef.current.isTransitioning = true;
+      
+      console.log('基于会话状态自动切换模式:', {
+        shouldBeInViewMode,
+        currentMode: gameState.isViewingHistory ? '预览' : '录入',
+        sessionId: currentSessionId,
+        isNewSession
+      });
+      
+      // 使用安全的模式切换函数
+      safeToggleHistoryMode(shouldBeInViewMode);
+      
+      // 延迟重置转换状态
+      setTimeout(() => {
+        modeTransitionRef.current.isTransitioning = false;
+      }, 100);
+    }
+  }, [isLoading, availableSessions, currentSessionId, selectedDate, gameState.isViewingHistory, safeToggleHistoryMode]);
   
   // 提供上下文值
   const contextValue: GameContextType = {

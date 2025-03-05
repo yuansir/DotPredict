@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Session, GameState } from '../types';
 import { gameService } from '../services/gameService';
 import { useAlert } from '../contexts/AlertContext';
@@ -22,6 +22,14 @@ export function useSessionManagement(selectedDate: string) {
   
   // 使用提示系统
   const { showAlert } = useAlert();
+
+  // 添加初始化标记和加载引用
+  const initializationRef = useRef({
+    initialized: false,
+    date: '',
+  });
+  
+  const loadingSessionRef = useRef<number | null>(null);
 
   /**
    * 加载可用会话列表
@@ -65,14 +73,23 @@ export function useSessionManagement(selectedDate: string) {
   }, [selectedDate]);
 
   /**
-   * 加载会话数据，确保状态一致性
+   * 加载会话数据
    */
   const loadSessionData = useCallback(async (sessionId?: number) => {
+    // 避免重复加载
+    const actualSessionId = sessionId === undefined ? currentSessionId : sessionId;
+    
+    // 如果已经在加载相同的会话，直接返回
+    if (isLoading && loadingSessionRef.current === actualSessionId) {
+      console.log('跳过重复加载同一会话:', actualSessionId);
+      return null;
+    }
+    
+    // 记录正在加载的会话ID
+    loadingSessionRef.current = actualSessionId;
     setIsLoading(true);
+    
     try {
-      // 如果没有指定会话ID，加载默认会话
-      const actualSessionId = sessionId === undefined ? currentSessionId : sessionId;
-      
       // 获取当前的会话列表状态
       const currentSessions = [...availableSessions];
       
@@ -86,24 +103,33 @@ export function useSessionManagement(selectedDate: string) {
         isNewSession 
       });
       
+      // 保存当前的预览模式状态
+      const currentViewingHistory = gameState.isViewingHistory;
+      
       // 统一加载逻辑，使用相同的加载函数
       const loadedGameState = await gameService.loadGameStateByDateAndSession(
         selectedDate, 
         actualSessionId
       );
       
-      // 更新游戏状态
+      // 使用函数式更新确保操作最新状态
       if (loadedGameState) {
-        setGameState(loadedGameState);
+        setGameState(prevState => ({
+          ...loadedGameState,
+          // 保留当前的预览模式状态，而不是使用加载的状态
+          isViewingHistory: currentViewingHistory
+        }));
       } else {
         // 如果没有数据，重置为空状态
-        setGameState({
+        setGameState(prevState => ({
+          ...prevState,
           history: [],
           totalPredictions: 0,
           correctPredictions: 0,
           predictionStats: [],
-          isViewingHistory: false
-        });
+          // 保留当前的预览模式状态
+          isViewingHistory: currentViewingHistory
+        }));
       }
       
       return loadedGameState;
@@ -112,28 +138,19 @@ export function useSessionManagement(selectedDate: string) {
       return null;
     } finally {
       setIsLoading(false);
+      // 清除正在加载的会话ID
+      loadingSessionRef.current = null;
     }
-  }, [selectedDate, currentSessionId, availableSessions]);
+  }, [selectedDate, currentSessionId, availableSessions, gameState.isViewingHistory]);
 
   /**
-   * 会话变更处理函数
+   * 处理会话变更
    */
   const handleSessionChange = useCallback(async (sessionId: number) => {
-    setIsLoading(true);
-    try {
-      // 先更新当前会话ID
-      setCurrentSessionId(sessionId);
-      
-      // 确保状态更新完成后再加载数据
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      // 然后加载数据
-      await loadSessionData(sessionId);
-    } catch (error) {
-      console.error('Error changing session:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    console.log('会话变更:', { sessionId });
+    
+    setCurrentSessionId(sessionId);
+    await loadSessionData(sessionId);
   }, [loadSessionData]);
 
   /**
@@ -229,35 +246,47 @@ export function useSessionManagement(selectedDate: string) {
     }
   }, [selectedDate, currentSessionId, loadAvailableSessions, fetchLatestSessionId, showAlert]);
 
-  // 初始化会话和加载数据
+  /**
+   * 当日期变更时，自动加载数据和设置合适的模式
+   */
   useEffect(() => {
-    const initializeSession = async () => {
-      setIsLoading(true);
+    const initializeDate = async () => {
+      // 检查是否已经为当前日期初始化过
+      if (initializationRef.current.initialized && initializationRef.current.date === selectedDate) {
+        console.log('跳过已初始化的日期:', selectedDate);
+        setIsLoading(false);
+        return;
+      }
+      
       try {
-        // 1. 先加载可用会话
-        const sessions = await loadAvailableSessions();
+        setIsLoading(true);
+        // 首先加载会话列表
+        await loadAvailableSessions();
         
-        // 2. 获取最新会话ID
+        // 获取最新会话ID
         const latestId = await fetchLatestSessionId();
         setCurrentSessionId(latestId);
         
-        // 3. 确保状态已更新
-        setAvailableSessions(sessions);
-        
-        // 4. 等待一个微任务，确保状态更新完成
-        await new Promise(resolve => setTimeout(resolve, 0));
-        
-        // 5. 使用已确认的数据加载会话
+        // 加载初始数据
         await loadSessionData(latestId);
+        
+        // 标记已初始化
+        initializationRef.current = {
+          initialized: true,
+          date: selectedDate,
+        };
+        
+        console.log('日期初始化完成:', selectedDate);
       } catch (error) {
-        console.error('Error initializing session:', error);
+        console.error('初始化日期数据失败:', error);
+        showAlert('加载日期数据失败，请刷新页面重试', 'error');
       } finally {
         setIsLoading(false);
       }
     };
-
-    initializeSession();
-  }, [selectedDate]); // 仅在日期变更时重新初始化
+    
+    initializeDate();
+  }, [selectedDate, loadAvailableSessions, fetchLatestSessionId, loadSessionData, showAlert]);
 
   return {
     // 状态

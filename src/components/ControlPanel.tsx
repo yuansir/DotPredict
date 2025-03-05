@@ -65,28 +65,52 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         <button
           onClick={onUndo}
           disabled={isViewingHistory || totalMoves === 0}
-          className="w-full py-3 px-4 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed text-white flex items-center justify-center space-x-2 transition-colors"
+          className={`w-full py-3 px-4 rounded-lg ${
+            isViewingHistory 
+              ? 'bg-blue-300 cursor-not-allowed' 
+              : totalMoves === 0 
+                ? 'bg-blue-300 cursor-not-allowed' 
+                : 'bg-blue-500 hover:bg-blue-600'
+          } text-white flex items-center justify-center space-x-2 transition-colors`}
+          title={isViewingHistory ? "预览模式下不可用" : totalMoves === 0 ? "没有操作可撤销" : "撤销上一步操作"}
         >
           <BiUndo className="w-5 h-5" />
           <span>撤销</span>
+          {isViewingHistory && <span className="text-xs ml-1">(预览中)</span>}
         </button>
         
         <button
           onClick={onEndSession}
           disabled={isViewingHistory || totalMoves === 0}
-          className="w-full py-3 px-4 rounded-lg bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-300 disabled:cursor-not-allowed text-white flex items-center justify-center space-x-2 transition-colors"
+          className={`w-full py-3 px-4 rounded-lg ${
+            isViewingHistory 
+              ? 'bg-yellow-300 cursor-not-allowed' 
+              : totalMoves === 0 
+                ? 'bg-yellow-300 cursor-not-allowed' 
+                : 'bg-yellow-500 hover:bg-yellow-600'
+          } text-white flex items-center justify-center space-x-2 transition-colors`}
+          title={isViewingHistory ? "预览模式下不可用" : totalMoves === 0 ? "没有数据可终止" : "终止当前输入"}
         >
           <FiStopCircle className="w-5 h-5" />
           <span>终止输入</span>
+          {isViewingHistory && <span className="text-xs ml-1">(预览中)</span>}
         </button>
         
         <button
-          onClick={() => setShowClearConfirm(true)}
+          onClick={() => !isViewingHistory && totalMoves > 0 && setShowClearConfirm(true)}
           disabled={isViewingHistory || totalMoves === 0}
-          className="w-full py-3 px-4 rounded-lg bg-red-500 hover:bg-red-600 disabled:bg-red-300 disabled:cursor-not-allowed text-white flex items-center justify-center space-x-2 transition-colors"
+          className={`w-full py-3 px-4 rounded-lg ${
+            isViewingHistory 
+              ? 'bg-red-300 cursor-not-allowed' 
+              : totalMoves === 0 
+                ? 'bg-red-300 cursor-not-allowed' 
+                : 'bg-red-500 hover:bg-red-600'
+          } text-white flex items-center justify-center space-x-2 transition-colors`}
+          title={isViewingHistory ? "预览模式下不可用" : totalMoves === 0 ? "没有数据可清空" : "清空所有数据"}
         >
           <FiTrash2 className="w-5 h-5" />
           <span>清空数据</span>
+          {isViewingHistory && <span className="text-xs ml-1">(预览中)</span>}
         </button>
       </div>
       

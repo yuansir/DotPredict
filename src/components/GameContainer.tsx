@@ -1,6 +1,7 @@
 import React from 'react';
 import { useGameContext } from '../contexts/GameContext';
 import { ControlPanel } from './ControlPanel';
+import { useAlert } from '../contexts/AlertContext';
 
 /**
  * GameContainer组件 - 游戏主容器，管理游戏界面和交互
@@ -31,13 +32,32 @@ export const GameContainer: React.FC = () => {
     getLastNColors,
     checkLastTwoColors
   } = useGameContext();
-
+  
+  const { showAlert } = useAlert();
+  
   // 处理完成编辑的函数
   const handleFinishEdit = () => {
     if (endCurrentSession) {
       endCurrentSession();
     }
   };
+
+  // 创建一个预览模式检查包装函数
+  const withPreviewCheck = (action: Function, actionName: string) => {
+    return (...args: any[]) => {
+      if (gameState.isViewingHistory) {
+        showAlert(`当前处于预览模式，${actionName}功能不可用。请切换到录入模式后再试。`, 'warning');
+        return;
+      }
+      action(...args);
+    };
+  };
+
+  // 包装各个操作函数
+  const safeHandleColorSelect = withPreviewCheck(handleColorSelect, '颜色选择');
+  const safeHandleUndo = withPreviewCheck(handleUndo, '撤销');
+  const safeHandleClear = withPreviewCheck(handleClear, '清空数据');
+  const safeEndCurrentSession = withPreviewCheck(endCurrentSession, '终止输入');
 
   return (
     <div className="game-container max-w-7xl mx-auto">
@@ -174,8 +194,10 @@ export const GameContainer: React.FC = () => {
                   return (
                     <div
                       key={`cell-${row}-${col}`}
-                      className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center mr-2"
-                      onClick={() => !gameState.isViewingHistory && handleColorSelect(matrixData[row] && matrixData[row][col] === 'red' ? 'black' : 'red')}
+                      className={`w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center mr-2 ${
+                        gameState.isViewingHistory ? 'cursor-not-allowed' : 'cursor-pointer'
+                      }`}
+                      onClick={() => safeHandleColorSelect(matrixData[row] && matrixData[row][col] === 'red' ? 'black' : 'red')}
                     >
                       {cellColor && (
                         <div
@@ -227,10 +249,10 @@ export const GameContainer: React.FC = () => {
         <div className="w-full md:w-1/2">
           <ControlPanel
             selectedColor={gameState.selectedColor}
-            onColorSelect={handleColorSelect}
-            onUndo={handleUndo}
-            onClear={handleClear}
-            onEndSession={handleFinishEdit}
+            onColorSelect={safeHandleColorSelect}
+            onUndo={safeHandleUndo}
+            onClear={safeHandleClear}
+            onEndSession={safeEndCurrentSession}
             totalMoves={gameState.history ? gameState.history.length : 0}
             isViewingHistory={gameState.isViewingHistory}
           />
