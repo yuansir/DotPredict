@@ -28,6 +28,12 @@ export interface GameState {
   grid?: (DotColor | null)[][];
   windowStart?: number;
   isViewingHistory?: boolean;
+  
+  // 矩阵分页相关字段
+  currentPage?: number;     // 当前页码
+  totalPages?: number;      // 总页数
+  currentPageMatrix?: (DotColor | null)[][]; // 当前页的矩阵数据
+  currentInputPage?: number; // 当前输入页（最后一页）
 }
 
 export interface Pattern {

@@ -28,6 +28,14 @@ export class GameService {
 
       if (movesError) throw movesError;
 
+      // 输出加载的移动数据详情
+      console.log('[DEBUG] 加载会话数据详情:', {
+        date,
+        sessionId,
+        加载的步骤数: moves?.length || 0,
+        原始数据: moves
+      });
+
       // 加载该日期的统计数据
       const { data: record, error: recordError } = await supabase
         .from('daily_records')
