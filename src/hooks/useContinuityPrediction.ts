@@ -107,6 +107,19 @@ export const useContinuityPrediction = (
         }
       }
       
+      // 清除非当前行的预测结果
+      if (predictionRowIndex !== null) {
+        // 只保留当前行的预测结果，清空其他行
+        for (let i = 0; i < predictions.length; i++) {
+          if (i !== predictionRowIndex) {
+            predictions[i] = null;
+          }
+        }
+        
+        console.log('[DEBUG] useContinuityPrediction - 清除非当前行预测结果，最终结果:', 
+          predictions.map((p, idx) => `行${idx}: ${p || '无'}`));
+      }
+      
     } catch (error) {
       console.error('[DEBUG] useContinuityPrediction - 计算错误:', error);
       // 发生错误时返回空预测，不影响UI渲染
