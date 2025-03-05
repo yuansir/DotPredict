@@ -168,52 +168,69 @@ export const GameContainer: React.FC = () => {
           <h2 className="text-lg font-semibold text-gray-800">连续模式预测</h2>
         </div>
 
-        {/* 3x24 矩阵加上2列预测列 */}
-        <div className="overflow-x-auto">
-          {[0, 1, 2].map((row) => (
-            <div key={`row-${row}`} className="flex mb-3">
-              {Array(24).fill(null).map((_, col) => {
-                // 获取当前单元格的颜色（如果有）
-                const cellColor = matrixData[row] && matrixData[row][col];
+        {/* 主容器：包含矩阵和预测列 */}
+        <div className="flex items-end">
+          {/* 3x24 矩阵 */}
+          <div className="flex-grow overflow-x-auto">
+            {[0, 1, 2].map((row) => (
+              <div key={`row-${row}`} className="flex mb-3 items-center">
+                {Array(24).fill(null).map((_, col) => {
+                  // 获取当前单元格的颜色（如果有）
+                  const cellColor = matrixData[row] && matrixData[row][col];
 
-                return (
-                  <div
-                    key={`cell-${row}-${col}`}
-                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center mr-2"
-                    onClick={() => !gameState.isViewingHistory && handleAddColor(row, col)}
-                  >
-                    {cellColor && (
-                      <div
-                        className={`w-6 h-6 rounded-full ${cellColor === 'red' ? 'bg-red-500' : 'bg-black'}`}
-                      ></div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* 预测列1 */}
-              <div
-                className="w-8 h-8 rounded-full border-2 border-blue-400 flex items-center justify-center mr-2"
-              >
-                {row === 0 && (
-                  <div className="w-6 h-6 rounded-full bg-black"></div>
-                )}
-                {row === 1 && (
-                  <div className="w-6 h-6 rounded-full bg-black"></div>
-                )}
-                {row === 2 && (
-                  <div className="w-6 h-6 rounded-full bg-red-500"></div>
-                )}
+                  return (
+                    <div
+                      key={`cell-${row}-${col}`}
+                      className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center mr-2"
+                      onClick={() => !gameState.isViewingHistory && handleAddColor(row, col)}
+                    >
+                      {cellColor && (
+                        <div
+                          className={`w-6 h-6 rounded-full ${cellColor === 'red' ? 'bg-red-500' : 'bg-black'}`}
+                        ></div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
+            ))}
+          </div>
 
-              {/* 预测列2 */}
-              <div
-                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center"
-              >
-                {/* 这里可以根据需要添加预测内容 */}
-              </div>
+          {/* 预测列区域 - 带背景色和标题 */}
+          <div className="relative ml-6 bg-blue-50 px-3 py-3 rounded-lg border border-blue-100">
+            {/* 预测列标题 - 绝对定位 */}
+            <div className="absolute -top-6 left-0 right-0 flex justify-around px-3">
+              <div className="w-16 text-center text-sm font-medium text-gray-700 whitespace-nowrap">连续性</div>
+              <div className="w-16 text-center text-sm font-medium text-gray-700 whitespace-nowrap">规则</div>
             </div>
-          ))}
+            
+            {/* 预测列内容 */}
+            {[0, 1, 2].map((row) => (
+              <div key={`prediction-row-${row}`} className="flex mb-3 items-center">
+                {/* 预测列1 - 连续性 */}
+                <div
+                  className="w-8 h-8 rounded-full border-2 border-blue-400 flex items-center justify-center mr-4 bg-white"
+                >
+                  {row === 0 && (
+                    <div className="w-6 h-6 rounded-full bg-black"></div>
+                  )}
+                  {row === 1 && (
+                    <div className="w-6 h-6 rounded-full bg-black"></div>
+                  )}
+                  {row === 2 && (
+                    <div className="w-6 h-6 rounded-full bg-red-500"></div>
+                  )}
+                </div>
+
+                {/* 预测列2 - 规则 */}
+                <div
+                  className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white"
+                >
+                  {/* 这里可以根据需要添加预测内容 */}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
