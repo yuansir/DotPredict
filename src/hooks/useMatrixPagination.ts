@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { DotColor, Move } from '../types';
 
 /**
@@ -8,16 +8,21 @@ import { DotColor, Move } from '../types';
  * @param colsPerPage 每页显示的列数
  * @param historyLength 历史记录长度（用于计算总页数）
  * @param completeHistory 完整的历史记录（用于直接构建当前页矩阵）
+ * @param isInputMode 是否处于输入模式（用于控制是否自动跳转到最新页面）
  */
 export function useMatrixPagination(
   matrixData: (DotColor | null)[][],
   rowsPerPage = 3,
   colsPerPage = 24,
   historyLength?: number,
-  completeHistory?: Move[]
+  completeHistory?: Move[],
+  isInputMode = false
 ) {
   // 当前页码
   const [currentPage, setCurrentPage] = useState(1);
+  
+  // 存储上一次的总页数，用于检测页数是否增加
+  const prevTotalPagesRef = useRef(1);
   
   // 计算每页可容纳的球数量
   const ballsPerPage = rowsPerPage * colsPerPage;
@@ -79,15 +84,25 @@ export function useMatrixPagination(
     return pages;
   }, [historyLength, filledBallsCount, ballsPerPage]);
   
-  // 自动调整到最后一页（当新页被创建时）
+  // 优化的自动调整逻辑 - 只在总页数增加时才自动跳转
   useEffect(() => {
+    // 情况1：如果当前页超过了总页数，调整到最后一页
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
-    } else if (totalPages > 1 && currentPage < totalPages) {
-      // 可选：在有新页创建时自动跳转到最新页面
-      // setCurrentPage(totalPages);
+    } 
+    // 情况2：在输入模式下，只有在总页数增加时才自动跳转到最新页面
+    else if (isInputMode && totalPages > prevTotalPagesRef.current) {
+      console.log('[DEBUG] useMatrixPagination - 检测到新页面创建，自动跳转', {
+        之前总页数: prevTotalPagesRef.current,
+        当前总页数: totalPages,
+        当前页: currentPage
+      });
+      setCurrentPage(totalPages);
     }
-  }, [totalPages, currentPage]);
+    
+    // 更新引用的页数值
+    prevTotalPagesRef.current = totalPages;
+  }, [totalPages, currentPage, isInputMode]);
   
   // 页面导航方法
   const goToPage = useCallback((page: number) => {
@@ -211,7 +226,7 @@ export function useMatrixPagination(
     });
     
     return pageMatrix;
-  }, [matrixData, completeHistory, currentPage, rowsPerPage, colsPerPage, ballsPerPage]);
+  }, [matrixData, completeHistory, currentPage, rowsPerPage, colsPerPage, ballsPerPage, totalPages]);
   
   // 计算当前输入页（最后一页）
   const currentInputPage = useMemo(() => totalPages, [totalPages]);

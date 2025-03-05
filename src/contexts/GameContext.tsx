@@ -128,7 +128,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     3, 
     24, 
     gameState.history.length,
-    gameState.history
+    gameState.history,
+    !gameState.isViewingHistory // 当不处于预览模式时才启用自动跳转(即输入模式时)
   );
   
   // 初始化游戏操作

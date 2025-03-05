@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useGameContext } from '../contexts/GameContext';
 import { ControlPanel } from './ControlPanel';
 import { useAlert } from '../contexts/AlertContext';
+import { MatrixPagination } from './MatrixPagination';
 
 /**
  * GameContainer组件 - 游戏主容器，管理游戏界面和交互
@@ -30,7 +31,8 @@ export const GameContainer: React.FC = () => {
     goToLastPage,
     toggleHistoryMode,
     getLastNColors,
-    checkLastTwoColors
+    checkLastTwoColors,
+    currentPageMatrix, // 使用当前页的矩阵数据
   } = useGameContext();
   
   const { showAlert } = useAlert();
@@ -58,6 +60,51 @@ export const GameContainer: React.FC = () => {
   const safeHandleUndo = withPreviewCheck(handleUndo, '撤销');
   const safeHandleClear = withPreviewCheck(handleClear, '清空数据');
   const safeEndCurrentSession = withPreviewCheck(endCurrentSession, '终止输入');
+
+  // 处理点击矩阵中的点的函数
+  const handleDotClick = useCallback((position: { row: number, col: number }) => {
+    if (gameState.isViewingHistory) return;
+    
+    // 判断当前位置是否有颜色
+    const currentColor = currentPageMatrix[position.row]?.[position.col];
+    
+    // 如果有颜色，切换为相反颜色；如果没有颜色，默认选择黑色
+    const newColor = currentColor === 'red' ? 'black' : 'red';
+    
+    // 调用颜色选择处理函数
+    safeHandleColorSelect(newColor);
+  }, [gameState.isViewingHistory, currentPageMatrix, safeHandleColorSelect]);
+
+  // 构建矩阵
+  const matrix = useMemo(() => {
+    // 使用分页后的矩阵数据
+    return currentPageMatrix.map((row, rowIndex) => (
+      <div key={`row-${rowIndex}`} className="flex mb-2">
+        {row.map((color, colIndex) => {
+          const position = { row: rowIndex, col: colIndex };
+          const isNext = !gameState.isViewingHistory && 
+                         position.row === nextPosition.row && 
+                         position.col === nextPosition.col;
+          
+          return (
+            <div
+              key={`cell-${rowIndex}-${colIndex}`}
+              className={`w-8 h-8 rounded-full ${isNext ? 'border-2 border-blue-500' : 'border border-gray-300'} flex items-center justify-center mr-2 ${
+                gameState.isViewingHistory ? 'cursor-not-allowed' : 'cursor-pointer'
+              }`}
+              onClick={() => handleDotClick(position)}
+            >
+              {color && (
+                <div
+                  className={`w-6 h-6 rounded-full ${color === 'red' ? 'bg-red-500' : 'bg-black'}`}
+                ></div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    ));
+  }, [currentPageMatrix, gameState.isViewingHistory, nextPosition, handleDotClick]);
 
   return (
     <div className="game-container max-w-7xl mx-auto">
@@ -181,34 +228,20 @@ export const GameContainer: React.FC = () => {
           <h2 className="text-lg font-semibold text-gray-800">连续模式预测</h2>
         </div>
 
+        {/* 矩阵分页导航 - 移到矩阵上方 */}
+        {totalPages > 1 && (
+          <div className="mb-4">
+            <MatrixPagination />
+          </div>
+        )}
+
         {/* 主容器：包含矩阵和预测列 */}
         <div className="flex items-end">
-          {/* 3x24 矩阵 */}
-          <div className="flex-grow overflow-x-auto">
-            {[0, 1, 2].map((row) => (
-              <div key={`row-${row}`} className="flex mb-3 items-center">
-                {Array(24).fill(null).map((_, col) => {
-                  // 获取当前单元格的颜色（如果有）
-                  const cellColor = matrixData[row] && matrixData[row][col];
-
-                  return (
-                    <div
-                      key={`cell-${row}-${col}`}
-                      className={`w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center mr-2 ${
-                        gameState.isViewingHistory ? 'cursor-not-allowed' : 'cursor-pointer'
-                      }`}
-                      onClick={() => safeHandleColorSelect(matrixData[row] && matrixData[row][col] === 'red' ? 'black' : 'red')}
-                    >
-                      {cellColor && (
-                        <div
-                          className={`w-6 h-6 rounded-full ${cellColor === 'red' ? 'bg-red-500' : 'bg-black'}`}
-                        ></div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+          {/* 矩阵 */}
+          <div className="flex-grow overflow-x-auto mb-6">
+            <div className="matrix-container">
+              {matrix}
+            </div>
           </div>
 
           {/* 预测列区域 - 带背景色和标题 */}
