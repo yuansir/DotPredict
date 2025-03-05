@@ -4,6 +4,7 @@ import { useSessionManagement } from '../hooks/useSessionManagement';
 import { useMatrixManagement } from '../hooks/useMatrixManagement';
 import { usePagination } from '../hooks/usePagination';
 import { useGameActions } from '../hooks/useGameActions';
+import { useMatrixPagination } from '../hooks/useMatrixPagination';
 
 // 定义上下文类型
 interface GameContextType {
@@ -26,6 +27,12 @@ interface GameContextType {
   totalPages: number;
   displayItems: Move[];
   
+  // 矩阵分页状态
+  matrixCurrentPage: number;
+  matrixTotalPages: number;
+  currentPageMatrix: (DotColor | null)[][];  
+  currentInputPage: number;  
+  
   // 操作方法
   handleSessionChange: (sessionId: number) => void;
   endCurrentSession: () => Promise<void>;
@@ -33,11 +40,21 @@ interface GameContextType {
   handleUndo: () => void;
   handleClear: () => void;
   toggleHistoryMode: (isViewing: boolean) => void;
+  
+  // 历史记录分页方法
   goToPage: (page: number) => void;
   goToNextPage: () => void;
   goToPreviousPage: () => void;
   goToFirstPage: () => void;
   goToLastPage: () => void;
+  
+  // 矩阵分页方法
+  matrixGoToPage: (page: number) => void;
+  matrixGoToNextPage: () => void;
+  matrixGoToPreviousPage: () => void;
+  matrixGoToFirstPage: () => void;
+  matrixGoToLastPage: () => void;
+  
   getLastNColors: (history: Move[], n: number) => DotColor[];
   checkLastTwoColors: (row: (DotColor | null)[], rowIndex: number) => { sameColor: boolean, color: DotColor | null };
 }
@@ -94,6 +111,25 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     goToFirstPage,
     goToLastPage
   } = usePagination(gameState.history);
+  
+  // 初始化矩阵分页
+  const {
+    currentPage: matrixCurrentPage,
+    totalPages: matrixTotalPages,
+    currentPageMatrix,
+    currentInputPage,
+    goToNextPage: matrixGoToNextPage,
+    goToPreviousPage: matrixGoToPreviousPage,
+    goToPage: matrixGoToPage,
+    goToFirstPage: matrixGoToFirstPage,
+    goToLastPage: matrixGoToLastPage
+  } = useMatrixPagination(
+    matrixData, 
+    3, 
+    24, 
+    gameState.history.length,
+    gameState.history
+  );
   
   // 初始化游戏操作
   const {
@@ -227,6 +263,12 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     totalPages,
     displayItems,
     
+    // 矩阵分页状态
+    matrixCurrentPage,
+    matrixTotalPages,
+    currentPageMatrix,
+    currentInputPage,
+    
     // 操作方法
     handleSessionChange,
     endCurrentSession,
@@ -234,14 +276,27 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     handleUndo,
     handleClear,
     toggleHistoryMode,
+    
+    // 历史记录分页方法
     goToPage,
     goToNextPage,
     goToPreviousPage,
     goToFirstPage,
     goToLastPage,
+    
+    // 矩阵分页方法
+    matrixGoToPage,
+    matrixGoToNextPage,
+    matrixGoToPreviousPage,
+    matrixGoToFirstPage,
+    matrixGoToLastPage,
+    
     getLastNColors,
     checkLastTwoColors
   };
+  
+  console.log('matrixTotalPages:', matrixTotalPages);
+  console.log('currentPageMatrix:', currentPageMatrix);
   
   return (
     <GameContext.Provider value={contextValue}>
