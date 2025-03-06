@@ -83,12 +83,48 @@ export const useRulePrediction = (
       }
 
       // 添加第三个预测位功能 - 基于75%规则模式
-      // 只有当前两个预测位都有值时才进行第三个位置的预测
-      if (predictions[0] !== null && predictions[1] !== null) {
-        const thirdPredictionColor = predictThirdPosition(predictions[0], predictions[1]);
-        if (thirdPredictionColor) {
-          predictions[2] = thirdPredictionColor;
-          console.log('[DEBUG] useRulePrediction - 设置第三个预测位颜色:', thirdPredictionColor);
+      // 在当前等待输入的位置是第三行时，基于该列的前两个球颜色预测
+      
+      // 判断当前待输入位置
+      if (nextPosition && nextPosition.row === 2) {
+        // 获取当前待输入位置所在列的第一和第二个球的颜色
+        const col = nextPosition.col;
+        
+        // 创建矩阵并填充数据（和上面的代码类似）
+        const totalRows = 3;
+        const totalCols = Math.max(1, Math.ceil((gameState.history?.length || 0) / totalRows) + 1);
+        const fullMatrix: (DotColor | null)[][] = Array(totalRows)
+          .fill(null)
+          .map(() => Array(totalCols).fill(null));
+        
+        // 填充历史数据到矩阵
+        gameState.history.forEach((move) => {
+          if (move?.position && move?.color) {
+            const r = move.position.row;
+            const c = move.position.col;
+            if (r >= 0 && r < totalRows && c >= 0 && c < totalCols) {
+              fullMatrix[r][c] = move.color;
+            }
+          }
+        });
+        
+        // 获取当前列的第一个和第二个球的颜色
+        const firstBall = fullMatrix[0][col];
+        const secondBall = fullMatrix[1][col];
+        
+        console.log('[DEBUG] useRulePrediction - 当前列的前两个球:', { 
+          column: col, 
+          firstBall, 
+          secondBall 
+        });
+        
+        // 如果前两个球都有值，则根据75%规则预测第三个球
+        if (firstBall !== null && secondBall !== null) {
+          const thirdPredictionColor = predictThirdPositionFromColumn(firstBall, secondBall);
+          if (thirdPredictionColor) {
+            predictions[2] = thirdPredictionColor;
+            console.log('[DEBUG] useRulePrediction - 基于当前列设置第三个预测位颜色:', thirdPredictionColor);
+          }
         }
       }
       
@@ -172,7 +208,7 @@ function isPatternMatch(column: DotColor[]): boolean {
 }
 
 /**
- * 预测规则预测列第三个位置的颜色
+ * 预测规则预测列第三个位置的颜色 (基于规则列前两个球 - 旧版逻辑)
  * 基于75%规则模式：
  * 1. 黑黑→红 (75%)
  * 2. 红红→黑 (75%)
@@ -206,5 +242,43 @@ function predictThirdPosition(first: DotColor, second: DotColor): DotColor | nul
   }
   
   console.log('[DEBUG] predictThirdPosition - 没有匹配任何75%规则模式');
+  return null;
+}
+
+/**
+ * 基于当前列的前两个球预测第三个球的颜色
+ * 基于75%规则模式：
+ * 1. 黑黑→红 (75%)
+ * 2. 红红→黑 (75%)
+ * 3. 黑红→红 (75%)
+ * 4. 红黑→黑 (75%)
+ * 
+ * @param first 当前列第一个球的颜色
+ * @param second 当前列第二个球的颜色
+ * @returns 第三个球的预测颜色，如果不匹配任何规则则返回null
+ */
+function predictThirdPositionFromColumn(first: DotColor, second: DotColor): DotColor | null {
+  console.log('[DEBUG] predictThirdPositionFromColumn - 分析当前列前两个球:', { first, second });
+  
+  // 根据75%规则模式确定第三个位置的颜色
+  if (first === 'black' && second === 'black') {
+    // 黑黑→红 (75%)
+    console.log('[DEBUG] predictThirdPositionFromColumn - 匹配规则: 黑黑→红');
+    return 'red';
+  } else if (first === 'red' && second === 'red') {
+    // 红红→黑 (75%)
+    console.log('[DEBUG] predictThirdPositionFromColumn - 匹配规则: 红红→黑');
+    return 'black';
+  } else if (first === 'black' && second === 'red') {
+    // 黑红→红 (75%)
+    console.log('[DEBUG] predictThirdPositionFromColumn - 匹配规则: 黑红→红');
+    return 'red';
+  } else if (first === 'red' && second === 'black') {
+    // 红黑→黑 (75%)
+    console.log('[DEBUG] predictThirdPositionFromColumn - 匹配规则: 红黑→黑');
+    return 'black';
+  }
+  
+  console.log('[DEBUG] predictThirdPositionFromColumn - 没有匹配任何75%规则模式');
   return null;
 }
