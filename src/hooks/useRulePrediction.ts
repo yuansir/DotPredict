@@ -75,6 +75,13 @@ export const useRulePrediction = (
         }
       }
       
+      // 添加第二个预测位功能 - 查找符合25%规则的列
+      const secondPredictionColor = findColumnMatchingPattern(fullMatrix);
+      if (secondPredictionColor) {
+        predictions[1] = secondPredictionColor;
+        console.log('[DEBUG] useRulePrediction - 设置第二个预测位颜色:', secondPredictionColor);
+      }
+      
     } catch (error) {
       console.error('[ERROR] useRulePrediction - 预测计算错误:', error);
     }
@@ -84,3 +91,72 @@ export const useRulePrediction = (
     return { predictions, predictionRowIndex };
   }, [gameState]);
 };
+
+/**
+ * 查找符合25%规则模式的列
+ * 从右到左扫描矩阵，找到第一个符合四种规则模式之一的列
+ * 返回该列的第二个球的颜色（中间位置）
+ */
+function findColumnMatchingPattern(fullMatrix: (DotColor | null)[][]): DotColor | null {
+  // 获取列数
+  const totalCols = fullMatrix[0]?.length || 0;
+  
+  console.log('[DEBUG] findColumnMatchingPattern - 开始从右向左查找符合规则的列, 总列数:', totalCols);
+  
+  // 从右向左遍历所有列（从最新到最旧）
+  for (let col = totalCols - 1; col >= 0; col--) {
+    // 提取当前列所有三行的值
+    const column = [
+      fullMatrix[0]?.[col],
+      fullMatrix[1]?.[col],
+      fullMatrix[2]?.[col]
+    ];
+    
+    // 跳过有空值的列
+    if (column.includes(null) || column.includes(undefined)) {
+      continue;
+    }
+    
+    console.log(`[DEBUG] findColumnMatchingPattern - 检查列 ${col}:`, column);
+    
+    // 判断列是否匹配四种规则之一
+    if (isPatternMatch(column as DotColor[])) {
+      console.log(`[DEBUG] findColumnMatchingPattern - 找到匹配的列 ${col}, 取第二个球颜色:`, column[1]);
+      return column[1] as DotColor; // 返回中间位置的颜色
+    }
+  }
+  
+  console.log('[DEBUG] findColumnMatchingPattern - 未找到符合规则的列');
+  return null; // 没有找到匹配的列
+}
+
+/**
+ * 检查列是否匹配25%规则模式
+ * 规则模式包括：红红红、黑黑黑、红黑红、黑红黑
+ */
+function isPatternMatch(column: DotColor[]): boolean {
+  if (column.length !== 3) return false;
+  
+  // 提取列中的三个颜色
+  const [first, second, third] = column;
+  
+  // 检查是否匹配四种规则之一
+  const isRedRedRed = first === 'red' && second === 'red' && third === 'red';
+  const isBlackBlackBlack = first === 'black' && second === 'black' && third === 'black';
+  const isRedBlackRed = first === 'red' && second === 'black' && third === 'red';
+  const isBlackRedBlack = first === 'black' && second === 'red' && third === 'black';
+  
+  const isMatch = isRedRedRed || isBlackBlackBlack || isRedBlackRed || isBlackRedBlack;
+  
+  if (isMatch) {
+    console.log('[DEBUG] isPatternMatch - 匹配到规则模式:', { 
+      first, second, third,
+      patternType: isRedRedRed ? '红红红' : 
+                  isBlackBlackBlack ? '黑黑黑' : 
+                  isRedBlackRed ? '红黑红' : 
+                  '黑红黑'
+    });
+  }
+  
+  return isMatch;
+}
