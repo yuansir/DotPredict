@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DotColor, Position, Move, GameState } from '../types';
 
 /**
@@ -88,16 +88,13 @@ export function useMatrixManagement(gameState: GameState, setGameState: (state: 
     const newHistory = [...gameState.history, newMove];
     setGameState({
       ...gameState,
-      history: newHistory,
-      lastUpdateTime: new Date().toISOString() // 添加额外时间戳，确保状态更新
+      history: newHistory
+      // 移除不存在于GameState类型中的属性
     });
     
     // 先快速更新nextPosition (可能会因为批处理被优化掉)
     const quickNextPosition = calculateNextPosition(newHistory);
-    setNextPosition({
-      ...quickNextPosition,
-      _forceUpdate: Date.now() // 添加时间戳确保引用变化
-    });
+    setNextPosition(quickNextPosition);
     
     // 然后延时处理，确保状态更新和UI渲染分离
     setTimeout(() => {
@@ -106,11 +103,8 @@ export function useMatrixManagement(gameState: GameState, setGameState: (state: 
       // console.log('[DEBUG] addColorToMatrix - 延时计算新的下一个位置:', newNextPosition);
       
       // 强制重置下一个位置状态，即使坐标相同也创建新的引用对象
-      setNextPosition(prev => {
-        return {
-          ...newNextPosition,
-          _forceUpdate: Date.now() + 1 // 添加强制更新字段，确保和快速更新时不同
-        };
+      setNextPosition(() => {
+        return newNextPosition;
       });
       
       // console.log('[DEBUG] addColorToMatrix - 强制更新nextPosition完成:', {
@@ -219,7 +213,7 @@ export function useMatrixManagement(gameState: GameState, setGameState: (state: 
   /**
    * 检查某行的最后两个颜色
    */
-  const checkLastTwoColors = useCallback((row: (DotColor | null)[], rowIndex: number): { sameColor: boolean, color: DotColor | null } => {
+  const checkLastTwoColors = useCallback((row: (DotColor | null)[]): { sameColor: boolean, color: DotColor | null } => {
     const nonNullColors = row.filter(color => color !== null) as DotColor[];
     if (nonNullColors.length < 2) {
       return { sameColor: false, color: null };

@@ -12,11 +12,8 @@ export const MatrixPagination: React.FC = () => {
     matrixTotalPages,
     matrixGoToNextPage,
     matrixGoToPreviousPage,
-    matrixGoToPage,
     matrixGoToFirstPage,
-    matrixGoToLastPage,
-    currentInputPage,
-    gameState
+    matrixGoToLastPage
   } = useGameContext();
 
   console.log('[DEBUG] MatrixPagination组件 - 渲染', { matrixCurrentPage, matrixTotalPages });

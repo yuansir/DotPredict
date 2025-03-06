@@ -3,7 +3,7 @@ import { useGameContext } from '../contexts/GameContext';
 import { ControlPanel } from './ControlPanel';
 import { useAlert } from '../contexts/AlertContext';
 import { MatrixPagination } from './MatrixPagination';
-import { DotColor } from '../types';
+import { Position } from '../types';
 import PredictionArea from './PredictionArea'; // 导入预测区域组件
 
 /**
@@ -16,12 +16,12 @@ export const GameContainer: React.FC = () => {
     gameState,
     availableSessions,
     currentSessionId,
-    isLoading,
-    matrixData,
+    // isLoading, // 未使用变量
+    // matrixData, // 未使用变量
     nextPosition,
     totalPages,
     currentPageMatrix,
-    matrixTotalPages,
+    // matrixTotalPages, // 未使用变量
     matrixCurrentPage,
     handleSessionChange,
     handleColorSelect,
@@ -32,8 +32,8 @@ export const GameContainer: React.FC = () => {
     continuityPredictions,
     continuityPredictionRow,
     predictionUpdateId,
-    rulePredictions,       // 添加规则预测数据
-    rulePredictionRow      // 添加规则预测行索引
+    rulePredictions       // 添加规则预测数据
+    // rulePredictionRow  // 未使用变量
   } = useGameContext();
   
   const { showAlert } = useAlert();
@@ -41,12 +41,12 @@ export const GameContainer: React.FC = () => {
   // 控制规则说明区域显示/隐藏的状态
   const [showRules, setShowRules] = useState(true);
   
-  // 处理完成编辑的函数
-  const handleFinishEdit = () => {
-    if (endCurrentSession) {
-      endCurrentSession();
-    }
-  };
+  // 处理完成编辑的函数 - 暂时未使用
+  // const handleFinishEdit = () => {
+  //   if (endCurrentSession) {
+  //     endCurrentSession();
+  //   }
+  // };
 
   // 创建一个预览模式检查包装函数
   const withPreviewCheck = (action: Function, actionName: string) => {
@@ -118,7 +118,7 @@ export const GameContainer: React.FC = () => {
     const isPositionInCurrentPage = (globalPos: Position | null): boolean => {
       if (!globalPos) return false;
       const localPos = globalToLocalPosition(globalPos);
-      return localPos.col >= 0 && localPos.col < COLS_PER_PAGE;
+      return localPos !== null && localPos.col >= 0 && localPos.col < COLS_PER_PAGE;
     };
     
     // 使用分页后的矩阵数据
@@ -130,10 +130,9 @@ export const GameContainer: React.FC = () => {
           
           // 计算当前单元格的全局坐标
           const globalCol = colIndex + pageStartCol;
-          const globalPosition = { row: rowIndex, col: globalCol };
+          // 全局位置计算 - 仅用于内部逻辑，不需要单独变量
           
-          // 计算nextPosition的页内坐标
-          const localNextPosition = globalToLocalPosition(nextPosition);
+          // 不需要计算页内坐标，因为isNext判断已经使用了isPositionInCurrentPage函数
           
           // 优化isNext判断，确保nextPosition存在且在当前页面内
           const isNext = Boolean(
@@ -217,7 +216,7 @@ export const GameContainer: React.FC = () => {
                 type="button"
                 onClick={() => {
                   // console.log('[DEBUG] 用户点击切换到录入模式');
-                  toggleHistoryMode(false, true); // 第二个参数true表示用户手动操作
+                  toggleHistoryMode(false); // 切换到录入模式
                 }}
                 className={`px-4 py-2 text-sm font-medium 
                   ${!gameState.isViewingHistory
@@ -239,7 +238,7 @@ export const GameContainer: React.FC = () => {
                 type="button"
                 onClick={() => {
                   // console.log('[DEBUG] 用户点击切换到预览模式');
-                  toggleHistoryMode(true, true); // 第二个参数true表示用户手动操作
+                  toggleHistoryMode(true); // 切换到预览模式
                 }}
                 className={`px-4 py-2 text-sm font-medium 
                   ${gameState.isViewingHistory
@@ -378,7 +377,7 @@ export const GameContainer: React.FC = () => {
         {/* 左侧 - 基础操作 */}
         <div className="w-full md:w-1/2">
           <ControlPanel
-            selectedColor={gameState.selectedColor}
+            selectedColor={'black' as const} // 默认选择黑色
             onColorSelect={safeHandleColorSelect}
             onUndo={safeHandleUndo}
             onClear={safeHandleClear}

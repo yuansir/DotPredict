@@ -53,6 +53,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const isPositionInCurrentPage = (globalPos: Position | null): boolean => {
     if (!globalPos) return false;
     const localPos = globalToLocalPosition(globalPos);
+    if (!localPos) return false;
     return localPos.col >= 0 && localPos.col < WINDOW_SIZE;
   };
 
@@ -63,10 +64,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     
     // 计算当前单元格的全局坐标
     const globalCol = col + windowStart;
-    const globalPosition = { row, col: globalCol };
-    
-    // 计算nextPosition的页内坐标
-    const localNextPosition = globalToLocalPosition(nextPosition);
     
     // 判断是否是预测位置（使用全局坐标比较）
     const isPredicted = Boolean(

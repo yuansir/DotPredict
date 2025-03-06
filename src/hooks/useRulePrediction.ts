@@ -175,7 +175,7 @@ function findColumnMatchingPattern(fullMatrix: (DotColor | null)[][]): DotColor 
     ];
     
     // 跳过有空值的列
-    if (column.includes(null) || column.includes(undefined)) {
+    if (column.includes(null) || column.some(item => item === undefined)) {
       continue;
     }
     
@@ -235,7 +235,8 @@ function isPatternMatch(column: DotColor[]): boolean {
  * @param second 规则预测列第二个位置的颜色
  * @returns 规则预测列第三个位置应该填充的颜色，如果不匹配任何规则则返回null
  */
-function predictThirdPosition(first: DotColor, second: DotColor): DotColor | null {
+// 注释未使用的函数以避免TypeScript警告
+/*function predictThirdPosition(first: DotColor, second: DotColor): DotColor | null {
   console.log('[DEBUG] predictThirdPosition - 分析前两个预测位:', { first, second });
   
   // 根据75%规则模式确定第三个位置的颜色
@@ -259,7 +260,7 @@ function predictThirdPosition(first: DotColor, second: DotColor): DotColor | nul
   
   console.log('[DEBUG] predictThirdPosition - 没有匹配任何75%规则模式');
   return null;
-}
+}*/
 
 /**
  * 基于当前列的前两个球预测第三个球的颜色

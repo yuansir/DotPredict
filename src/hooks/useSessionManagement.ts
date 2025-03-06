@@ -114,15 +114,15 @@ export function useSessionManagement(selectedDate: string) {
       
       // 使用函数式更新确保操作最新状态
       if (loadedGameState) {
-        setGameState(prevState => ({
+        setGameState({
           ...loadedGameState,
           // 保留当前的预览模式状态，而不是使用加载的状态
           isViewingHistory: currentViewingHistory
-        }));
+        });
       } else {
         // 如果没有数据，重置为空状态
-        setGameState(prevState => ({
-          ...prevState,
+        setGameState(currentState => ({
+          ...currentState,
           history: [],
           totalPredictions: 0,
           correctPredictions: 0,

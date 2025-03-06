@@ -68,7 +68,7 @@ export const useContinuityPrediction = (
       
       // 填充矩阵
       if (gameState.history && gameState.history.length > 0) {
-        gameState.history.forEach((move, index) => {
+        gameState.history.forEach((move) => {
           if (move && move.position && move.color) {
             const row = move.position.row;
             const col = move.position.col;

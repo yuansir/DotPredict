@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { GameState, Move, DotColor, Position, Session } from '../types';
+import { GameState, DotColor, Position, Session } from '../types';
 
 /**
  * GameService - 封装所有游戏相关的数据操作
@@ -307,7 +307,7 @@ export class GameService {
    */
   async initializeDailyRecord(date: string, sessionId: number): Promise<boolean> {
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('daily_records')
         .upsert({
           date,

@@ -91,6 +91,9 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   const [gameState, setGameState] = useState<GameState>({
     history: [],
     isViewingHistory: false,
+    totalPredictions: 0,
+    correctPredictions: 0,
+    predictionStats: []
   });
   
   // 当前会话ID
@@ -152,11 +155,12 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     currentSessionId: sessionCurrentSessionId,
     isLoading: sessionIsLoading,
     isSessionEnding: sessionIsSessionEnding,
-    setGameState: sessionSetGameState,
+    // 不使用会话管理的setGameState，避免变量重复声明
+    // setGameState: sessionSetGameState,
     saveGameState: sessionSaveGameState,
     handleSessionChange: sessionHandleSessionChange,
     endCurrentSession: sessionEndCurrentSession,
-    loadSessionData: sessionLoadSessionData,
+    // loadSessionData: loadSessionData, // 未使用变量
     clearCurrentSessionData: sessionClearCurrentSessionData
   } = useSessionManagement(selectedDate);
 
@@ -176,10 +180,10 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     
     // 如果用户强制设置了录入模式，即使切换日期或翻页，也保持在录入模式
     if (userModeOverride) {
-      setGameState(prevState => ({
+      setGameState({
         ...sessionGameState,
         isViewingHistory: false // 保持在录入模式
-      }));
+      });
       console.log('[DEBUG] 用户模式覆盖生效，保持录入模式');
     } else {
       setGameState(sessionGameState);
@@ -252,7 +256,10 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   } = useGameActions(
     gameState,
     setGameState,
-    sessionSaveGameState,
+    // 使用void返回类型以匹配期望的类型
+    async (state: GameState): Promise<void> => {
+      await sessionSaveGameState(state);
+    },
     addColorToMatrix,
     undoLastMove,
     clearAllData,
@@ -420,7 +427,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     // 更新处理状态引用
     processedStateRef.current = {
       sessionId: currentSessionId,
-      isViewingHistory: gameState.isViewingHistory,
+      isViewingHistory: gameState.isViewingHistory || false,
       date: selectedDate
     };
   }, [selectedDate, gameState.isViewingHistory, userModeOverride, currentSessionId, setUserModeOverride]);
