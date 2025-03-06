@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useEffect } from 'react';
+import React, { useMemo, useCallback, useEffect, useState } from 'react';
 import { useGameContext } from '../contexts/GameContext';
 import { ControlPanel } from './ControlPanel';
 import { useAlert } from '../contexts/AlertContext';
@@ -31,10 +31,15 @@ export const GameContainer: React.FC = () => {
     endCurrentSession,
     continuityPredictions,
     continuityPredictionRow,
-    predictionUpdateId
+    predictionUpdateId,
+    rulePredictions,       // 添加规则预测数据
+    rulePredictionRow      // 添加规则预测行索引
   } = useGameContext();
   
   const { showAlert } = useAlert();
+  
+  // 控制规则说明区域显示/隐藏的状态
+  const [showRules, setShowRules] = useState(true);
   
   // 处理完成编辑的函数
   const handleFinishEdit = () => {
@@ -76,13 +81,18 @@ export const GameContainer: React.FC = () => {
 
   // 处理预测颜色数据转换
   const continuityPredictionColors = useMemo(() => {
-    return continuityPredictions;
-  }, [continuityPredictions, predictionUpdateId]);
+    return continuityPredictions || [null, null, null];
+  }, [continuityPredictions]);
+
+  // 处理规则预测颜色数据转换
+  const rulePredictionColors = useMemo(() => {
+    return rulePredictions || [null, null, null];
+  }, [rulePredictions]);
 
   // 当前预测行索引
   const currentPredictionRow = useMemo(() => {
     return continuityPredictionRow;
-  }, [continuityPredictionRow, predictionUpdateId]);
+  }, [continuityPredictionRow]);
 
   // 构建矩阵
   const matrix = useMemo(() => {
@@ -265,9 +275,10 @@ export const GameContainer: React.FC = () => {
             </div>
           </div>
 
-          {/* 使用独立的预测区域组件 */}
+          {/* 预测区域组件 */}
           <PredictionArea 
             continuityPredictionColors={continuityPredictionColors}
+            rulePredictionColors={rulePredictionColors}
             currentPredictionRow={currentPredictionRow}
             predictionUpdateId={predictionUpdateId}
           />
@@ -294,16 +305,16 @@ export const GameContainer: React.FC = () => {
           <h3 className="text-xl font-bold text-white text-center mb-4">游戏规则</h3>
           <p className="text-sm text-gray-400 text-center mb-4">点击展开查看规则</p>
 
-          <div className="bg-gray-700 rounded-lg p-4">
+          <div className="bg-gray-700 rounded-lg p-4 cursor-pointer" onClick={() => setShowRules(!showRules)}>
             <div className="flex justify-between items-center">
-              <span className="text-white">收起规则</span>
+              <span className="text-white">{showRules ? '收起规则' : '展开规则'}</span>
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={showRules ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"}></path>
               </svg>
             </div>
           </div>
 
-          <div className="mt-4 text-gray-300 space-y-6">
+          {showRules && <div className="mt-4 text-gray-300 space-y-6">
             <div>
               <div className="flex items-center text-blue-400 mb-2">
                 <div className="w-6 h-6 rounded-full bg-blue-400 flex items-center justify-center text-white mr-2">?</div>
@@ -418,7 +429,7 @@ export const GameContainer: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </div>

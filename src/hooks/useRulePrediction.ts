@@ -81,6 +81,16 @@ export const useRulePrediction = (
         predictions[1] = secondPredictionColor;
         console.log('[DEBUG] useRulePrediction - 设置第二个预测位颜色:', secondPredictionColor);
       }
+
+      // 添加第三个预测位功能 - 基于75%规则模式
+      // 只有当前两个预测位都有值时才进行第三个位置的预测
+      if (predictions[0] !== null && predictions[1] !== null) {
+        const thirdPredictionColor = predictThirdPosition(predictions[0], predictions[1]);
+        if (thirdPredictionColor) {
+          predictions[2] = thirdPredictionColor;
+          console.log('[DEBUG] useRulePrediction - 设置第三个预测位颜色:', thirdPredictionColor);
+        }
+      }
       
     } catch (error) {
       console.error('[ERROR] useRulePrediction - 预测计算错误:', error);
@@ -159,4 +169,42 @@ function isPatternMatch(column: DotColor[]): boolean {
   }
   
   return isMatch;
+}
+
+/**
+ * 预测规则预测列第三个位置的颜色
+ * 基于75%规则模式：
+ * 1. 黑黑→红 (75%)
+ * 2. 红红→黑 (75%)
+ * 3. 黑红→红 (75%)
+ * 4. 红黑→黑 (75%)
+ * 
+ * @param first 规则预测列第一个位置的颜色
+ * @param second 规则预测列第二个位置的颜色
+ * @returns 规则预测列第三个位置应该填充的颜色，如果不匹配任何规则则返回null
+ */
+function predictThirdPosition(first: DotColor, second: DotColor): DotColor | null {
+  console.log('[DEBUG] predictThirdPosition - 分析前两个预测位:', { first, second });
+  
+  // 根据75%规则模式确定第三个位置的颜色
+  if (first === 'black' && second === 'black') {
+    // 黑黑→红 (75%)
+    console.log('[DEBUG] predictThirdPosition - 匹配规则: 黑黑→红');
+    return 'red';
+  } else if (first === 'red' && second === 'red') {
+    // 红红→黑 (75%)
+    console.log('[DEBUG] predictThirdPosition - 匹配规则: 红红→黑');
+    return 'black';
+  } else if (first === 'black' && second === 'red') {
+    // 黑红→红 (75%)
+    console.log('[DEBUG] predictThirdPosition - 匹配规则: 黑红→红');
+    return 'red';
+  } else if (first === 'red' && second === 'black') {
+    // 红黑→黑 (75%)
+    console.log('[DEBUG] predictThirdPosition - 匹配规则: 红黑→黑');
+    return 'black';
+  }
+  
+  console.log('[DEBUG] predictThirdPosition - 没有匹配任何75%规则模式');
+  return null;
 }
