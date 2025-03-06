@@ -9,7 +9,7 @@ import { AlertProvider } from './contexts/AlertContext';
  */
 const App: React.FC = () => {
   // 应用级状态
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, _setIsLoading] = useState(false);
 
   return (
     <AlertProvider>

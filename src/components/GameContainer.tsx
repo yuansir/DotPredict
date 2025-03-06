@@ -96,14 +96,64 @@ export const GameContainer: React.FC = () => {
 
   // 构建矩阵
   const matrix = useMemo(() => {
+    // 定义每页列数常量
+    const COLS_PER_PAGE = 24; // 每页显示24列
+    
+    // 调试输出nextPosition的值
+    // console.log('[DEBUG] GameContainer - 当前nextPosition:', nextPosition, '当前页码:', matrixCurrentPage, '当前页起始列:', (matrixCurrentPage - 1) * COLS_PER_PAGE);
+    
+    // 计算当前页的起始列
+    const pageStartCol = (matrixCurrentPage - 1) * COLS_PER_PAGE;
+    
+    // 全局坐标转换为页内坐标的函数
+    const globalToLocalPosition = (globalPos: Position | null): Position | null => {
+      if (!globalPos) return null;
+      return {
+        row: globalPos.row,
+        col: globalPos.col - pageStartCol
+      };
+    };
+
+    // 检查全局坐标是否在当前页面范围内
+    const isPositionInCurrentPage = (globalPos: Position | null): boolean => {
+      if (!globalPos) return false;
+      const localPos = globalToLocalPosition(globalPos);
+      return localPos.col >= 0 && localPos.col < COLS_PER_PAGE;
+    };
+    
     // 使用分页后的矩阵数据
     return currentPageMatrix.map((row, rowIndex) => (
       <div key={`row-${rowIndex}`} className="flex mb-2">
         {row.map((color, colIndex) => {
+          // 页内坐标
           const position = { row: rowIndex, col: colIndex };
-          const isNext = !gameState.isViewingHistory && 
-                         position.row === nextPosition.row && 
-                         position.col === nextPosition.col;
+          
+          // 计算当前单元格的全局坐标
+          const globalCol = colIndex + pageStartCol;
+          const globalPosition = { row: rowIndex, col: globalCol };
+          
+          // 计算nextPosition的页内坐标
+          const localNextPosition = globalToLocalPosition(nextPosition);
+          
+          // 优化isNext判断，确保nextPosition存在且在当前页面内
+          const isNext = Boolean(
+            !gameState.isViewingHistory && 
+            nextPosition && 
+            isPositionInCurrentPage(nextPosition) &&
+            nextPosition.row === rowIndex && 
+            nextPosition.col === globalCol
+          );
+          
+          // 当找到待输入位置时记录日志
+          if (isNext) {
+            // console.log('[DEBUG] GameContainer - 在矩阵中找到待输入位置:', { 
+            //   position, 
+            //   globalPosition, 
+            //   nextPosition, 
+            //   localNextPosition,
+            //   pageStartCol
+            // });
+          }
           
           return (
             <div
@@ -127,14 +177,14 @@ export const GameContainer: React.FC = () => {
 
   // 日志记录预测数据
   useEffect(() => {
-    console.log('[DEBUG] GameContainer - UI渲染前预测数据:', {
-      continuityPredictionColors,
-      currentPredictionRow,
-      continuityPredictionsJSON: JSON.stringify(continuityPredictionColors),
-      gameStateHistory: gameState.history.length,
-      predictionUpdateId,
-      renderTime: new Date().toISOString()
-    });
+    // console.log('[DEBUG] GameContainer - UI渲染前预测数据:', {
+    //   continuityPredictionColors,
+    //   currentPredictionRow,
+    //   continuityPredictionsJSON: JSON.stringify(continuityPredictionColors),
+    //   gameStateHistory: gameState.history.length,
+    //   predictionUpdateId,
+    //   renderTime: new Date().toISOString()
+    // });
   }, [continuityPredictionColors, currentPredictionRow, gameState.history.length, predictionUpdateId]);
 
   return (
@@ -166,7 +216,7 @@ export const GameContainer: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  console.log('[DEBUG] 用户点击切换到录入模式');
+                  // console.log('[DEBUG] 用户点击切换到录入模式');
                   toggleHistoryMode(false, true); // 第二个参数true表示用户手动操作
                 }}
                 className={`px-4 py-2 text-sm font-medium 
@@ -188,7 +238,7 @@ export const GameContainer: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  console.log('[DEBUG] 用户点击切换到预览模式');
+                  // console.log('[DEBUG] 用户点击切换到预览模式');
                   toggleHistoryMode(true, true); // 第二个参数true表示用户手动操作
                 }}
                 className={`px-4 py-2 text-sm font-medium 

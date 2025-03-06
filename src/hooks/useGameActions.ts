@@ -41,10 +41,10 @@ export function useGameActions(
   const handleColorSelect = useCallback(async (color: DotColor) => {
     if (gameState.isViewingHistory) return;
     
-    console.log('[DEBUG] handleColorSelect - 放置球前:', {
-      historyLength: gameState.history.length,
-      color
-    });
+    // console.log('[DEBUG] handleColorSelect - 放置球前:', {
+    //   historyLength: gameState.history.length,
+    //   color
+    // });
     
     // 添加颜色到矩阵
     addColorToMatrix(color);
@@ -61,10 +61,10 @@ export function useGameActions(
       // 使用防抖保存最新状态
       debouncedSave(updatedState);
       
-      console.log('[DEBUG] handleColorSelect - 放置球后:', {
-        historyLength: updatedState.history.length,
-        lastUpdateTime: updatedState.lastUpdateTime
-      });
+      // console.log('[DEBUG] handleColorSelect - 放置球后:', {
+      //   historyLength: updatedState.history.length,
+      //   lastUpdateTime: updatedState.lastUpdateTime
+      // });
       
       // 返回更新后的状态，强制触发重渲染
       return updatedState;

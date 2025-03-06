@@ -234,6 +234,28 @@
   100% { transform: scale(0.7); opacity: 0; }
 }
 
+/* 新增Tailwind自定义光晕缩放动画类 */
+.animate-pulse-scale-slow {
+  animation: pulseScale 2.5s infinite ease-in-out;
+}
+
+.animate-pulse-scale-medium {
+  animation: pulseScale 2s infinite ease-in-out 0.3s;
+}
+
+.animate-pulse-scale-fast {
+  animation: pulseScale 1.5s infinite ease-in-out 0.6s;
+}
+
+.animate-pulse-radiate {
+  animation: pulseRadiate 2s infinite;
+}
+
+/* 蓝色阴影效果 */
+.shadow-blue {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.9);
+}
+
 /* 输入小球边框脉动效果 */
 @keyframes pulsingBorder {
   0% { border-color: rgba(59, 130, 246, 0.9); }

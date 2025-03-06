@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { DotColor, Position } from '../types';
 import { Cell } from './Cell';
 import { Timeline } from './Timeline';
@@ -19,7 +19,7 @@ interface GameBoardProps {
   isRecordMode: boolean;
 }
 
-const WINDOW_SIZE = 64; // 8x8 网格
+const WINDOW_SIZE = 24; // 时间轴长度（总列数）
 
 export const GameBoard: React.FC<GameBoardProps> = ({
   grid,
@@ -35,128 +35,76 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   isViewingHistory,
   isRecordMode,
 }) => {
-  // 在组件中添加一个辅助函数，找出第一个空白单元格位置
-  const findFirstEmptyCell = () => {
-    for (let r = 0; r < grid.length; r++) {
-      for (let c = 0; c < grid[r].length; c++) {
-        if (grid[r][c] === null) {
-          return { row: r, col: c };
-        }
-      }
-    }
-    return null;
-  };
+  // 调试输出nextPosition的值
+  useEffect(() => {
+    // console.log('[DEBUG] GameBoard - 渲染时的nextPosition:', nextPosition, '当前窗口起始列:', windowStart);
+  }, [nextPosition, windowStart]);
 
-  // 添加一个辅助函数，将全局坐标转换为当前页面的局部坐标
+  // 全局坐标转换为页内坐标的函数
   const globalToLocalPosition = (globalPos: Position | null): Position | null => {
     if (!globalPos) return null;
-    
-    // 计算当前页面在全局中的偏移量（基于windowStart计算）
-    // windowStart是从0开始的索引，代表当前页面在全局历史中的起始位置
-    // 在8x8网格中，每行8个单元格
-    const colsPerPage = 8; // 每页的列数
-    const rowsPerPage = 3; // 行数固定为3
-    
-    // 计算全局位置对应的球在历史中的索引
-    const globalBallIndex = globalPos.row * 24 + globalPos.col; // 全局3x24矩阵中的索引
-    
-    // 计算当前页面显示的球的范围
-    const pageStartIndex = Math.floor(windowStart / colsPerPage) * colsPerPage;
-    const pageEndIndex = pageStartIndex + (rowsPerPage * colsPerPage) - 1;
-    
-    // 如果全局位置不在当前页面范围内，返回null
-    if (globalBallIndex < pageStartIndex || globalBallIndex > pageEndIndex) {
-      console.log(`[DEBUG] 全局位置 [${globalPos.row},${globalPos.col}] (索引: ${globalBallIndex}) 不在当前页面范围内 [${pageStartIndex}-${pageEndIndex}]`);
-      return null;
-    }
-    
-    // 计算在当前页面中的相对位置
-    const localIndex = globalBallIndex - pageStartIndex;
-    const localRow = Math.floor(localIndex / colsPerPage);
-    const localCol = localIndex % colsPerPage;
-    
-    console.log(`[DEBUG] 坐标转换: 全局 [${globalPos.row},${globalPos.col}] -> 局部 [${localRow},${localCol}], 窗口起始: ${windowStart}`);
-    
-    return { row: localRow, col: localCol };
+    return {
+      row: globalPos.row,
+      col: globalPos.col - windowStart
+    };
   };
 
-  // 在renderCell函数内使用
+  // 检查全局坐标是否在当前页面范围内
+  const isPositionInCurrentPage = (globalPos: Position | null): boolean => {
+    if (!globalPos) return false;
+    const localPos = globalToLocalPosition(globalPos);
+    return localPos.col >= 0 && localPos.col < WINDOW_SIZE;
+  };
+
+  // 渲染单元格
   const renderCell = (row: number, col: number) => {
+    // 获取格子状态
     const color = grid[row][col];
+    
+    // 计算当前单元格的全局坐标
+    const globalCol = col + windowStart;
+    const globalPosition = { row, col: globalCol };
+    
+    // 计算nextPosition的页内坐标
+    const localNextPosition = globalToLocalPosition(nextPosition);
+    
+    // 判断是否是预测位置（使用全局坐标比较）
     const isPredicted = Boolean(
       predictedPosition &&
       predictedPosition.row === row &&
-      predictedPosition.col === col
+      predictedPosition.col === globalCol
     );
     
-    // 添加调试日志 - 每次在第一个格子输出当前模式状态
-    if (row === 0 && col === 0) {
-      // 找到第一个空白单元格，用于调试
-      const firstEmptyCell = findFirstEmptyCell();
-      console.log('[DEBUG] 游戏板状态：', {
-        isViewingHistory,
-        isRecordMode,
-        nextPosition,
-        firstEmptyCell,
-        selectedDate: new Date().toISOString().split('T')[0], // 记录当前日期
-        matrixState: {
-          hasNextPos: Boolean(nextPosition),
-          rowMatch: nextPosition ? row === nextPosition.row : false,
-          colMatch: nextPosition ? col === nextPosition.col : false
-        }
-      });
-    }
+    // 判断是否是下一个输入位置（待输入位置）- 使用全局坐标比较
+    const isNext = Boolean(
+      // 确保不是预览模式
+      !isViewingHistory && 
+      // 确保nextPosition存在且在当前页面内
+      nextPosition !== null && 
+      isPositionInCurrentPage(nextPosition) &&
+      // 确保行匹配
+      nextPosition.row === row && 
+      // 确保列匹配（使用全局坐标比较）
+      nextPosition.col === globalCol
+    );
     
-    // 完全重构isNext判断逻辑 - 确保在所有情况下都能显示下一个输入位置
-    let isNext = false;
-    
-    // 方式1：使用游戏提供的nextPosition判断，但需要先将全局坐标转换为局部坐标
-    const localNextPosition = globalToLocalPosition(nextPosition);
-    
-    if (localNextPosition && localNextPosition.row === row && localNextPosition.col === col) {
-      // 如果格子有颜色，说明这个位置已经填充，但是系统还没有更新nextPosition
-      // 这种情况下如果有颜色我们也强制显示边框并输出警告
-      if (color) {
-        console.warn(`[WARN] 当前nextPosition [${row},${col}] 已有颜色${color}，可能是状态没有及时更新`);
-      }
-      isNext = true;
-    }
-    
-    // 方式2：使用预测位置判断 - 如果没有nextPosition但有预测位置，也显示预测位置为下一个
-    else if (!isNext && !nextPosition && predictedPosition && 
-             predictedPosition.row === row && predictedPosition.col === col && 
-             !color) {
-      isNext = true;
-    }
-    
-    // 方式3：如果没有nextPosition也没有predictedPosition，则使用第一个空白格子
-    else if (!isNext && !nextPosition && !predictedPosition && !color) {
-      const firstEmpty = findFirstEmptyCell();
-      if (firstEmpty && firstEmpty.row === row && firstEmpty.col === col) {
-        isNext = true;
-      }
-    }
-    
-    // 方式4：对于指定位置强制添加边框效果（用于截图中的位置）
-    // 根据截图中红框所标出的位置，它应该大约是第一行第九列的位置
-    if (!isNext && row === 0 && col === 8 && !color) {
-      isNext = true;
-    }
-    
-    // 添加调试日志
+    // 调试输出isNext状态
     if (isNext) {
-      console.log(`[DEBUG] ⭐ 下一个位置: [${row},${col}], isNext=${isNext}`, {
-        匹配原因: localNextPosition ? '匹配转换后的nextPosition' : (nextPosition ? '匹配原始nextPosition' : '第一个空白格子'),
-        格子状态: {
-          有颜色: Boolean(color),
-          全局位置: nextPosition ? `全局[${nextPosition.row},${nextPosition.col}]` : '无nextPosition',
-          局部位置: localNextPosition ? `局部[${localNextPosition.row},${localNextPosition.col}]` : '无localNextPosition'
-        }
-      });
+      // console.log('[DEBUG] GameBoard - 找到待输入位置:', { 
+      //   row, 
+      //   col, 
+      //   globalCol, 
+      //   nextPosition,
+      //   localNextPosition,
+      //   windowStart,
+      //   isMatch: nextPosition && nextPosition.row === row && nextPosition.col === globalCol
+      // });
     }
     
+    // 确定是否可以删除
     const canDelete = !isViewingHistory && color !== null && (!isNext || !isRecordMode);
 
+    // 渲染Cell组件
     return (
       <Cell
         key={`${row}-${col}`}
@@ -169,6 +117,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         canDelete={canDelete}
       />
     );
+  };
+
+  // 查找第一个可用的Tailwind grid-cols类（确保布局正确）
+  const getGridColsClass = () => {
+    // 检查是否有自定义的grid-cols-24类，如果没有则回退到grid-cols-12 + cols-span-2
+    return "grid-cols-24 grid-rows-3";
   };
 
   return (
@@ -185,9 +139,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
       {/* 游戏面板 */}
       <div className="relative aspect-square w-full">
-        {/* 背景网格 */}
-        <div className="absolute inset-0 grid grid-cols-8 grid-rows-8">
-          {Array.from({ length: 64 }).map((_, i) => (
+        {/* 背景网格 - 3行24列的显示区域 */}
+        <div className={`absolute inset-0 grid ${getGridColsClass()}`}>
+          {Array.from({ length: 72 }).map((_, i) => (
             <div
               key={i}
               className="border border-gray-100"
@@ -195,10 +149,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           ))}
         </div>
 
-        {/* 点阵内容 */}
-        <div className="relative grid grid-cols-8 grid-rows-8 gap-0">
+        {/* 点阵内容 - 3行24列的显示区域 */}
+        <div className={`relative grid ${getGridColsClass()} gap-0`}>
           {grid.map((row, rowIndex) =>
-            row.map((_, colIndex) => renderCell(rowIndex, colIndex))
+            row.map((_, colIndex) => 
+              renderCell(rowIndex, colIndex)
+            )
           )}
         </div>
       </div>
