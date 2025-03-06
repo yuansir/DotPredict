@@ -50,26 +50,16 @@ export function useGameActions(
     addColorToMatrix(color);
     
     // 由于addColorToMatrix会调用setGameState更新状态，
-    // 我们需要使用回调方式获取最新状态并保存
-    setGameState(currentState => {
-      const updatedState = {
-        ...currentState,
-        // 确保历史记录正确更新
-        lastUpdateTime: new Date().toISOString()
-      };
-      
+    // 我们需要使用延时来确保在状态更新后保存
+    setTimeout(() => {
       // 使用防抖保存最新状态
-      debouncedSave(updatedState);
+      debouncedSave(gameState);
       
       // console.log('[DEBUG] handleColorSelect - 放置球后:', {
-      //   historyLength: updatedState.history.length,
-      //   lastUpdateTime: updatedState.lastUpdateTime
+      //   historyLength: gameState.history.length
       // });
-      
-      // 返回更新后的状态，强制触发重渲染
-      return updatedState;
-    });
-  }, [addColorToMatrix, debouncedSave, setGameState, gameState.history.length]);
+    }, 0);
+  }, [addColorToMatrix, debouncedSave, setGameState]);
 
   /**
    * 处理撤销操作
@@ -80,13 +70,11 @@ export function useGameActions(
     // 执行撤销
     undoLastMove();
     
-    // 使用回调获取最新状态并保存
-    setGameState(currentState => {
+    // 使用延时来确保在状态更新后保存
+    setTimeout(() => {
       // 使用防抖保存最新状态
-      debouncedSave(currentState);
-      
-      return currentState;
-    });
+      debouncedSave(gameState);
+    }, 0);
   }, [undoLastMove, debouncedSave, setGameState]);
 
   /**
@@ -129,10 +117,11 @@ export function useGameActions(
         console.log('用户手动切换模式，已设置模式覆盖标志');
       }
       
-      setGameState(prevState => ({
-        ...prevState,
+      const updatedState: GameState = {
+        ...gameState,
         isViewingHistory: isViewing
-      }));
+      };
+      setGameState(updatedState);
     }
   }, [setGameState, gameState.isViewingHistory, setUserModeOverride]);
 
