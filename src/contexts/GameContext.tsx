@@ -3,9 +3,10 @@ import { DotColor, Position, GameState, Move, Session } from '../types';
 import { useSessionManagement } from '../hooks/useSessionManagement';
 import { useMatrixManagement } from '../hooks/useMatrixManagement';
 import { usePagination } from '../hooks/usePagination';
-import { useGameActions } from '../hooks/useGameActions';
-import { useMatrixPagination } from '../hooks/useMatrixPagination';
 import { useContinuityPrediction } from '../hooks/useContinuityPrediction';
+import { useRulePrediction } from '../hooks/useRulePrediction';
+import { useMatrixPagination } from '../hooks/useMatrixPagination';
+import { useGameActions } from '../hooks/useGameActions';
 
 // 定义上下文类型
 interface GameContextType {
@@ -17,6 +18,7 @@ interface GameContextType {
   currentSessionId: number;
   isLoading: boolean;
   isSessionEnding: boolean;
+  userModeOverride: boolean; // 添加用户模式覆盖标志
   
   // 矩阵状态
   matrixData: (DotColor | null)[][];
@@ -38,6 +40,11 @@ interface GameContextType {
   continuityPredictions: (DotColor | null)[];
   continuityPredictionRow: number | null;
   predictionUpdateId: number;
+  
+  // 规则预测状态
+  rulePredictions: (DotColor | null)[];
+  rulePredictionRow: number | null;
+  rulePredictionUpdateId: number;
   
   // 操作方法
   handleSessionChange: (sessionId: number) => void;
@@ -92,6 +99,9 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   // 会话列表
   const [availableSessions, setAvailableSessions] = useState<Session[]>([]);
   
+  // 用户模式覆盖标志 - 记录用户是否手动切换了模式
+  const [userModeOverride, setUserModeOverride] = useState<boolean>(false);
+  
   // 加载状态
   const [isLoading, setIsLoading] = useState<boolean>(true);
   
@@ -104,6 +114,19 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     predictionRowIndex: number | null;
     updateId: number;
     lastMatrixHash: string; // 添加矩阵哈希以检测实际变化
+  }>({
+    predictions: [null, null, null],
+    predictionRowIndex: null,
+    updateId: 0,
+    lastMatrixHash: ""
+  });
+
+  // 规则预测状态管理
+  const [rulePredictionState, setRulePredictionState] = useState<{
+    predictions: (DotColor | null)[];
+    predictionRowIndex: number | null;
+    updateId: number;
+    lastMatrixHash: string;
   }>({
     predictions: [null, null, null],
     predictionRowIndex: null,
@@ -198,11 +221,15 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     addColorToMatrix,
     undoLastMove,
     clearAllData,
-    sessionClearCurrentSessionData
+    sessionClearCurrentSessionData,
+    setUserModeOverride // 传递用户模式覆盖设置函数
   );
 
   // 计算连续性预测
-  const predictionResult = useContinuityPrediction(gameState, nextPosition);
+  const continuityResult = useContinuityPrediction(gameState, nextPosition);
+
+  // 计算规则预测
+  const ruleResult = useRulePrediction(gameState, nextPosition);
 
   // 计算矩阵哈希，用于检测真实变化
   const calculateMatrixHash = useCallback(() => {
@@ -215,7 +242,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       console.error("[ERROR] 计算矩阵哈希失败:", e);
       return Date.now().toString(); // 发生错误时返回时间戳
     }
-  }, [matrixData, gameState.history.length, nextPosition]);
+  }, [matrixData, gameState.history, nextPosition]);
 
   // 添加预测状态更新逻辑
   useEffect(() => {
@@ -226,42 +253,56 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     if (currentMatrixHash !== predictionState.lastMatrixHash) {
       // 更新预测状态，确保创建新的引用
       setPredictionState(prev => ({
-        predictions: [...predictionResult.predictions], // 创建新数组
-        predictionRowIndex: predictionResult.predictionRowIndex,
+        predictions: [...continuityResult.predictions], // 创建新数组
+        predictionRowIndex: continuityResult.predictionRowIndex,
         updateId: prev.updateId + 1,
         lastMatrixHash: currentMatrixHash
       }));
       
       console.log('[DEBUG] GameContext - 预测状态已更新:', {
-        predictions: predictionResult.predictions,
-        predictionRowIndex: predictionResult.predictionRowIndex,
+        predictions: continuityResult.predictions,
+        predictionRowIndex: continuityResult.predictionRowIndex,
         updateId: predictionState.updateId + 1,
         gameStateHistory: gameState.history.length,
         matrixHashChanged: currentMatrixHash !== predictionState.lastMatrixHash
       });
     }
   }, [
-    predictionResult, 
-    gameState.history.length, 
-    nextPosition, 
-    calculateMatrixHash
+    continuityResult, 
+    gameState.history, 
+    calculateMatrixHash,
+    predictionState.lastMatrixHash
   ]);
 
-  // 添加调试预测更新功能
-  const DEBUG_PREDICTION = true;
-
+  // 添加规则预测状态更新逻辑
   useEffect(() => {
-    if (DEBUG_PREDICTION) {
-      console.log('[DEBUG] 预测状态跟踪 - 历史长度变化:', {
-        historyLength: gameState.history.length,
-        predictions: predictionState.predictions,
-        row: predictionState.predictionRowIndex,
-        nextPos: nextPosition,
-        updateId: predictionState.updateId,
-        matrixHash: predictionState.lastMatrixHash
+    // 计算当前矩阵哈希
+    const currentMatrixHash = calculateMatrixHash();
+    
+    // 仅当矩阵实际发生变化时才更新预测
+    if (currentMatrixHash !== rulePredictionState.lastMatrixHash) {
+      // 更新预测状态，确保创建新的引用
+      setRulePredictionState(prev => ({
+        predictions: [...ruleResult.predictions], // 创建新数组
+        predictionRowIndex: ruleResult.predictionRowIndex,
+        updateId: prev.updateId + 1,
+        lastMatrixHash: currentMatrixHash
+      }));
+      
+      console.log('[DEBUG] GameContext - 规则预测状态已更新:', {
+        predictions: ruleResult.predictions,
+        predictionRowIndex: ruleResult.predictionRowIndex,
+        updateId: rulePredictionState.updateId + 1,
+        gameStateHistory: gameState.history.length,
+        matrixHashChanged: currentMatrixHash !== rulePredictionState.lastMatrixHash
       });
     }
-  }, [gameState.history.length, predictionState, nextPosition]);
+  }, [
+    ruleResult, 
+    gameState.history, 
+    calculateMatrixHash, 
+    rulePredictionState.lastMatrixHash
+  ]);
 
   // 自定义方法：处理会话变化
   const handleSessionChange = useCallback((sessionId: number) => {
@@ -292,7 +333,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   });
 
   // 创建安全的模式切换函数
-  const safeToggleHistoryMode = useCallback((isViewing: boolean) => {
+  const safeToggleHistoryMode = useCallback((isViewing: boolean, isUserAction: boolean = true) => {
     const current = modeTransitionRef.current;
     
     // 检查是否与上次更新相同
@@ -309,11 +350,20 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       mode: isViewing
     };
     
-    // 更新模式
-    toggleHistoryMode(isViewing);
+    console.log(`安全模式切换: 目标=${isViewing ? '预览' : '录入'}, 是否用户操作=${isUserAction}`);
+    
+    // 更新模式并传递isUserAction参数
+    toggleHistoryMode(isViewing, isUserAction);
   }, [selectedDate, currentSessionId, toggleHistoryMode]);
 
-  // 自动检测历史日期并切换到预览模式
+  // 当日期变更时重置用户模式覆盖标志
+  useEffect(() => {
+    // 当日期变更时，重置用户手动模式覆盖标志
+    setUserModeOverride(false);
+    console.log('日期变更，重置用户模式覆盖标志，日期为:', selectedDate);
+  }, [selectedDate]);
+  
+  // 自动检测历史日期并切换到预览模式（除非用户手动切换）
   useEffect(() => {
     // 检查是否是历史日期
     const today = new Date().toISOString().split('T')[0];
@@ -323,28 +373,37 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     modeTransitionRef.current.isTransitioning = false;
     modeTransitionRef.current.pendingMode = null;
     
-    // 对于历史日期，切换到预览模式
-    if (isHistoricalDate && !gameState.isViewingHistory) {
-      console.log('历史日期，切换到预览模式:', selectedDate);
-      safeToggleHistoryMode(true);
+    // 对于历史日期，仅在初始时设置默认预览模式
+    if (isHistoricalDate && !userModeOverride) {
+      console.log('历史日期，初始化默认模式，当前模式:', gameState.isViewingHistory ? '预览模式' : '录入模式');
+      // 如果当前非预览模式，切换到预览模式
+      if (!gameState.isViewingHistory) {
+        toggleHistoryMode(true, false); // 这是系统自动切换
+      }
     }
-  }, [selectedDate, gameState.isViewingHistory, safeToggleHistoryMode]);
+  }, [selectedDate, toggleHistoryMode, gameState.isViewingHistory, userModeOverride]);
 
   // 基于会话状态自动切换预览模式
   useEffect(() => {
     // 如果当前未处于加载状态，且有会话列表
     if (isLoading || availableSessions.length === 0) return;
     
-    // 避免在转换中重复更新
-    if (modeTransitionRef.current.isTransitioning) return;
-    
     const selectedSession = availableSessions.find(s => s.id === currentSessionId);
     const isNewSession = selectedSession?.label === '新一轮输入中...';
     const today = new Date().toISOString().split('T')[0];
     const isCurrentDay = selectedDate === today;
     
-    // 只有当天的"新一轮输入中"会话才是录入模式，其他都是预览模式
-    const shouldBeInViewMode = !isCurrentDay || !isNewSession;
+    // 如果不是当天日期，默认设置为预览模式，除非用户手动设置了模式
+    // 我们已经在上面的useEffect中处理了此逻辑，所以这里可以简化
+    if (!isCurrentDay) {
+      return; // 当日期不是当天时，交给上面的useEffect处理
+    }
+    
+    // 对于当天日期：只有"新一轮输入中"会话才是录入模式，其他都是预览模式
+    const shouldBeInViewMode = !isNewSession;
+    
+    // 避免在转换中重复更新或当用户手动设置了模式时覆盖
+    if (modeTransitionRef.current.isTransitioning || userModeOverride) return;
     
     // 只有当当前模式与期望模式不匹配时才切换
     if (shouldBeInViewMode !== gameState.isViewingHistory) {
@@ -355,7 +414,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
         shouldBeInViewMode,
         currentMode: gameState.isViewingHistory ? '预览' : '录入',
         sessionId: currentSessionId,
-        isNewSession
+        isNewSession,
+        isCurrentDay
       });
       
       // 使用安全的模式切换函数
@@ -366,7 +426,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
         modeTransitionRef.current.isTransitioning = false;
       }, 100);
     }
-  }, [isLoading, availableSessions, currentSessionId, selectedDate, gameState.isViewingHistory, safeToggleHistoryMode]);
+  }, [isLoading, availableSessions, currentSessionId, selectedDate, gameState.isViewingHistory, safeToggleHistoryMode, toggleHistoryMode]);
   
   // 提供上下文值
   const contextValue: GameContextType = {
@@ -378,6 +438,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     currentSessionId,
     isLoading,
     isSessionEnding,
+    userModeOverride,
     
     // 矩阵状态
     matrixData,
@@ -395,10 +456,15 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     currentPageMatrix,
     currentInputPage,
     
-    // 连续性预测状态 - 确保使用预测状态对象中的值
+    // 连续性预测状态
     continuityPredictions: predictionState.predictions,
     continuityPredictionRow: predictionState.predictionRowIndex,
     predictionUpdateId: predictionState.updateId,
+    
+    // 规则预测状态
+    rulePredictions: rulePredictionState.predictions,
+    rulePredictionRow: rulePredictionState.predictionRowIndex,
+    rulePredictionUpdateId: rulePredictionState.updateId,
     
     // 操作方法
     handleSessionChange,
@@ -439,7 +505,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
 // 自定义钩子
 export const useGameContext = (): GameContextType => {
   const context = useContext(GameContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useGameContext must be used within a GameProvider');
   }
   return context;

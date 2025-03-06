@@ -164,7 +164,7 @@ export const GameContainer: React.FC = () => {
           <div className="flex rounded-md shadow-sm" role="group">
             <button
               type="button"
-              onClick={() => toggleHistoryMode(false)}
+              onClick={() => toggleHistoryMode(false, true)}
               className={`px-4 py-2 text-sm font-medium ${!gameState.isViewingHistory
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -174,7 +174,7 @@ export const GameContainer: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => toggleHistoryMode(true)}
+              onClick={() => toggleHistoryMode(true, true)}
               className={`px-4 py-2 text-sm font-medium ${gameState.isViewingHistory
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-50'

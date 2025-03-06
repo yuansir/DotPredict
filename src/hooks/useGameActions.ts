@@ -13,7 +13,8 @@ export function useGameActions(
   addColorToMatrix: (color: DotColor) => void,
   undoLastMove: () => void,
   clearAllData: () => void,
-  clearCurrentSessionData: () => Promise<boolean>
+  clearCurrentSessionData: () => Promise<boolean>,
+  setUserModeOverride?: (override: boolean) => void
 ) {
   // 使用全局提示系统
   const { showAlert } = useAlert();
@@ -114,17 +115,26 @@ export function useGameActions(
 
   /**
    * 切换历史查看模式
+   * @param isViewing 是否查看历史（预览模式）
+   * @param isUserAction 是否是用户手动切换，默认为true
    */
-  const toggleHistoryMode = useCallback((isViewing: boolean) => {
+  const toggleHistoryMode = useCallback((isViewing: boolean, isUserAction: boolean = true) => {
     // 只有当模式确实改变时才更新状态
     if (gameState.isViewingHistory !== isViewing) {
-      console.log(`切换模式: ${gameState.isViewingHistory ? '预览' : '录入'} -> ${isViewing ? '预览' : '录入'}`);
+      console.log(`切换模式: ${gameState.isViewingHistory ? '预览' : '录入'} -> ${isViewing ? '预览' : '录入'}, 用户操作: ${isUserAction}`);
+      
+      // 如果是用户手动切换模式，更新用户模式覆盖标志
+      if (isUserAction && setUserModeOverride) {
+        setUserModeOverride(true);
+        console.log('用户手动切换模式，已设置模式覆盖标志');
+      }
+      
       setGameState(prevState => ({
         ...prevState,
         isViewingHistory: isViewing
       }));
     }
-  }, [setGameState, gameState.isViewingHistory]);
+  }, [setGameState, gameState.isViewingHistory, setUserModeOverride]);
 
   return {
     handleColorSelect,
