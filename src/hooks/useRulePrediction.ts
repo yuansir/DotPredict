@@ -92,36 +92,18 @@ export const useRulePrediction = (
       }
 
       // 添加第三个预测位功能 - 基于75%规则模式
-      // 在当前等待输入的位置是第三行时，基于该列的前两个球颜色预测
+      // 不管录入还是预览模式，只要满足某列前两个球已填充且第三个空缺，就应用75%规则预测
       
-      // 判断当前待输入位置
+      // 方法一：判断当前待输入位置 - 如果是第三行，使用该列的前两个球预测
       if (nextPosition && nextPosition.row === 2) {
         // 获取当前待输入位置所在列的第一和第二个球的颜色
         const col = nextPosition.col;
-        
-        // 创建矩阵并填充数据（和上面的代码类似）
-        const totalRows = 3;
-        const totalCols = Math.max(1, Math.ceil((gameState.history?.length || 0) / totalRows) + 1);
-        const fullMatrix: (DotColor | null)[][] = Array(totalRows)
-          .fill(null)
-          .map(() => Array(totalCols).fill(null));
-        
-        // 填充历史数据到矩阵
-        gameState.history.forEach((move) => {
-          if (move?.position && move?.color) {
-            const r = move.position.row;
-            const c = move.position.col;
-            if (r >= 0 && r < totalRows && c >= 0 && c < totalCols) {
-              fullMatrix[r][c] = move.color;
-            }
-          }
-        });
         
         // 获取当前列的第一个和第二个球的颜色
         const firstBall = fullMatrix[0][col];
         const secondBall = fullMatrix[1][col];
         
-        console.log('[DEBUG] useRulePrediction - 当前列的前两个球:', { 
+        console.log('[DEBUG] useRulePrediction - 当前待输入列的前两个球:', { 
           column: col, 
           firstBall, 
           secondBall 
@@ -133,6 +115,31 @@ export const useRulePrediction = (
           if (thirdPredictionColor) {
             predictions[2] = thirdPredictionColor;
             console.log('[DEBUG] useRulePrediction - 基于当前列设置第三个预测位颜色:', thirdPredictionColor);
+          }
+        }
+      }
+      
+      // 方法二：如枟方法一未设置第三个预测值，则检查所有列，找出第三个位置为空且前两个都有值的列
+      if (!predictions[2]) {
+        // 遍历所有列，找到第三个球缺失但前两个球存在的列
+        for (let col = 0; col < fullMatrix[0].length; col++) {
+          const firstBall = fullMatrix[0][col];
+          const secondBall = fullMatrix[1][col];
+          const thirdBall = fullMatrix[2]?.[col];
+          
+          // 前两个球都有值且第三个球为空
+          if (firstBall !== null && secondBall !== null && thirdBall === null) {
+            const thirdPredictionColor = predictThirdPositionFromColumn(firstBall, secondBall);
+            if (thirdPredictionColor) {
+              predictions[2] = thirdPredictionColor;
+              console.log('[DEBUG] useRulePrediction - 基于满足条件列设置第三个预测位颜色:', { 
+                column: col, 
+                firstBall, 
+                secondBall, 
+                prediction: thirdPredictionColor 
+              });
+              break; // 找到第一个符合条件的列就跳出
+            }
           }
         }
       }

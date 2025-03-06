@@ -400,7 +400,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     toggleHistoryMode(isViewing, isUserAction);
   }, [selectedDate, currentSessionId, toggleHistoryMode]);
 
-  // 当日期变更时的处理逻辑 - 不再自动重置用户模式覆盖标志
+  // 当日期变更时的处理逻辑 - 自动重置用户模式覆盖标志
   useEffect(() => {
     console.log('[DEBUG] 日期变更事件:', {
       '当前日期': selectedDate,
@@ -409,9 +409,21 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       '用户模式覆盖': userModeOverride
     });
     
-    // 注意：我们不再自动重置用户模式覆盖标志
-    // 这允许用户在任何日期下保持录入模式
-  }, [selectedDate, gameState.isViewingHistory, userModeOverride]);
+    // 日期变更时重置用户模式覆盖标志
+    // 这确保选择非今日日期时会默认进入预览模式
+    const isDateChanged = selectedDate !== processedStateRef.current?.date;
+    if (isDateChanged && userModeOverride) {
+      setUserModeOverride(false);
+      console.log('[DEBUG] 日期已变更，自动重置用户模式覆盖标志');
+    }
+    
+    // 更新处理状态引用
+    processedStateRef.current = {
+      sessionId: currentSessionId,
+      isViewingHistory: gameState.isViewingHistory,
+      date: selectedDate
+    };
+  }, [selectedDate, gameState.isViewingHistory, userModeOverride, currentSessionId, setUserModeOverride]);
   
   // 自动检测历史日期并切换到预览模式（除非用户手动切换）
   useEffect(() => {

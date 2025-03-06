@@ -219,3 +219,24 @@
   outline: 1px solid rgba(59, 130, 246, 0.5) !important;
   outline-offset: -2px !important;
 }
+
+/* 输入小球光晕缩放动画 */
+@keyframes pulseScale {
+  0% { transform: scale(0.85); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 0.4; }
+  100% { transform: scale(0.85); opacity: 0.7; }
+}
+
+/* 输入小球辐射效果动画 */
+@keyframes pulseRadiate {
+  0% { transform: scale(0.7); opacity: 0.2; }
+  50% { transform: scale(1.3); opacity: 0.1; }
+  100% { transform: scale(0.7); opacity: 0; }
+}
+
+/* 输入小球边框脉动效果 */
+@keyframes pulsingBorder {
+  0% { border-color: rgba(59, 130, 246, 0.9); }
+  50% { border-color: rgba(37, 99, 235, 1); }
+  100% { border-color: rgba(59, 130, 246, 0.9); }
+}

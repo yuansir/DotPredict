@@ -26,11 +26,15 @@ export const Cell: React.FC<CellProps> = ({
   return (
     <div
       className={`relative aspect-square w-full transition-all duration-200
-        ${isNext ? 'border-3 border-blue-600 shadow-[0_0_15px_rgba(59,130,246,0.9)]' : ''}
+        ${isNext ? 'border-[3px] border-blue-600 ring-4 ring-blue-400/50' : ''}
         ${!color && isNext ? 'bg-blue-100' : ''}
-        ${isNext ? 'next-input-cell' : ''}
+        ${isNext ? 'next-input-cell animate-pulse-border' : ''}
       `}
-      style={isNext ? { boxShadow: '0 0 15px rgba(59,130,246,0.9)', transition: 'all 0.5s ease' } : {}}
+      style={isNext ? { 
+        boxShadow: '0 0 15px rgba(59,130,246,0.9)', 
+        transition: 'all 0.5s ease'
+        // 移除这里的animation，避免与CSS类中定义的动画冲突
+      } : {}}
       onClick={onClick}
     >
       {/* 下一个位置指示器 */}
@@ -96,11 +100,29 @@ export const Cell: React.FC<CellProps> = ({
 
       {/* 下一个位置指示器 - 超强化动画指示器 */}
       {isNext && !color && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="absolute w-8 h-8 bg-blue-400 rounded-full opacity-70"
-               style={{ animation: 'pulseIndicator 1.2s infinite' }} />
-          <div className="absolute w-5 h-5 bg-blue-500 rounded-full opacity-80" />
-          <div className="absolute w-3 h-3 bg-blue-600 rounded-full" />
+        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+          {/* 外部光晕 */}
+          <div 
+            className="absolute w-10 h-10 bg-blue-400 rounded-full opacity-40"
+            style={{ animation: 'pulseScale 2.5s infinite ease-in-out' }} 
+          />
+          {/* 中间光晕 */}
+          <div 
+            className="absolute w-8 h-8 bg-blue-500 rounded-full opacity-60"
+            style={{ animation: 'pulseScale 2s infinite ease-in-out 0.3s' }} 
+          />
+          {/* 内部光晕 */}
+          <div 
+            className="absolute w-6 h-6 bg-blue-600 rounded-full opacity-80"
+            style={{ animation: 'pulseScale 1.5s infinite ease-in-out 0.6s' }} 
+          />
+          {/* 中心点 */}
+          <div className="absolute w-4 h-4 bg-blue-700 rounded-full shadow-lg z-10" />
+          {/* 辐射效果 */}
+          <div className="absolute w-full h-full flex items-center justify-center">
+            <div className="absolute w-16 h-16 border-2 border-blue-300/30 rounded-full"
+                 style={{ animation: 'pulseRadiate 2s infinite' }} />
+          </div>
         </div>
       )}
     </div>

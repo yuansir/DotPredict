@@ -47,6 +47,39 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     return null;
   };
 
+  // 添加一个辅助函数，将全局坐标转换为当前页面的局部坐标
+  const globalToLocalPosition = (globalPos: Position | null): Position | null => {
+    if (!globalPos) return null;
+    
+    // 计算当前页面在全局中的偏移量（基于windowStart计算）
+    // windowStart是从0开始的索引，代表当前页面在全局历史中的起始位置
+    // 在8x8网格中，每行8个单元格
+    const colsPerPage = 8; // 每页的列数
+    const rowsPerPage = 3; // 行数固定为3
+    
+    // 计算全局位置对应的球在历史中的索引
+    const globalBallIndex = globalPos.row * 24 + globalPos.col; // 全局3x24矩阵中的索引
+    
+    // 计算当前页面显示的球的范围
+    const pageStartIndex = Math.floor(windowStart / colsPerPage) * colsPerPage;
+    const pageEndIndex = pageStartIndex + (rowsPerPage * colsPerPage) - 1;
+    
+    // 如果全局位置不在当前页面范围内，返回null
+    if (globalBallIndex < pageStartIndex || globalBallIndex > pageEndIndex) {
+      console.log(`[DEBUG] 全局位置 [${globalPos.row},${globalPos.col}] (索引: ${globalBallIndex}) 不在当前页面范围内 [${pageStartIndex}-${pageEndIndex}]`);
+      return null;
+    }
+    
+    // 计算在当前页面中的相对位置
+    const localIndex = globalBallIndex - pageStartIndex;
+    const localRow = Math.floor(localIndex / colsPerPage);
+    const localCol = localIndex % colsPerPage;
+    
+    console.log(`[DEBUG] 坐标转换: 全局 [${globalPos.row},${globalPos.col}] -> 局部 [${localRow},${localCol}], 窗口起始: ${windowStart}`);
+    
+    return { row: localRow, col: localCol };
+  };
+
   // 在renderCell函数内使用
   const renderCell = (row: number, col: number) => {
     const color = grid[row][col];
@@ -77,12 +110,14 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     // 完全重构isNext判断逻辑 - 确保在所有情况下都能显示下一个输入位置
     let isNext = false;
     
-    // 方式1：使用游戏提供的nextPosition判断
-    if (nextPosition && nextPosition.row === row && nextPosition.col === col) {
+    // 方式1：使用游戏提供的nextPosition判断，但需要先将全局坐标转换为局部坐标
+    const localNextPosition = globalToLocalPosition(nextPosition);
+    
+    if (localNextPosition && localNextPosition.row === row && localNextPosition.col === col) {
       // 如果格子有颜色，说明这个位置已经填充，但是系统还没有更新nextPosition
       // 这种情况下如果有颜色我们也强制显示边框并输出警告
       if (color) {
-        console.warn(`[WARN] 当前nextPosition [${row},${col}] 已有颜色爱${color}，可能是状态没有及时更新`);
+        console.warn(`[WARN] 当前nextPosition [${row},${col}] 已有颜色${color}，可能是状态没有及时更新`);
       }
       isNext = true;
     }
@@ -111,10 +146,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     // 添加调试日志
     if (isNext) {
       console.log(`[DEBUG] ⭐ 下一个位置: [${row},${col}], isNext=${isNext}`, {
-        匹配原因: nextPosition ? '匹配nextPosition' : '第一个空白格子',
+        匹配原因: localNextPosition ? '匹配转换后的nextPosition' : (nextPosition ? '匹配原始nextPosition' : '第一个空白格子'),
         格子状态: {
           有颜色: Boolean(color),
-          位置匹配: nextPosition ? `${row},${col} = ${nextPosition.row},${nextPosition.col}` : '无nextPosition'
+          全局位置: nextPosition ? `全局[${nextPosition.row},${nextPosition.col}]` : '无nextPosition',
+          局部位置: localNextPosition ? `局部[${localNextPosition.row},${localNextPosition.col}]` : '无localNextPosition'
         }
       });
     }
