@@ -12,7 +12,8 @@ interface ContinuityPredictionResult {
  */
 export const useContinuityPrediction = (
   gameState: GameState,
-  nextPosition: Position | null
+  nextPosition: Position | null,
+  userModeOverride: boolean = false
 ): ContinuityPredictionResult => {
   // 返回连续性预测结果
   return useMemo(() => {
@@ -28,10 +29,19 @@ export const useContinuityPrediction = (
     const predictions: (DotColor | null)[] = [null, null, null];
     let predictionRowIndex: number | null = null;
     
-    // 如果没有下一个位置、在查看历史模式、或没有历史记录，则不进行预测
+    // 如果没有下一个位置、在查看历史模式(除非用户手动覆盖)、或没有历史记录，则不进行预测
+    console.log('[DEBUG] useContinuityPrediction - 检查预测条件:', {
+      hasNextPosition: !!nextPosition,
+      hasGameState: !!gameState,
+      isViewingHistory: gameState?.isViewingHistory,
+      userModeOverride,
+      historyLength: gameState?.history?.length || 0,
+      skipPrediction: !nextPosition || !gameState || (gameState.isViewingHistory && !userModeOverride) || !gameState.history || gameState.history.length === 0
+    });
+    
     if (!nextPosition || 
         !gameState || 
-        gameState.isViewingHistory || 
+        (gameState.isViewingHistory && !userModeOverride) || 
         !gameState.history || 
         gameState.history.length === 0) {
       console.log('[DEBUG] useContinuityPrediction - 不满足预测条件，返回空结果');

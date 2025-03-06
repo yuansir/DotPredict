@@ -160,28 +160,66 @@ export const GameContainer: React.FC = () => {
             日期选择
           </span>
 
-          {/* 模式切换按钮 */}
-          <div className="flex rounded-md shadow-sm" role="group">
-            <button
-              type="button"
-              onClick={() => toggleHistoryMode(false, true)}
-              className={`px-4 py-2 text-sm font-medium ${!gameState.isViewingHistory
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-                } border border-gray-300 rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white`}
-            >
-              录入模式
-            </button>
-            <button
-              type="button"
-              onClick={() => toggleHistoryMode(true, true)}
-              className={`px-4 py-2 text-sm font-medium ${gameState.isViewingHistory
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-                } border border-gray-300 rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white`}
-            >
-              预览模式
-            </button>
+          {/* 模式切换按钮 - 增强视觉效果 */}
+          <div className="flex flex-col rounded-md shadow-sm" role="group">
+            <div className="flex">
+              <button
+                type="button"
+                onClick={() => {
+                  console.log('[DEBUG] 用户点击切换到录入模式');
+                  toggleHistoryMode(false, true); // 第二个参数true表示用户手动操作
+                }}
+                className={`px-4 py-2 text-sm font-medium 
+                  ${!gameState.isViewingHistory
+                    ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                  } 
+                  border border-gray-300 rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white
+                  transition-all duration-200
+                `}
+              >
+                <span className="flex items-center">
+                  {!gameState.isViewingHistory && (
+                    <span className="mr-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  )}
+                  录入模式
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  console.log('[DEBUG] 用户点击切换到预览模式');
+                  toggleHistoryMode(true, true); // 第二个参数true表示用户手动操作
+                }}
+                className={`px-4 py-2 text-sm font-medium 
+                  ${gameState.isViewingHistory
+                    ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                  } 
+                  border border-gray-300 rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white
+                  transition-all duration-200
+                `}
+              >
+                <span className="flex items-center">
+                  {gameState.isViewingHistory && (
+                    <span className="mr-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  )}
+                  预览模式
+                </span>
+              </button>
+            </div>
+            
+            {/* 全局模式状态指示器 */}
+            <div className="text-xs text-gray-500 mt-1 text-center">
+              {(() => {
+                const isHistoricalDate = selectedDate !== new Date().toISOString().split('T')[0];
+                return isHistoricalDate && (
+                  <span className="text-xs">
+                    您在查看历史数据 {selectedDate}
+                  </span>
+                );
+              })()}
+            </div>
           </div>
         </div>
 

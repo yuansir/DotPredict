@@ -11,7 +11,8 @@ interface RulePredictionResult {
  */
 export const useRulePrediction = (
   gameState: GameState,
-  nextPosition: Position | null
+  nextPosition: Position | null,
+  userModeOverride: boolean = false
 ): RulePredictionResult => {
   return useMemo(() => {
     // 初始化预测数组 - 只有第一个位置可能有预测值
@@ -19,9 +20,17 @@ export const useRulePrediction = (
     let predictionRowIndex: number | null = 0; // 始终是第一行
     
     try {
-      // 如果没有历史记录或在查看历史模式，则不进行预测
+      // 如果没有历史记录或在查看历史模式(除非用户手动覆盖)，则不进行预测
+      console.log('[DEBUG] useRulePrediction - 检查预测条件:', {
+        hasHistory: !!gameState?.history,
+        historyLength: gameState?.history?.length || 0,
+        isViewingHistory: gameState?.isViewingHistory,
+        userModeOverride,
+        skipPrediction: !gameState?.history || (gameState.isViewingHistory && !userModeOverride) || gameState.history.length === 0
+      });
+      
       if (!gameState?.history || 
-          gameState.isViewingHistory || 
+          (gameState.isViewingHistory && !userModeOverride) || 
           gameState.history.length === 0) {
         return { predictions, predictionRowIndex: null };
       }

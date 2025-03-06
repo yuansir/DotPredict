@@ -53,6 +53,20 @@
     transition: all 0.3s ease;
   }
   
+  /* 规则预测列样式 - 与连续性预测列保持一致 */
+  .rule-prediction-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 1rem;
+  }
+  
+  .rule-prediction-area {
+    display: flex;
+    flex-direction: column;
+    margin-left: 1rem;
+  }
+  
   /* 强制重绘工具 */
   .force-repaint {
     animation: force-repaint-anim 0.01s;
@@ -91,6 +105,39 @@
     text-align: center;
     font-size: 10px;
     color: #666;
+  }
+}
+
+/* 添加下一个输入位置的呼吸效果动画 */
+@keyframes pulseIndicator {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(0.7);
+    opacity: 0.7;
+  }
+}
+
+/* 下一个输入单元格样式 */
+.next-input-cell {
+  animation: borderPulse 2s infinite;
+}
+
+@keyframes borderPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
   }
 }
 
@@ -147,4 +194,28 @@
 
 .animate-pulse-border {
   animation: pulse-border 2s infinite;
+}
+
+/* 输入位置边框呐吸动画 - 超强化效果 */
+@keyframes pulseBorder {
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.9); border-color: rgba(59, 130, 246, 0.9); }
+  50% { box-shadow: 0 0 12px 5px rgba(59, 130, 246, 0.8); border-color: rgba(37, 99, 235, 1); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.9); border-color: rgba(59, 130, 246, 0.9); }
+}
+
+/* 输入位置中心指示器动画 - 超强化效果 */
+@keyframes pulseIndicator {
+  0% { transform: scale(0.95); opacity: 0.9; }
+  50% { transform: scale(1.5); opacity: 0.7; }
+  100% { transform: scale(0.95); opacity: 0.9; }
+}
+
+/* 超强化输入位置指示器 */
+.next-input-cell {
+  position: relative;
+  z-index: 10;
+  animation: pulseBorder 1.2s infinite !important;
+  border-width: 3px !important;
+  outline: 1px solid rgba(59, 130, 246, 0.5) !important;
+  outline-offset: -2px !important;
 }

@@ -107,6 +107,17 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   
   // 会话终止状态
   const [isSessionEnding, setIsSessionEnding] = useState<boolean>(false);
+  
+  // 添加调试日志 - 记录模式状态变化
+  useEffect(() => {
+    console.log('[DEBUG] 模式状态:', {
+      isViewingHistory: gameState.isViewingHistory,
+      userModeOverride,
+      recordMode: (!gameState.isViewingHistory || userModeOverride),
+      selectedDate,
+      isToday: selectedDate === new Date().toISOString().split('T')[0]
+    });
+  }, [gameState.isViewingHistory, userModeOverride, selectedDate]);
 
   // 预测状态管理
   const [predictionState, setPredictionState] = useState<{
@@ -149,9 +160,31 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     clearCurrentSessionData: sessionClearCurrentSessionData
   } = useSessionManagement(selectedDate);
 
-  // 同步会话状态到本地状态
+  // 同步会话状态到本地状态，但保留用户模式覆盖设置
   useEffect(() => {
-    setGameState(sessionGameState);
+    console.log('[DEBUG] 会话状态变更:', {
+      '变更前': {
+        isViewingHistory: gameState.isViewingHistory,
+        userModeOverride
+      },
+      '变更后': {
+        isViewingHistory: sessionGameState.isViewingHistory,
+        userModeOverride: userModeOverride
+      },
+      '日期': selectedDate
+    });
+    
+    // 如果用户强制设置了录入模式，即使切换日期或翻页，也保持在录入模式
+    if (userModeOverride) {
+      setGameState(prevState => ({
+        ...sessionGameState,
+        isViewingHistory: false // 保持在录入模式
+      }));
+      console.log('[DEBUG] 用户模式覆盖生效，保持录入模式');
+    } else {
+      setGameState(sessionGameState);
+    }
+    
     setAvailableSessions(sessionAvailableSessions);
     setCurrentSessionId(sessionCurrentSessionId);
     setIsLoading(sessionIsLoading);
@@ -161,7 +194,9 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     sessionAvailableSessions, 
     sessionCurrentSessionId, 
     sessionIsLoading, 
-    sessionIsSessionEnding
+    sessionIsSessionEnding,
+    userModeOverride, // 添加依赖，确保用户模式覆盖更改时重新运行
+    selectedDate
   ]);
   
   // 初始化矩阵管理
@@ -226,10 +261,10 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   );
 
   // 计算连续性预测
-  const continuityResult = useContinuityPrediction(gameState, nextPosition);
+  const continuityResult = useContinuityPrediction(gameState, nextPosition, userModeOverride);
 
   // 计算规则预测
-  const ruleResult = useRulePrediction(gameState, nextPosition);
+  const ruleResult = useRulePrediction(gameState, nextPosition, userModeOverride);
 
   // 计算矩阵哈希，用于检测真实变化
   const calculateMatrixHash = useCallback(() => {
@@ -306,13 +341,22 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
 
   // 自定义方法：处理会话变化
   const handleSessionChange = useCallback((sessionId: number) => {
+    console.log('[DEBUG] 会话切换:', { 从: currentSessionId, 到: sessionId, 用户模式覆盖: userModeOverride });
     sessionHandleSessionChange(sessionId);
-  }, [sessionHandleSessionChange]);
+  }, [sessionHandleSessionChange, currentSessionId, userModeOverride]);
 
   // 自定义方法：结束当前会话
   const endCurrentSession = useCallback(async () => {
-    await sessionEndCurrentSession();
-  }, [sessionEndCurrentSession]);
+    console.log('[DEBUG] 结束当前会话:', { sessionId: currentSessionId, 模式: gameState.isViewingHistory ? '预览' : '录入' });
+    try {
+      setIsSessionEnding(true);
+      await sessionEndCurrentSession();
+      setIsSessionEnding(false);
+    } catch (error) {
+      console.error('结束会话失败:', error);
+      setIsSessionEnding(false);
+    }
+  }, [sessionEndCurrentSession, currentSessionId, gameState.isViewingHistory, setIsSessionEnding]);
 
   // 添加防循环保护ref
   const processedStateRef = useRef<{
@@ -356,12 +400,18 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     toggleHistoryMode(isViewing, isUserAction);
   }, [selectedDate, currentSessionId, toggleHistoryMode]);
 
-  // 当日期变更时重置用户模式覆盖标志
+  // 当日期变更时的处理逻辑 - 不再自动重置用户模式覆盖标志
   useEffect(() => {
-    // 当日期变更时，重置用户手动模式覆盖标志
-    setUserModeOverride(false);
-    console.log('日期变更，重置用户模式覆盖标志，日期为:', selectedDate);
-  }, [selectedDate]);
+    console.log('[DEBUG] 日期变更事件:', {
+      '当前日期': selectedDate,
+      '是否为今天': selectedDate === new Date().toISOString().split('T')[0],
+      '当前模式': gameState.isViewingHistory ? '预览模式' : '录入模式',
+      '用户模式覆盖': userModeOverride
+    });
+    
+    // 注意：我们不再自动重置用户模式覆盖标志
+    // 这允许用户在任何日期下保持录入模式
+  }, [selectedDate, gameState.isViewingHistory, userModeOverride]);
   
   // 自动检测历史日期并切换到预览模式（除非用户手动切换）
   useEffect(() => {

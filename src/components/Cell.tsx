@@ -11,6 +11,8 @@ interface CellProps {
   canDelete: boolean;
 }
 
+// 使用全局CSS中定义的动画样式
+
 export const Cell: React.FC<CellProps> = ({
   color,
   onClick,
@@ -24,9 +26,11 @@ export const Cell: React.FC<CellProps> = ({
   return (
     <div
       className={`relative aspect-square w-full transition-all duration-200
-        ${isNext ? 'ring-2 ring-blue-500 ring-opacity-60' : ''}
-        ${!color && isNext ? 'bg-blue-50' : ''}
+        ${isNext ? 'border-3 border-blue-600 shadow-[0_0_15px_rgba(59,130,246,0.9)]' : ''}
+        ${!color && isNext ? 'bg-blue-100' : ''}
+        ${isNext ? 'next-input-cell' : ''}
       `}
+      style={isNext ? { boxShadow: '0 0 15px rgba(59,130,246,0.9)', transition: 'all 0.5s ease' } : {}}
       onClick={onClick}
     >
       {/* 下一个位置指示器 */}
@@ -90,10 +94,13 @@ export const Cell: React.FC<CellProps> = ({
         </div>
       )}
 
-      {/* 下一个位置指示器 */}
+      {/* 下一个位置指示器 - 超强化动画指示器 */}
       {isNext && !color && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-2 h-2 bg-blue-500 rounded-full animate-ping" />
+          <div className="absolute w-8 h-8 bg-blue-400 rounded-full opacity-70"
+               style={{ animation: 'pulseIndicator 1.2s infinite' }} />
+          <div className="absolute w-5 h-5 bg-blue-500 rounded-full opacity-80" />
+          <div className="absolute w-3 h-3 bg-blue-600 rounded-full" />
         </div>
       )}
     </div>
