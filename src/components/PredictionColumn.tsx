@@ -12,21 +12,21 @@ interface PredictionColumnProps {
  * PredictionColumn - 专门负责渲染单个预测球的组件
  * 使用memo确保只在必要时重新渲染
  */
-const PredictionColumnInner: React.FC<PredictionColumnProps> = ({ 
-  row, 
-  currentPredictionRow, 
+const PredictionColumnInner: React.FC<PredictionColumnProps> = ({
+  row,
+  currentPredictionRow,
   predictionColor,
-  predictionUpdateId 
+  predictionUpdateId
 }) => {
   // 调试日志
-  useEffect(() => {
-    console.log(`[DEBUG] PredictionColumn[${row}] 渲染:`, {
-      predictionColor,
-      isCurrentRow: currentPredictionRow === row,
-      updateId: predictionUpdateId,
-      time: new Date().toISOString()
-    });
-  }, [row, currentPredictionRow, predictionColor, predictionUpdateId]);
+  // useEffect(() => {
+  //   console.log(`[DEBUG] PredictionColumn[${row}] 渲染:`, {
+  //     predictionColor,
+  //     isCurrentRow: currentPredictionRow === row,
+  //     updateId: predictionUpdateId,
+  //     time: new Date().toISOString()
+  //   });
+  // }, [row, currentPredictionRow, predictionColor, predictionUpdateId]);
 
   // 添加强制重绘逻辑
   useEffect(() => {
@@ -39,7 +39,7 @@ const PredictionColumnInner: React.FC<PredictionColumnProps> = ({
         setTimeout(() => element.classList.remove('force-repaint'), 10);
       }
     };
-    
+
     // 在状态更新时强制重绘
     forceRepaint();
   }, [row, predictionUpdateId, predictionColor]);
@@ -62,9 +62,8 @@ const PredictionColumnInner: React.FC<PredictionColumnProps> = ({
     >
       {hasPrediction && (
         <div
-          className={`w-6 h-6 rounded-full ${
-            predictionColor === 'red' ? 'bg-red-500' : 'bg-black'
-          }`}
+          className={`w-6 h-6 rounded-full ${predictionColor === 'red' ? 'bg-red-500' : 'bg-black'
+            }`}
           data-prediction-row={row}
           data-prediction-color={predictionColor}
           data-prediction-time={new Date().toISOString()}

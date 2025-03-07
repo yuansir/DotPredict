@@ -21,31 +21,31 @@ const PredictionArea: React.FC<PredictionAreaProps> = ({
 }) => {
   // 调试日志
   useEffect(() => {
-    console.log('[DEBUG] PredictionArea - 渲染预测区域:', {
-      continuityPredictions: continuityPredictionColors,
-      rulePredictions: rulePredictionColors,
-      currentRow: currentPredictionRow,
-      updateId: predictionUpdateId,
-      renderTime: new Date().toISOString(),
-      // 添加详细调试信息
-      showConditionForThirdBall: rulePredictionColors[2] !== null && ((2 === currentPredictionRow) || (2 > 2)),
-      thirdBallPrediction: rulePredictionColors[2],
-      isCurrentRowMatchingThirdBall: 2 === currentPredictionRow
-    });
-    
+    // console.log('[DEBUG] PredictionArea - 渲染预测区域:', {
+    //   continuityPredictions: continuityPredictionColors,
+    //   rulePredictions: rulePredictionColors,
+    //   currentRow: currentPredictionRow,
+    //   updateId: predictionUpdateId,
+    //   renderTime: new Date().toISOString(),
+    //   // 添加详细调试信息
+    //   showConditionForThirdBall: rulePredictionColors[2] !== null && ((2 === currentPredictionRow) || (2 > 2)),
+    //   thirdBallPrediction: rulePredictionColors[2],
+    //   isCurrentRowMatchingThirdBall: 2 === currentPredictionRow
+    // });
+
     // 每行的详细调试信息
-    [0, 1, 2].forEach(r => {
-      console.log(`[DETAILED DEBUG] 第${r+1}个小球:`, {
-        row: r,
-        predictionColor: rulePredictionColors[r],
-        currentPredictionRow,
-        isCurrentRow: r === currentPredictionRow,
-        displayCondition1: rulePredictionColors[r] !== null,
-        displayCondition2: r !== 0,
-        displayCondition3: r <= 2 ? r === currentPredictionRow : true,
-        shouldDisplay: rulePredictionColors[r] !== null && r !== 0 && (r <= 2 ? r === currentPredictionRow : true)
-      });
-    });
+    // [0, 1, 2].forEach(r => {
+    //   // console.log(`[DETAILED DEBUG] 第${r + 1}个小球:`, {
+    //   //   row: r,
+    //   //   predictionColor: rulePredictionColors[r],
+    //   //   currentPredictionRow,
+    //   //   isCurrentRow: r === currentPredictionRow,
+    //   //   displayCondition1: rulePredictionColors[r] !== null,
+    //   //   displayCondition2: r !== 0,
+    //   //   displayCondition3: r <= 2 ? r === currentPredictionRow : true,
+    //   //   shouldDisplay: rulePredictionColors[r] !== null && r !== 0 && (r <= 2 ? r === currentPredictionRow : true)
+    //   // });
+    // });
   }, [continuityPredictionColors, rulePredictionColors, currentPredictionRow, predictionUpdateId]);
 
   return (
@@ -58,8 +58,8 @@ const PredictionArea: React.FC<PredictionAreaProps> = ({
 
       {/* 预测列内容 */}
       {[0, 1, 2].map((row) => (
-        <div 
-          key={`prediction-row-${row}-${predictionUpdateId}`} 
+        <div
+          key={`prediction-row-${row}-${predictionUpdateId}`}
           className="flex mb-3 items-center"
           data-prediction-row-container={row}
           data-is-current-row={row === currentPredictionRow}
@@ -89,28 +89,27 @@ const PredictionArea: React.FC<PredictionAreaProps> = ({
             {/* 测试输出每行的条件计算结果 */}
             {(() => {
               if (row === 2) {
-                console.log(`[DEBUG] 第三个小球显示条件:`, {
-                  row,
-                  currentPredictionRow,
-                  hasPrediction: rulePredictionColors[row] !== null,
-                  showCondition: rulePredictionColors[row] && (row === currentPredictionRow),
-                  predictionColor: rulePredictionColors[row]
-                });
+                // console.log(`[DEBUG] 第三个小球显示条件:`, {
+                //   row,
+                //   currentPredictionRow,
+                //   hasPrediction: rulePredictionColors[row] !== null,
+                //   showCondition: rulePredictionColors[row] && (row === currentPredictionRow),
+                //   predictionColor: rulePredictionColors[row]
+                // });
               }
               return null;
             })()}
-            {rulePredictionColors[row] && 
-              row !== 0 && 
+            {rulePredictionColors[row] &&
+              row !== 0 &&
               // 修改条件逻辑：第二个小球仍然只在是当前行时显示，其他行正常显示
               (row !== 1 || row === currentPredictionRow) && (
-              <div 
-                className={`w-6 h-6 rounded-full ${
-                  rulePredictionColors[row] === 'red' ? 'bg-red-500' : 'bg-black'
-                }`}
-                data-prediction-color={rulePredictionColors[row]}
-                data-prediction-time={new Date().toISOString()}
-              />
-            )}
+                <div
+                  className={`w-6 h-6 rounded-full ${rulePredictionColors[row] === 'red' ? 'bg-red-500' : 'bg-black'
+                    }`}
+                  data-prediction-color={rulePredictionColors[row]}
+                  data-prediction-time={new Date().toISOString()}
+                />
+              )}
           </div>
         </div>
       ))}

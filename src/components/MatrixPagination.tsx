@@ -16,11 +16,11 @@ export const MatrixPagination: React.FC = () => {
     matrixGoToLastPage
   } = useGameContext();
 
-  console.log('[DEBUG] MatrixPagination组件 - 渲染', { matrixCurrentPage, matrixTotalPages });
+  // console.log('[DEBUG] MatrixPagination组件 - 渲染', { matrixCurrentPage, matrixTotalPages });
 
   // 如果只有一页，不显示分页控件
   if (matrixTotalPages <= 1) {
-    console.log('[DEBUG] MatrixPagination - 不显示分页，总页数<=1');
+    // console.log('[DEBUG] MatrixPagination - 不显示分页，总页数<=1');
     return null;
   }
 
@@ -32,8 +32,8 @@ export const MatrixPagination: React.FC = () => {
           onClick={matrixGoToFirstPage}
           disabled={matrixCurrentPage === 1}
           className={`px-2 py-1 rounded ${matrixCurrentPage === 1
-              ? 'text-gray-400 cursor-not-allowed'
-              : 'text-blue-500 hover:bg-blue-50'
+            ? 'text-gray-400 cursor-not-allowed'
+            : 'text-blue-500 hover:bg-blue-50'
             }`}
           aria-label="首页"
         >
@@ -45,8 +45,8 @@ export const MatrixPagination: React.FC = () => {
           onClick={matrixGoToPreviousPage}
           disabled={matrixCurrentPage === 1}
           className={`flex items-center px-2 py-1 rounded ${matrixCurrentPage === 1
-              ? 'text-gray-400 cursor-not-allowed'
-              : 'text-blue-500 hover:bg-blue-50'
+            ? 'text-gray-400 cursor-not-allowed'
+            : 'text-blue-500 hover:bg-blue-50'
             }`}
           aria-label="上一页"
         >
@@ -67,8 +67,8 @@ export const MatrixPagination: React.FC = () => {
           onClick={matrixGoToNextPage}
           disabled={matrixCurrentPage === matrixTotalPages}
           className={`flex items-center px-2 py-1 rounded ${matrixCurrentPage === matrixTotalPages
-              ? 'text-gray-400 cursor-not-allowed'
-              : 'text-blue-500 hover:bg-blue-50'
+            ? 'text-gray-400 cursor-not-allowed'
+            : 'text-blue-500 hover:bg-blue-50'
             }`}
           aria-label="下一页"
         >
@@ -83,8 +83,8 @@ export const MatrixPagination: React.FC = () => {
           onClick={matrixGoToLastPage}
           disabled={matrixCurrentPage === matrixTotalPages}
           className={`px-2 py-1 rounded ${matrixCurrentPage === matrixTotalPages
-              ? 'text-gray-400 cursor-not-allowed'
-              : 'text-blue-500 hover:bg-blue-50'
+            ? 'text-gray-400 cursor-not-allowed'
+            : 'text-blue-500 hover:bg-blue-50'
             }`}
           aria-label="尾页"
         >
