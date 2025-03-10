@@ -212,23 +212,12 @@ function findColumnMatchingPattern(
   
   // 存储找到的模式类型
   let foundPatternType: 'connected' | 'opposite' | null = null;
+  // 存储找到模式的列索引
+  let foundPatternColumn: number = -1;
   
-  // 先检查第一列是否有完整模式
-  if (fullMatrix[0][0] !== null && fullMatrix[1][0] !== null && fullMatrix[2][0] !== null) {
-    const firstColumn = [fullMatrix[0][0], fullMatrix[1][0], fullMatrix[2][0]];
-    const firstColumnPatternType = getPatternType(firstColumn as DotColor[]);
-    
-    if (firstColumnPatternType) {
-      console.log('[DEBUG] 第一列有完整模式:', {
-        column: firstColumn,
-        patternType: firstColumnPatternType
-      });
-      foundPatternType = firstColumnPatternType;
-    }
-  }
-  
-  // 如果第一列没有完整模式，再遍历其他列
-  if (!foundPatternType) {
+  // 从右向左遍历所有列（从最新到最旧），优先使用最新列的模式
+  // 移除对第一列的特殊处理，确保我们优先使用最新的列模式
+  {
     // 从右向左遍历所有列（从最新到最旧）
     for (let col = totalCols - 1; col >= 0; col--) {
       // 提取当前列所有三行的值
@@ -253,6 +242,7 @@ function findColumnMatchingPattern(
             col
           });
           foundPatternType = patternType;
+          foundPatternColumn = col;
           break; // 找到第一个匹配的模式就退出
         }
       }
@@ -261,11 +251,38 @@ function findColumnMatchingPattern(
   
   // 如果找到了模式，根据模式类型和当前输入预测下一个球
   if (foundPatternType) {
-    const prediction = getPredictionByPattern(foundPatternType, currentInputColor);
+    // 获取最新输入的颜色
+    // 确保使用最新的输入颜色，而不是历史颜色
+    let latestInputColor = currentInputColor;
+    
+    // 记录原始输入颜色，用于调试
+    console.log(`[DEBUG] 原始输入颜色:`, {
+      currentInputColor,
+      inputPosition: currentInputPosition
+    });
+    
+    // 如果当前输入位置的列号大于找到模式的列号，说明我们正在处理新的一列
+    // 这种情况下，应该使用当前输入颜色作为预测基础
+    if (currentInputPosition.col > foundPatternColumn) {
+      console.log(`[DEBUG] 使用当前输入颜色进行预测:`, {
+        latestInputColor,
+        patternType: foundPatternType,
+        currentColumn: currentInputPosition.col,
+        patternColumn: foundPatternColumn
+      });
+    } else {
+      console.log(`[DEBUG] 注意: 当前输入列号不大于模式列号`, {
+        currentColumn: currentInputPosition.col,
+        patternColumn: foundPatternColumn
+      });
+    }
+    
+    const prediction = getPredictionByPattern(foundPatternType, latestInputColor);
     console.log(`[DEBUG] 基于模式生成预测:`, {
       patternType: foundPatternType,
-      currentInputColor,
-      prediction
+      latestInputColor,
+      prediction,
+      rule: foundPatternType === 'connected' ? '相连模式: 预测与输入相同' : '相反模式: 预测与输入相反'
     });
     return prediction;
   }
