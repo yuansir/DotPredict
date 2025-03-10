@@ -84,8 +84,29 @@ export const useRulePrediction = (
         }
       }
 
-      // 添加第二个预测位功能 - 查找符合25%规则的列
-      const secondPredictionColor = findColumnMatchingPattern(fullMatrix);
+      // 获取当前输入的球的位置和颜色
+      let currentInputPosition: Position | null = null;
+      let currentInputColor: DotColor | null = null;
+      
+      if (gameState.history.length > 0) {
+        const lastMove = gameState.history[gameState.history.length - 1];
+        if (lastMove && lastMove.position && lastMove.color) {
+          currentInputPosition = lastMove.position;
+          currentInputColor = lastMove.color;
+          // console.log('[DEBUG] 当前输入:', {
+          //   position: currentInputPosition,
+          //   color: currentInputColor
+          // });
+        }
+      }
+
+      // 添加第二个预测位功能 - 基于新的预测逻辑
+      const secondPredictionColor = findColumnMatchingPattern(
+        fullMatrix, 
+        currentInputPosition, 
+        currentInputColor
+      );
+      
       if (secondPredictionColor) {
         predictions[1] = secondPredictionColor;
         // console.log('[DEBUG] useRulePrediction - 设置第二个预测位颜色:', secondPredictionColor);
@@ -155,73 +176,175 @@ export const useRulePrediction = (
 };
 
 /**
- * 查找符合25%规则模式的列
- * 从右到左扫描矩阵，找到第一个符合四种规则模式之一的列
- * 返回该列的第二个球的颜色（中间位置）
+ * 查找符合规则模式的列，并根据输入位置和颜色预测下一个球的颜色
+ * @param fullMatrix 完整矩阵数据
+ * @param currentInputPosition 当前输入位置
+ * @param currentInputColor 当前输入的球的颜色
+ * @returns 预测的下一个球的颜色，如果无法预测则返回null
  */
-function findColumnMatchingPattern(fullMatrix: (DotColor | null)[][]): DotColor | null {
+function findColumnMatchingPattern(
+  fullMatrix: (DotColor | null)[][],
+  currentInputPosition: Position | null,
+  currentInputColor: DotColor | null
+): DotColor | null {
+  // 如果没有输入位置或颜色，无法预测
+  if (!currentInputPosition || !currentInputColor) {
+    console.log('[DEBUG] 无法预测: 没有输入位置或颜色');
+    return null;
+  }
+  
+  // 判断当前输入的是第几个球（基于行号）
+  // 只有在输入第一个球（行号为0）或第二个球（行号为1）时才进行预测
+  const inputRow = currentInputPosition.row;
+  if (inputRow !== 0 && inputRow !== 1) {
+    console.log('[DEBUG] 无法预测: 输入行号不符合条件', inputRow);
+    return null;
+  }
+  
+  console.log('[DEBUG] 当前输入位置和颜色:', {
+    position: currentInputPosition,
+    color: currentInputColor
+  });
+  
   // 获取列数
   const totalCols = fullMatrix[0]?.length || 0;
-
-  // console.log('[DEBUG] findColumnMatchingPattern - 开始从右向左查找符合规则的列, 总列数:', totalCols);
-
-  // 从右向左遍历所有列（从最新到最旧）
-  for (let col = totalCols - 1; col >= 0; col--) {
-    // 提取当前列所有三行的值
-    const column = [
-      fullMatrix[0]?.[col],
-      fullMatrix[1]?.[col],
-      fullMatrix[2]?.[col]
-    ];
-
-    // 跳过有空值的列
-    if (column.includes(null) || column.some(item => item === undefined)) {
-      continue;
-    }
-
-    // console.log(`[DEBUG] findColumnMatchingPattern - 检查列 ${col}:`, column);
-
-    // 判断列是否匹配四种规则之一
-    if (isPatternMatch(column as DotColor[])) {
-      // console.log(`[DEBUG] findColumnMatchingPattern - 找到匹配的列 ${col}, 取第二个球颜色:`, column[1]);
-      return column[1] as DotColor; // 返回中间位置的颜色
+  console.log('[DEBUG] 矩阵总列数:', totalCols);
+  
+  // 存储找到的模式类型
+  let foundPatternType: 'connected' | 'opposite' | null = null;
+  
+  // 先检查第一列是否有完整模式
+  if (fullMatrix[0][0] !== null && fullMatrix[1][0] !== null && fullMatrix[2][0] !== null) {
+    const firstColumn = [fullMatrix[0][0], fullMatrix[1][0], fullMatrix[2][0]];
+    const firstColumnPatternType = getPatternType(firstColumn as DotColor[]);
+    
+    if (firstColumnPatternType) {
+      console.log('[DEBUG] 第一列有完整模式:', {
+        column: firstColumn,
+        patternType: firstColumnPatternType
+      });
+      foundPatternType = firstColumnPatternType;
     }
   }
-
-  // console.log('[DEBUG] findColumnMatchingPattern - 未找到符合规则的列');
-  return null; // 没有找到匹配的列
+  
+  // 如果第一列没有完整模式，再遍历其他列
+  if (!foundPatternType) {
+    // 从右向左遍历所有列（从最新到最旧）
+    for (let col = totalCols - 1; col >= 0; col--) {
+      // 提取当前列所有三行的值
+      const column = [
+        fullMatrix[0]?.[col],
+        fullMatrix[1]?.[col],
+        fullMatrix[2]?.[col]
+      ];
+      
+      console.log(`[DEBUG] 检查列 ${col}:`, column);
+      
+      // 检查是否有完整的三个球
+      const hasThreeBalls = column.every(ball => ball !== null && ball !== undefined);
+      
+      // 只有完整的列才能用于识别模式
+      if (hasThreeBalls) {
+        const patternType = getPatternType(column as DotColor[]);
+        if (patternType) {
+          console.log(`[DEBUG] 找到匹配的模式列:`, {
+            column,
+            patternType,
+            col
+          });
+          foundPatternType = patternType;
+          break; // 找到第一个匹配的模式就退出
+        }
+      }
+    }
+  }
+  
+  // 如果找到了模式，根据模式类型和当前输入预测下一个球
+  if (foundPatternType) {
+    const prediction = getPredictionByPattern(foundPatternType, currentInputColor);
+    console.log(`[DEBUG] 基于模式生成预测:`, {
+      patternType: foundPatternType,
+      currentInputColor,
+      prediction
+    });
+    return prediction;
+  }
+  
+  console.log('[DEBUG] 没有找到匹配的模式');
+  return null; // 没有找到匹配的模式
 }
 
 /**
- * 检查列是否匹配25%规则模式
- * 规则模式包括：红红红、黑黑黑、红黑红、黑红黑
+ * 获取列的模式类型
+ * @param column 完整的列数据（三个球）
+ * @returns 模式类型：'connected'（相连）或'opposite'（相反）或null（不匹配）
  */
-function isPatternMatch(column: DotColor[]): boolean {
-  if (column.length !== 3) return false;
-
+function getPatternType(column: DotColor[]): 'connected' | 'opposite' | null {
+  if (column.length !== 3) return null;
+  
   // 提取列中的三个颜色
   const [first, second, third] = column;
-
-  // 检查是否匹配四种规则之一
+  
+  // 检查是否匹配"相连"模式
   const isRedRedRed = first === 'red' && second === 'red' && third === 'red';
   const isBlackBlackBlack = first === 'black' && second === 'black' && third === 'black';
+  
+  // 检查是否匹配"相反"模式
   const isRedBlackRed = first === 'red' && second === 'black' && third === 'red';
   const isBlackRedBlack = first === 'black' && second === 'red' && third === 'black';
-
-  const isMatch = isRedRedRed || isBlackBlackBlack || isRedBlackRed || isBlackRedBlack;
-
-  // if (isMatch) {
-  //   console.log('[DEBUG] isPatternMatch - 匹配到规则模式:', {
-  //     first, second, third,
-  //     patternType: isRedRedRed ? '红红红' :
-  //       isBlackBlackBlack ? '黑黑黑' :
-  //         isRedBlackRed ? '红黑红' :
-  //           '黑红黑'
-  //   });
-  // }
-
-  return isMatch;
+  
+  if (isRedRedRed || isBlackBlackBlack) {
+    return 'connected'; // 相连模式
+  } else if (isRedBlackRed || isBlackRedBlack) {
+    return 'opposite'; // 相反模式
+  }
+  
+  return null; // 不匹配任何模式
 }
+
+/**
+ * 根据模式类型和当前输入球的颜色预测下一个球的颜色
+ * @param patternType 模式类型：'connected'（相连）或'opposite'（相反）
+ * @param currentInputColor 当前输入球的颜色
+ * @returns 预测的下一个球的颜色
+ */
+function getPredictionByPattern(
+  patternType: 'connected' | 'opposite', 
+  currentInputColor: DotColor
+): DotColor {
+  if (patternType === 'connected') {
+    // 相连模式：预测结果与当前输入球颜色相同
+    return currentInputColor;
+  } else {
+    // 相反模式：预测结果与当前输入球颜色相反
+    return currentInputColor === 'red' ? 'black' : 'red';
+  }
+}
+
+// 注意: 下面的函数已被注释掉，因为它当前未被使用
+// 如果将来需要使用这个函数，可以取消注释
+/**
+ * 检查列是否匹配25%规则模式
+ * 规则模式包括：红红红、黑黑黑、红黑红、黑红黑
+ *
+ * @param column 列数据
+ * @returns 是否匹配规则模式
+ */
+// function isPatternMatch(column: DotColor[]): boolean {
+//   if (column.length !== 3) return false;
+// 
+//   // 提取列中的三个颜色
+//   const [first, second, third] = column;
+// 
+//   // 检查是否匹配四种规则之一
+//   const isRedRedRed = first === 'red' && second === 'red' && third === 'red';
+//   const isBlackBlackBlack = first === 'black' && second === 'black' && third === 'black';
+//   const isRedBlackRed = first === 'red' && second === 'black' && third === 'red';
+//   const isBlackRedBlack = first === 'black' && second === 'red' && third === 'black';
+// 
+//   const isMatch = isRedRedRed || isBlackBlackBlack || isRedBlackRed || isBlackRedBlack;
+//   return isMatch;
+// }
 
 /**
  * 预测规则预测列第三个位置的颜色 (基于规则列前两个球 - 旧版逻辑)

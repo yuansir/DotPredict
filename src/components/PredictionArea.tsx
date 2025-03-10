@@ -101,8 +101,8 @@ const PredictionArea: React.FC<PredictionAreaProps> = ({
             })()}
             {rulePredictionColors[row] &&
               row !== 0 &&
-              // 修改条件逻辑：第二个小球仍然只在是当前行时显示，其他行正常显示
-              (row !== 1 || row === currentPredictionRow) && (
+              // 修改条件逻辑：第一行不显示，第二行始终显示，第三行保持原有逻辑
+              (row === 1 || row === 2) && (
                 <div
                   className={`w-6 h-6 rounded-full ${rulePredictionColors[row] === 'red' ? 'bg-red-500' : 'bg-black'
                     }`}

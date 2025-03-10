@@ -35,12 +35,12 @@ export const GameContainer: React.FC = () => {
     rulePredictions       // 添加规则预测数据
     // rulePredictionRow  // 未使用变量
   } = useGameContext();
-  
+
   const { showAlert } = useAlert();
-  
+
   // 控制规则说明区域显示/隐藏的状态
   const [showRules, setShowRules] = useState(true);
-  
+
   // 处理完成编辑的函数 - 暂时未使用
   // const handleFinishEdit = () => {
   //   if (endCurrentSession) {
@@ -68,13 +68,13 @@ export const GameContainer: React.FC = () => {
   // 处理点击矩阵中的点的函数
   const handleDotClick = useCallback((position: { row: number, col: number }) => {
     if (gameState.isViewingHistory) return;
-    
+
     // 判断当前位置是否有颜色
     const currentColor = currentPageMatrix[position.row]?.[position.col];
-    
+
     // 如果有颜色，切换为相反颜色；如果没有颜色，默认选择黑色
     const newColor = currentColor === 'red' ? 'black' : 'red';
-    
+
     // 调用颜色选择处理函数
     safeHandleColorSelect(newColor);
   }, [gameState.isViewingHistory, currentPageMatrix, safeHandleColorSelect]);
@@ -98,13 +98,13 @@ export const GameContainer: React.FC = () => {
   const matrix = useMemo(() => {
     // 定义每页列数常量
     const COLS_PER_PAGE = 24; // 每页显示24列
-    
+
     // 调试输出nextPosition的值
     // console.log('[DEBUG] GameContainer - 当前nextPosition:', nextPosition, '当前页码:', matrixCurrentPage, '当前页起始列:', (matrixCurrentPage - 1) * COLS_PER_PAGE);
-    
+
     // 计算当前页的起始列
     const pageStartCol = (matrixCurrentPage - 1) * COLS_PER_PAGE;
-    
+
     // 全局坐标转换为页内坐标的函数
     const globalToLocalPosition = (globalPos: Position | null): Position | null => {
       if (!globalPos) return null;
@@ -120,29 +120,29 @@ export const GameContainer: React.FC = () => {
       const localPos = globalToLocalPosition(globalPos);
       return localPos !== null && localPos.col >= 0 && localPos.col < COLS_PER_PAGE;
     };
-    
+
     // 使用分页后的矩阵数据
     return currentPageMatrix.map((row, rowIndex) => (
       <div key={`row-${rowIndex}`} className="flex mb-2">
         {row.map((color, colIndex) => {
           // 页内坐标
           const position = { row: rowIndex, col: colIndex };
-          
+
           // 计算当前单元格的全局坐标
           const globalCol = colIndex + pageStartCol;
           // 全局位置计算 - 仅用于内部逻辑，不需要单独变量
-          
+
           // 不需要计算页内坐标，因为isNext判断已经使用了isPositionInCurrentPage函数
-          
+
           // 优化isNext判断，确保nextPosition存在且在当前页面内
           const isNext = Boolean(
-            !gameState.isViewingHistory && 
-            nextPosition && 
+            !gameState.isViewingHistory &&
+            nextPosition &&
             isPositionInCurrentPage(nextPosition) &&
-            nextPosition.row === rowIndex && 
+            nextPosition.row === rowIndex &&
             nextPosition.col === globalCol
           );
-          
+
           // 当找到待输入位置时记录日志
           if (isNext) {
             // console.log('[DEBUG] GameContainer - 在矩阵中找到待输入位置:', { 
@@ -153,13 +153,12 @@ export const GameContainer: React.FC = () => {
             //   pageStartCol
             // });
           }
-          
+
           return (
             <div
               key={`cell-${rowIndex}-${colIndex}`}
-              className={`w-8 h-8 rounded-full ${isNext ? 'border-2 border-blue-500' : 'border border-gray-300'} flex items-center justify-center mr-2 ${
-                gameState.isViewingHistory ? 'cursor-not-allowed' : 'cursor-pointer'
-              }`}
+              className={`w-8 h-8 rounded-full ${isNext ? 'border-2 border-blue-500' : 'border border-gray-300'} flex items-center justify-center mr-2 ${gameState.isViewingHistory ? 'cursor-not-allowed' : 'cursor-pointer'
+                }`}
               onClick={() => handleDotClick(position)}
             >
               {color && (
@@ -257,7 +256,7 @@ export const GameContainer: React.FC = () => {
                 </span>
               </button>
             </div>
-            
+
             {/* 全局模式状态指示器 */}
             <div className="text-xs text-gray-500 mt-1 text-center">
               {(() => {
@@ -363,7 +362,7 @@ export const GameContainer: React.FC = () => {
           </div>
 
           {/* 预测区域组件 */}
-          <PredictionArea 
+          <PredictionArea
             continuityPredictionColors={continuityPredictionColors}
             rulePredictionColors={rulePredictionColors}
             currentPredictionRow={currentPredictionRow}
@@ -432,7 +431,7 @@ export const GameContainer: React.FC = () => {
                     <li>日期选择和分页按钮查看历史</li>
                   </ul>
                 </div>
-
+                {/* 
                 <div>
                   <div className="flex items-center text-blue-400 mb-1">
                     <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white mr-2 text-xs">3</div>
@@ -513,7 +512,7 @@ export const GameContainer: React.FC = () => {
                       <span className="text-xs text-center">黑红→黑<br />(25%)</span>
                     </div>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
           </div>}
