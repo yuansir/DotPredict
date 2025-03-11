@@ -5,6 +5,7 @@ import { useAlert } from '../contexts/AlertContext';
 import { MatrixPagination } from './MatrixPagination';
 import { Position } from '../types';
 import PredictionArea from './PredictionArea'; // 导入预测区域组件
+import { useAuth } from '../contexts/AuthContext'; // 导入认证上下文
 
 /**
  * GameContainer组件 - 游戏主容器，管理游戏界面和交互
@@ -37,6 +38,7 @@ export const GameContainer: React.FC = () => {
   } = useGameContext();
 
   const { showAlert } = useAlert();
+  const { logout } = useAuth(); // 获取退出登录函数
 
   // 控制规则说明区域显示/隐藏的状态
   const [showRules, setShowRules] = useState(true);
@@ -188,12 +190,23 @@ export const GameContainer: React.FC = () => {
   return (
     <div className="game-container max-w-7xl mx-auto">
       {/* 标题和说明 */}
-      <div className="text-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">点阵预测游戏</h1>
-        <p className="text-gray-600 mt-2">
+      <div className="mb-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-gray-800">点阵预测游戏</h1>
+          <button
+            onClick={logout}
+            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors flex items-center focus:outline-none focus:ring-2 focus:ring-gray-300"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+            </svg>
+            退出登录
+          </button>
+        </div>
+        <p className="text-gray-600 mt-2 text-center">
           选择颜色，点击按钮自动填充下一个位置！从左边第一列开始，从上往下依次填充。
         </p>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="text-gray-500 text-sm mt-1 text-center">
           提示：点击已放置的点可以删除，或使用撤销按钮退回上一步。
         </p>
       </div>
