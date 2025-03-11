@@ -87,10 +87,12 @@ const LoginPage: React.FC = () => {
             </button>
           </div>
           
+          {/* 隐藏测试账号信息
           <div className="text-xs text-center text-gray-500">
             <p>测试账号: admin@example.com</p>
             <p>测试密码: password123</p>
           </div>
+          */}
         </form>
       </div>
     </div>
