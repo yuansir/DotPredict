@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { GameProvider } from './contexts/GameContext';
 import { GameContainer } from './components/GameContainer';
 import LoadingScreen from './components/LoadingScreen';
 import { AlertProvider } from './contexts/AlertContext';
+import { AuthProvider } from './contexts/AuthContext';
+import LoginPage from './components/LoginPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 /**
  * App组件 - 应用程序入口
@@ -12,12 +16,21 @@ const App: React.FC = () => {
   const [isLoading, _setIsLoading] = useState(false);
 
   return (
-    <AlertProvider>
-      <GameProvider>
-        <div className="min-h-screen bg-gray-100">
-          <div className="container mx-auto py-8 px-4 max-w-7xl">
-            <GameContainer />
-          </div>
+    <AuthProvider>
+      <AlertProvider>
+        <GameProvider>
+          <Router>
+            <div className="min-h-screen bg-gray-100">
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/" element={
+                  <ProtectedRoute>
+                    <div className="container mx-auto py-8 px-4 max-w-7xl">
+                      <GameContainer />
+                    </div>
+                  </ProtectedRoute>
+                } />
+              </Routes>
 
           {/* 动画样式 */}
           <style dangerouslySetInnerHTML={{
@@ -46,10 +59,12 @@ const App: React.FC = () => {
             `,
           }} />
 
-          {isLoading && <LoadingScreen />}
-        </div>
-      </GameProvider>
-    </AlertProvider>
+              {isLoading && <LoadingScreen />}
+            </div>
+          </Router>
+        </GameProvider>
+      </AlertProvider>
+    </AuthProvider>
   );
 };
 
