@@ -10,9 +10,11 @@ export type UserRole = 'user' | 'admin';
  */
 export interface AppUser {
   id: string;
-  auth_id: string;
+  email: string;
   display_name: string | null;
   role: UserRole;
+  last_login: string | null;
+  session_token: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -21,9 +23,7 @@ export interface AppUser {
  * 认证状态类型
  */
 export interface AuthState {
-  session: Session | null;
-  user: SupabaseUser | null;
-  appUser: AppUser | null;
+  currentUser: AppUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;

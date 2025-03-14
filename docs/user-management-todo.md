@@ -1,4 +1,4 @@
-# 用户管理功能实现计划
+# 用户管理功能实现计划（简化版）
 
 ## 需求概述
 
@@ -14,29 +14,29 @@
 
 ### 1. 数据库结构扩展
 
-- [x] 创建自定义用户表 `public.app_users`，关联到 `auth.users`
-- [x] 为现有业务表添加用户ID外键：
-  - [x] `public.moves`
-  - [x] `public.daily_records`
-  - [x] `public.sequence_patterns`
-  - [x] `public.sequence_stats`
-- [x] 创建触发器，在创建auth用户时自动创建app_users记录
-- [x] 设置行级安全策略(RLS)，确保用户只能访问自己的数据
+- [ ] 创建简化版用户表 `public.app_users`，包含基本用户信息和认证字段
+- [ ] 为现有业务表添加用户ID外键：
+  - [ ] `public.moves`
+  - [ ] `public.daily_records`
+  - [ ] `public.sequence_patterns`
+  - [ ] `public.sequence_stats`
+- [ ] 设置基本的数据访问控制，确保用户只能访问自己的数据
 
 ### 2. 认证系统实现
 
-- [x] 更新 `AuthContext.tsx`，使用Supabase Auth服务
-- [x] 实现用户登录、注册和登出功能
-- [x] 实现用户角色管理（管理员、普通用户）
-- [x] 实现基于角色的权限控制
+- [ ] 创建 `AuthService.ts`，实现基本的认证功能
+- [ ] 更新 `AuthContext.tsx`，使用简化版认证服务
+- [ ] 实现用户登录、注册和登出功能
+- [ ] 实现用户角色管理（管理员、普通用户）
+- [ ] 实现基于角色的权限控制
 
 ### 3. 用户管理功能
 
-- [x] 创建用户管理页面
-- [x] 实现管理员添加用户功能
-- [x] 实现管理员修改用户功能
-- [x] 实现管理员删除用户功能
-- [x] 实现用户列表查看功能
+- [ ] 创建用户管理页面
+- [ ] 实现管理员添加用户功能
+- [ ] 实现管理员修改用户功能
+- [ ] 实现管理员删除用户功能
+- [ ] 实现用户列表查看功能
 
 ### 4. 数据权限控制
 
@@ -47,21 +47,21 @@
 
 ### 5. UI组件调整
 
-- [x] 更新登录页面
-- [x] 创建用户管理界面
+- [ ] 更新登录页面
+- [ ] 创建用户管理界面
 - [ ] 调整GameContainer组件，根据用户权限显示不同功能
 - [ ] 调整ControlPanel组件，根据用户权限调整按钮功能
 
 ### 6. 路由和导航
 
-- [x] 添加用户管理路由
-- [x] 扩展ProtectedRoute组件，添加角色检查
-- [x] 添加导航菜单，根据用户角色显示不同选项
+- [ ] 添加用户管理路由
+- [ ] 创建ProtectedRoute组件，添加角色检查
+- [ ] 添加导航菜单，根据用户角色显示不同选项
 
 ### 7. 初始化和数据迁移
 
-- [x] 创建初始管理员用户
-- [x] 为现有数据设置默认用户ID
+- [ ] 创建初始管理员用户
+- [ ] 为现有数据设置默认用户ID
 - [ ] 测试数据迁移和权限控制
 
 ## 技术方案
@@ -69,12 +69,15 @@
 ### 数据库结构
 
 ```sql
--- 创建自定义用户表
+-- 创建简化版用户表
 CREATE TABLE public.app_users (
     id uuid DEFAULT uuid_generate_v4() NOT NULL PRIMARY KEY,
-    auth_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    email text UNIQUE NOT NULL,
+    password_hash text NOT NULL,
     display_name text,
     role text NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+    last_login timestamp with time zone,
+    session_token text,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
@@ -91,9 +94,7 @@ ALTER TABLE public.sequence_stats ADD COLUMN user_id uuid REFERENCES public.app_
 ```typescript
 // 定义认证上下文类型
 interface AuthContextType {
-  session: Session | null;
-  user: SupabaseUser | null;
-  appUser: AppUser | null;
+  currentUser: AppUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -123,6 +124,6 @@ interface GameContextType {
 
 1. 保持现有UI组件的样式和布局不变
 2. 确保向后兼容性，不破坏现有功能
-3. 确保数据安全，防止未授权访问
+3. 提供基本的安全措施，如密码哈希存储
 4. 提供清晰的用户反馈，特别是权限相关的操作
 5. 实现渐进式功能，先完成基础认证，再添加高级管理功能 

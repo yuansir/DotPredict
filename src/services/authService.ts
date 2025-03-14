@@ -1,8 +1,15 @@
 import { supabase } from '../lib/supabase';
 import { AppUser, UserRole } from '../types/auth';
+import { hashPassword, verifyPassword } from '../utils/passwordUtils';
+import { getSessionToken, setSessionToken, clearSessionToken, refreshSessionExpiry } from '../utils/sessionUtils';
+
+// 用户更新类型，包含密码字段
+interface UserUpdates extends Partial<Omit<AppUser, 'id' | 'created_at' | 'updated_at'>> {
+  password?: string;
+}
 
 /**
- * 认证服务 - 封装与Supabase Auth相关的操作
+ * 认证服务 - 封装与用户认证相关的操作
  */
 export const authService = {
   /**
@@ -13,336 +20,367 @@ export const authService = {
   async login(email: string, password: string) {
     console.log('authService.login - 开始登录:', email, { timestamp: new Date().toISOString() });
     try {
-      console.log('authService.login - 调用supabase.auth.signInWithPassword前', { timestamp: new Date().toISOString() });
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // 1. 获取用户信息
+      const { data: userData, error: userError } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('email', email)
+        .single();
       
-      if (error) {
-        console.error('authService.login - 登录失败:', error, { 
-          code: error.code,
-          message: error.message,
-          status: error.status,
+      if (userError) {
+        console.error('authService.login - 获取用户信息失败:', userError, { 
           timestamp: new Date().toISOString()
         });
-        throw error;
+        throw new Error('账户或者密码错误');
       }
       
-      // 安全地格式化日期
-      const safeFormatDate = (timestamp: number | null | undefined): string => {
-        if (!timestamp) return 'unknown';
-        try {
-          return new Date(timestamp * 1000).toISOString();
-        } catch (e) {
-          return 'invalid-date';
-        }
+      if (!userData) {
+        console.error('authService.login - 用户不存在:', email, { 
+          timestamp: new Date().toISOString()
+        });
+        throw new Error('账户或者密码错误');
+      }
+      
+      // 2. 验证密码
+      const isPasswordValid = await verifyPassword(password, userData.password_hash);
+      if (!isPasswordValid) {
+        console.error('authService.login - 密码验证失败:', email, { 
+          timestamp: new Date().toISOString()
+        });
+        throw new Error('账户或者密码错误');
+      }
+      
+      // 3. 生成会话令牌
+      const sessionToken = crypto.randomUUID();
+      
+      // 4. 更新用户的会话令牌和最后登录时间
+      const { error: updateError } = await supabase
+        .from('app_users')
+        .update({
+          session_token: sessionToken,
+          last_login: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userData.id);
+      
+      if (updateError) {
+        console.error('authService.login - 更新会话令牌失败:', updateError, { 
+          timestamp: new Date().toISOString()
+        });
+        throw new Error('登录过程中发生错误');
+      }
+      
+      // 5. 存储会话令牌到本地存储
+      setSessionToken(sessionToken);
+      
+      // 6. 返回用户信息
+      const user: AppUser = {
+        id: userData.id,
+        email: userData.email,
+        display_name: userData.display_name,
+        role: userData.role,
+        last_login: new Date().toISOString(),
+        session_token: sessionToken,
+        created_at: userData.created_at,
+        updated_at: userData.updated_at
       };
       
       console.log('authService.login - 登录成功:', { 
-        session: data.session ? {
-          expires_at: data.session.expires_at ? safeFormatDate(data.session.expires_at) : 'unknown',
-          token: data.session.access_token.substring(0, 10) + '...'
-        } : null,
-        user: data.user?.email,
+        user: user.email,
+        role: user.role,
         timestamp: new Date().toISOString()
       });
-      return data;
+      
+      return { user };
     } catch (error) {
-      console.error('authService.login - 捕获到异常:', error, { timestamp: new Date().toISOString() });
+      console.error('authService.login - 登录失败:', error, { 
+        timestamp: new Date().toISOString()
+      });
       throw error;
     }
   },
-
+  
   /**
    * 登出
    */
   async logout() {
-    console.log('authService.logout - 开始登出');
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('authService.logout - 登出失败:', error);
-      throw error;
-    }
-    console.log('authService.logout - 登出成功');
-  },
-
-  /**
-   * 获取当前会话
-   */
-  async getSession() {
-    console.log('authService.getSession - 获取当前会话', { timestamp: new Date().toISOString() });
+    console.log('authService.logout - 开始登出', { timestamp: new Date().toISOString() });
     try {
-      const { data, error } = await supabase.auth.getSession();
+      // 获取当前会话令牌
+      const sessionToken = getSessionToken();
       
-      if (error) {
-        console.error('authService.getSession - 获取会话失败:', error, { timestamp: new Date().toISOString() });
-        throw error;
+      if (sessionToken) {
+        // 清除数据库中的会话令牌
+        await supabase
+          .from('app_users')
+          .update({
+            session_token: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('session_token', sessionToken);
       }
       
-      // 安全地格式化日期
-      const safeFormatDate = (timestamp: number | null | undefined): string => {
-        if (!timestamp) return 'unknown';
-        try {
-          return new Date(timestamp * 1000).toISOString();
-        } catch (e) {
-          return 'invalid-date';
-        }
-      };
+      // 清除本地存储中的会话令牌
+      clearSessionToken();
       
-      console.log('authService.getSession - 获取会话成功:', { 
-        hasSession: !!data.session,
-        sessionDetails: data.session ? {
-          expiresAt: data.session.expires_at ? safeFormatDate(data.session.expires_at) : 'unknown',
-          user: data.session.user?.email,
-          token: data.session.access_token.substring(0, 10) + '...'
-        } : null,
+      console.log('authService.logout - 登出成功', { timestamp: new Date().toISOString() });
+    } catch (error) {
+      console.error('authService.logout - 登出失败:', error, { 
         timestamp: new Date().toISOString()
       });
-      
-      return data.session;
-    } catch (error) {
-      console.error('authService.getSession - 捕获到异常:', error, { timestamp: new Date().toISOString() });
+      // 即使发生错误，也清除本地会话
+      clearSessionToken();
       throw error;
     }
   },
-
+  
   /**
    * 获取当前用户
    */
-  async getCurrentUser() {
-    const startTime = Date.now();
-    console.log('authService.getCurrentUser - 开始获取当前用户', { 
-      timestamp: new Date().toISOString(),
-      startTime
-    });
-    
+  async getCurrentUser(): Promise<AppUser | null> {
+    console.log('authService.getCurrentUser - 开始获取当前用户', { timestamp: new Date().toISOString() });
     try {
-      console.log('authService.getCurrentUser - 发送请求前', { timestamp: new Date().toISOString() });
-      const { data, error } = await supabase.auth.getUser();
-      const endTime = Date.now();
+      // 获取会话令牌
+      const sessionToken = getSessionToken();
       
-      console.log('authService.getCurrentUser - 请求完成', { 
-        duration: endTime - startTime,
-        timestamp: new Date().toISOString() 
-      });
-      
-      if (error) {
-        console.error('authService.getCurrentUser - 获取用户失败:', error, { 
-          code: error.code,
-          message: error.message,
-          status: error.status,
-          timestamp: new Date().toISOString()
-        });
-        throw error;
+      if (!sessionToken) {
+        console.log('authService.getCurrentUser - 无会话令牌', { timestamp: new Date().toISOString() });
+        return null;
       }
       
-      if (!data.user) {
-        console.warn('authService.getCurrentUser - 未获取到用户数据', { timestamp: new Date().toISOString() });
-      }
-      
-      // 安全地格式化日期
-      const formatDate = (dateValue: string | number | null | undefined): string => {
-        if (!dateValue) return 'unknown';
-        try {
-          // 尝试将值转换为日期
-          const date = new Date(dateValue);
-          // 检查日期是否有效
-          if (isNaN(date.getTime())) {
-            return 'invalid-date';
-          }
-          return date.toISOString();
-        } catch (e) {
-          console.warn('日期格式化失败:', dateValue, e);
-          return 'invalid-date';
-        }
-      };
-      
-      console.log('authService.getCurrentUser - 获取用户成功:', { 
-        email: data.user?.email,
-        id: data.user?.id,
-        lastSignInAt: data.user?.last_sign_in_at ? formatDate(Number(data.user.last_sign_in_at) * 1000) : 'unknown',
-        createdAt: data.user?.created_at ? formatDate(data.user.created_at) : 'unknown',
-        timestamp: new Date().toISOString()
-      });
-      
-      return data.user;
-    } catch (error) {
-      console.error('authService.getCurrentUser - 捕获到异常:', error, { 
-        errorType: error instanceof Error ? error.constructor.name : typeof error,
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString() 
-      });
-      throw error;
-    }
-  },
-
-  /**
-   * 获取应用用户信息
-   * @param authId 认证用户ID
-   */
-  async getAppUser(authId: string): Promise<AppUser | null> {
-    const startTime = Date.now();
-    console.log('authService.getAppUser - 开始获取应用用户信息:', authId, { 
-      timestamp: new Date().toISOString(),
-      startTime
-    });
-    
-    try {
-      console.log('authService.getAppUser - 发送请求前', { timestamp: new Date().toISOString() });
+      // 根据会话令牌获取用户信息
       const { data, error } = await supabase
         .from('app_users')
         .select('*')
-        .eq('auth_id', authId)
+        .eq('session_token', sessionToken)
         .single();
       
-      const endTime = Date.now();
-      console.log('authService.getAppUser - 请求完成', { 
-        duration: endTime - startTime,
-        timestamp: new Date().toISOString() 
-      });
-      
       if (error) {
-        console.error('authService.getAppUser - 获取应用用户信息失败:', error, {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
+        console.error('authService.getCurrentUser - 获取用户信息失败:', error, { 
           timestamp: new Date().toISOString()
         });
-        
-        // 检查是否是"找不到记录"的错误
-        if (error.code === 'PGRST116') {
-          console.warn('authService.getAppUser - 用户记录不存在，可能需要创建', { 
-            authId,
-            timestamp: new Date().toISOString() 
-          });
-        }
-        
+        clearSessionToken();
         return null;
       }
       
       if (!data) {
-        console.warn('authService.getAppUser - 未获取到应用用户数据', { 
-          authId,
-          timestamp: new Date().toISOString() 
-        });
+        console.log('authService.getCurrentUser - 会话令牌无效', { timestamp: new Date().toISOString() });
+        clearSessionToken();
         return null;
       }
       
-      // 安全地记录日期，避免格式问题
-      const safeLogDate = (dateStr: string | null | undefined): string => {
-        if (!dateStr) return 'unknown';
-        try {
-          return new Date(dateStr).toISOString();
-        } catch (e) {
-          return 'invalid-date';
-        }
+      // 刷新会话过期时间
+      refreshSessionExpiry();
+      
+      const user: AppUser = {
+        id: data.id,
+        email: data.email,
+        display_name: data.display_name,
+        role: data.role,
+        last_login: data.last_login,
+        session_token: data.session_token,
+        created_at: data.created_at,
+        updated_at: data.updated_at
       };
       
-      console.log('authService.getAppUser - 获取应用用户信息成功:', {
-        id: data.id,
-        role: data.role,
-        displayName: data.display_name,
-        createdAt: safeLogDate(data.created_at),
+      console.log('authService.getCurrentUser - 获取当前用户成功:', { 
+        user: user.email,
+        role: user.role,
         timestamp: new Date().toISOString()
       });
-      return data as AppUser;
+      
+      return user;
     } catch (error) {
-      console.error('authService.getAppUser - 捕获到异常:', error, { 
-        errorType: error instanceof Error ? error.constructor.name : typeof error,
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString() 
+      console.error('authService.getCurrentUser - 获取当前用户失败:', error, { 
+        timestamp: new Date().toISOString()
       });
       return null;
     }
   },
-
+  
   /**
-   * 管理员创建用户
+   * 创建用户（仅管理员可用）
    * @param email 邮箱
    * @param password 密码
    * @param role 角色
    * @param displayName 显示名称
    */
-  async createUser(email: string, password: string, role: UserRole = 'user', displayName?: string) {
-    // 创建认证用户
-    const { data, error } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
-    
-    if (error) throw error;
-    
-    // 触发器会自动创建app_users记录
-    // 如果需要设置角色或显示名称，更新app_users记录
-    if (role === 'admin' || displayName) {
-      const { error: updateError } = await supabase
+  async createUser(email: string, password: string, role: UserRole = 'user', displayName?: string): Promise<AppUser> {
+    console.log('authService.createUser - 开始创建用户:', { email, role, timestamp: new Date().toISOString() });
+    try {
+      // 检查邮箱是否已存在
+      const { data: existingUser, error: checkError } = await supabase
         .from('app_users')
-        .update({
-          role: role,
-          display_name: displayName || email,
-        })
-        .eq('auth_id', data.user.id);
+        .select('id')
+        .eq('email', email)
+        .single();
       
-      if (updateError) throw updateError;
+      if (existingUser) {
+        console.error('authService.createUser - 邮箱已存在:', email, { timestamp: new Date().toISOString() });
+        throw new Error('邮箱已被注册');
+      }
+      
+      // 对密码进行哈希处理
+      const hashedPassword = await hashPassword(password);
+      
+      // 创建用户
+      const { data, error } = await supabase
+        .from('app_users')
+        .insert({
+          email,
+          password_hash: hashedPassword,
+          display_name: displayName || email.split('@')[0],
+          role,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('authService.createUser - 创建用户失败:', error, { timestamp: new Date().toISOString() });
+        throw new Error('创建用户失败');
+      }
+      
+      const newUser: AppUser = {
+        id: data.id,
+        email: data.email,
+        display_name: data.display_name,
+        role: data.role,
+        last_login: data.last_login,
+        session_token: data.session_token,
+        created_at: data.created_at,
+        updated_at: data.updated_at
+      };
+      
+      console.log('authService.createUser - 创建用户成功:', { 
+        user: newUser.email,
+        role: newUser.role,
+        timestamp: new Date().toISOString()
+      });
+      
+      return newUser;
+    } catch (error) {
+      console.error('authService.createUser - 创建用户失败:', error, { timestamp: new Date().toISOString() });
+      throw error;
     }
-    
-    return data.user;
   },
-
+  
   /**
-   * 管理员更新用户
+   * 更新用户信息（仅管理员可用）
    * @param userId 用户ID
    * @param updates 更新内容
    */
-  async updateUser(userId: string, updates: Partial<AppUser>) {
-    const { data, error } = await supabase
-      .from('app_users')
-      .update(updates)
-      .eq('id', userId)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data as AppUser;
+  async updateUser(userId: string, updates: UserUpdates): Promise<AppUser> {
+    console.log('authService.updateUser - 开始更新用户:', { userId, updates, timestamp: new Date().toISOString() });
+    try {
+      // 准备更新数据
+      const updateData: any = {
+        ...updates,
+        updated_at: new Date().toISOString()
+      };
+      
+      // 如果包含密码更新，进行哈希处理
+      if (updates.password) {
+        updateData.password_hash = await hashPassword(updates.password);
+        delete updateData.password;
+      }
+      
+      // 更新用户
+      const { data, error } = await supabase
+        .from('app_users')
+        .update(updateData)
+        .eq('id', userId)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('authService.updateUser - 更新用户失败:', error, { timestamp: new Date().toISOString() });
+        throw new Error('更新用户失败');
+      }
+      
+      const updatedUser: AppUser = {
+        id: data.id,
+        email: data.email,
+        display_name: data.display_name,
+        role: data.role,
+        last_login: data.last_login,
+        session_token: data.session_token,
+        created_at: data.created_at,
+        updated_at: data.updated_at
+      };
+      
+      console.log('authService.updateUser - 更新用户成功:', { 
+        user: updatedUser.email,
+        timestamp: new Date().toISOString()
+      });
+      
+      return updatedUser;
+    } catch (error) {
+      console.error('authService.updateUser - 更新用户失败:', error, { timestamp: new Date().toISOString() });
+      throw error;
+    }
   },
-
+  
   /**
-   * 管理员删除用户
+   * 删除用户（仅管理员可用）
    * @param userId 用户ID
    */
-  async deleteUser(userId: string) {
-    // 获取auth_id
-    const { data: appUser, error: fetchError } = await supabase
-      .from('app_users')
-      .select('auth_id')
-      .eq('id', userId)
-      .single();
-    
-    if (fetchError) throw fetchError;
-    
-    // 删除认证用户（会级联删除app_users记录）
-    const { error: deleteError } = await supabase.auth.admin.deleteUser(
-      appUser.auth_id
-    );
-    
-    if (deleteError) throw deleteError;
+  async deleteUser(userId: string): Promise<void> {
+    console.log('authService.deleteUser - 开始删除用户:', { userId, timestamp: new Date().toISOString() });
+    try {
+      // 删除用户
+      const { error } = await supabase
+        .from('app_users')
+        .delete()
+        .eq('id', userId);
+      
+      if (error) {
+        console.error('authService.deleteUser - 删除用户失败:', error, { timestamp: new Date().toISOString() });
+        throw new Error('删除用户失败');
+      }
+      
+      console.log('authService.deleteUser - 删除用户成功:', { userId, timestamp: new Date().toISOString() });
+    } catch (error) {
+      console.error('authService.deleteUser - 删除用户失败:', error, { timestamp: new Date().toISOString() });
+      throw error;
+    }
   },
-
+  
   /**
-   * 管理员获取所有用户
+   * 获取所有用户（仅管理员可用）
    */
   async getUsers(): Promise<AppUser[]> {
-    const { data, error } = await supabase
-      .from('app_users')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data as AppUser[];
+    console.log('authService.getUsers - 开始获取所有用户', { timestamp: new Date().toISOString() });
+    try {
+      // 获取所有用户
+      const { data, error } = await supabase
+        .from('app_users')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('authService.getUsers - 获取用户列表失败:', error, { timestamp: new Date().toISOString() });
+        throw new Error('获取用户列表失败');
+      }
+      
+      const users: AppUser[] = data.map(user => ({
+        id: user.id,
+        email: user.email,
+        display_name: user.display_name,
+        role: user.role,
+        last_login: user.last_login,
+        session_token: user.session_token,
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      }));
+      
+      console.log('authService.getUsers - 获取用户列表成功:', { count: users.length, timestamp: new Date().toISOString() });
+      
+      return users;
+    } catch (error) {
+      console.error('authService.getUsers - 获取用户列表失败:', error, { timestamp: new Date().toISOString() });
+      throw error;
+    }
   }
 }; 
