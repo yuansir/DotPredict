@@ -29,9 +29,19 @@ export const authService = {
         throw error;
       }
       
+      // 安全地格式化日期
+      const safeFormatDate = (timestamp: number | null | undefined): string => {
+        if (!timestamp) return 'unknown';
+        try {
+          return new Date(timestamp * 1000).toISOString();
+        } catch (e) {
+          return 'invalid-date';
+        }
+      };
+      
       console.log('authService.login - 登录成功:', { 
         session: data.session ? {
-          expires_at: data.session.expires_at ? new Date(data.session.expires_at * 1000).toISOString() : 'unknown',
+          expires_at: data.session.expires_at ? safeFormatDate(data.session.expires_at) : 'unknown',
           token: data.session.access_token.substring(0, 10) + '...'
         } : null,
         user: data.user?.email,
@@ -70,10 +80,20 @@ export const authService = {
         throw error;
       }
       
+      // 安全地格式化日期
+      const safeFormatDate = (timestamp: number | null | undefined): string => {
+        if (!timestamp) return 'unknown';
+        try {
+          return new Date(timestamp * 1000).toISOString();
+        } catch (e) {
+          return 'invalid-date';
+        }
+      };
+      
       console.log('authService.getSession - 获取会话成功:', { 
         hasSession: !!data.session,
         sessionDetails: data.session ? {
-          expiresAt: data.session.expires_at ? new Date(data.session.expires_at * 1000).toISOString() : 'unknown',
+          expiresAt: data.session.expires_at ? safeFormatDate(data.session.expires_at) : 'unknown',
           user: data.session.user?.email,
           token: data.session.access_token.substring(0, 10) + '...'
         } : null,
@@ -91,26 +111,69 @@ export const authService = {
    * 获取当前用户
    */
   async getCurrentUser() {
-    console.log('authService.getCurrentUser - 获取当前用户', { timestamp: new Date().toISOString() });
+    const startTime = Date.now();
+    console.log('authService.getCurrentUser - 开始获取当前用户', { 
+      timestamp: new Date().toISOString(),
+      startTime
+    });
+    
     try {
+      console.log('authService.getCurrentUser - 发送请求前', { timestamp: new Date().toISOString() });
       const { data, error } = await supabase.auth.getUser();
+      const endTime = Date.now();
+      
+      console.log('authService.getCurrentUser - 请求完成', { 
+        duration: endTime - startTime,
+        timestamp: new Date().toISOString() 
+      });
       
       if (error) {
-        console.error('authService.getCurrentUser - 获取用户失败:', error, { timestamp: new Date().toISOString() });
+        console.error('authService.getCurrentUser - 获取用户失败:', error, { 
+          code: error.code,
+          message: error.message,
+          status: error.status,
+          timestamp: new Date().toISOString()
+        });
         throw error;
       }
+      
+      if (!data.user) {
+        console.warn('authService.getCurrentUser - 未获取到用户数据', { timestamp: new Date().toISOString() });
+      }
+      
+      // 安全地格式化日期
+      const formatDate = (dateValue: string | number | null | undefined): string => {
+        if (!dateValue) return 'unknown';
+        try {
+          // 尝试将值转换为日期
+          const date = new Date(dateValue);
+          // 检查日期是否有效
+          if (isNaN(date.getTime())) {
+            return 'invalid-date';
+          }
+          return date.toISOString();
+        } catch (e) {
+          console.warn('日期格式化失败:', dateValue, e);
+          return 'invalid-date';
+        }
+      };
       
       console.log('authService.getCurrentUser - 获取用户成功:', { 
         email: data.user?.email,
         id: data.user?.id,
-        lastSignInAt: data.user?.last_sign_in_at ? new Date(Number(data.user.last_sign_in_at) * 1000).toISOString() : 'unknown',
-        createdAt: data.user?.created_at ? new Date(data.user.created_at).toISOString() : 'unknown',
+        lastSignInAt: data.user?.last_sign_in_at ? formatDate(Number(data.user.last_sign_in_at) * 1000) : 'unknown',
+        createdAt: data.user?.created_at ? formatDate(data.user.created_at) : 'unknown',
         timestamp: new Date().toISOString()
       });
       
       return data.user;
     } catch (error) {
-      console.error('authService.getCurrentUser - 捕获到异常:', error, { timestamp: new Date().toISOString() });
+      console.error('authService.getCurrentUser - 捕获到异常:', error, { 
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString() 
+      });
       throw error;
     }
   },
@@ -120,13 +183,25 @@ export const authService = {
    * @param authId 认证用户ID
    */
   async getAppUser(authId: string): Promise<AppUser | null> {
-    console.log('authService.getAppUser - 获取应用用户信息:', authId, { timestamp: new Date().toISOString() });
+    const startTime = Date.now();
+    console.log('authService.getAppUser - 开始获取应用用户信息:', authId, { 
+      timestamp: new Date().toISOString(),
+      startTime
+    });
+    
     try {
+      console.log('authService.getAppUser - 发送请求前', { timestamp: new Date().toISOString() });
       const { data, error } = await supabase
         .from('app_users')
         .select('*')
         .eq('auth_id', authId)
         .single();
+      
+      const endTime = Date.now();
+      console.log('authService.getAppUser - 请求完成', { 
+        duration: endTime - startTime,
+        timestamp: new Date().toISOString() 
+      });
       
       if (error) {
         console.error('authService.getAppUser - 获取应用用户信息失败:', error, {
@@ -136,19 +211,51 @@ export const authService = {
           hint: error.hint,
           timestamp: new Date().toISOString()
         });
+        
+        // 检查是否是"找不到记录"的错误
+        if (error.code === 'PGRST116') {
+          console.warn('authService.getAppUser - 用户记录不存在，可能需要创建', { 
+            authId,
+            timestamp: new Date().toISOString() 
+          });
+        }
+        
         return null;
       }
+      
+      if (!data) {
+        console.warn('authService.getAppUser - 未获取到应用用户数据', { 
+          authId,
+          timestamp: new Date().toISOString() 
+        });
+        return null;
+      }
+      
+      // 安全地记录日期，避免格式问题
+      const safeLogDate = (dateStr: string | null | undefined): string => {
+        if (!dateStr) return 'unknown';
+        try {
+          return new Date(dateStr).toISOString();
+        } catch (e) {
+          return 'invalid-date';
+        }
+      };
       
       console.log('authService.getAppUser - 获取应用用户信息成功:', {
         id: data.id,
         role: data.role,
         displayName: data.display_name,
-        createdAt: data.created_at,
+        createdAt: safeLogDate(data.created_at),
         timestamp: new Date().toISOString()
       });
       return data as AppUser;
     } catch (error) {
-      console.error('authService.getAppUser - 捕获到异常:', error, { timestamp: new Date().toISOString() });
+      console.error('authService.getAppUser - 捕获到异常:', error, { 
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString() 
+      });
       return null;
     }
   },
