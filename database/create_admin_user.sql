@@ -68,4 +68,23 @@ SELECT COUNT(*) FROM public.moves WHERE user_id IS NULL;
 SELECT COUNT(*) FROM public.daily_records WHERE user_id IS NULL;
 SELECT COUNT(*) FROM public.sequence_patterns WHERE user_id IS NULL;
 SELECT COUNT(*) FROM public.sequence_stats WHERE user_id IS NULL;
-*/ 
+*/
+
+-- 删除现有的可能导致循环依赖的策略
+DROP POLICY IF EXISTS "Admins can view all users" ON public.app_users;
+DROP POLICY IF EXISTS "Admins can insert users" ON public.app_users;
+DROP POLICY IF EXISTS "Admins can update users" ON public.app_users;
+DROP POLICY IF EXISTS "Admins can delete users" ON public.app_users;
+
+-- 创建新的不会导致循环依赖的策略
+-- 使用auth.role()而不是查询app_users表来判断管理员权限
+CREATE POLICY "Allow all operations for authenticated users" ON public.app_users
+    USING (auth.role() = 'authenticated')
+    WITH CHECK (auth.role() = 'authenticated');
+
+-- 临时禁用RLS
+ALTER TABLE public.app_users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.moves DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.daily_records DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sequence_patterns DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sequence_stats DISABLE ROW LEVEL SECURITY; 

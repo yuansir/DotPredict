@@ -11,29 +11,63 @@ export const authService = {
    * @param password 密码
    */
   async login(email: string, password: string) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (error) throw error;
-    return data;
+    console.log('authService.login - 开始登录:', email, { timestamp: new Date().toISOString() });
+    try {
+      console.log('authService.login - 调用supabase.auth.signInWithPassword前', { timestamp: new Date().toISOString() });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        console.error('authService.login - 登录失败:', error, { 
+          code: error.code,
+          message: error.message,
+          status: error.status,
+          timestamp: new Date().toISOString()
+        });
+        throw error;
+      }
+      
+      console.log('authService.login - 登录成功:', { 
+        session: data.session ? {
+          expires_at: data.session.expires_at ? new Date(data.session.expires_at * 1000).toISOString() : 'unknown',
+          token: data.session.access_token.substring(0, 10) + '...'
+        } : null,
+        user: data.user?.email,
+        timestamp: new Date().toISOString()
+      });
+      return data;
+    } catch (error) {
+      console.error('authService.login - 捕获到异常:', error, { timestamp: new Date().toISOString() });
+      throw error;
+    }
   },
 
   /**
    * 登出
    */
   async logout() {
+    console.log('authService.logout - 开始登出');
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (error) {
+      console.error('authService.logout - 登出失败:', error);
+      throw error;
+    }
+    console.log('authService.logout - 登出成功');
   },
 
   /**
    * 获取当前会话
    */
   async getSession() {
+    console.log('authService.getSession - 获取当前会话');
     const { data, error } = await supabase.auth.getSession();
-    if (error) throw error;
+    if (error) {
+      console.error('authService.getSession - 获取会话失败:', error);
+      throw error;
+    }
+    console.log('authService.getSession - 获取会话成功:', data.session ? '有会话' : '无会话');
     return data.session;
   },
 
@@ -41,8 +75,13 @@ export const authService = {
    * 获取当前用户
    */
   async getCurrentUser() {
+    console.log('authService.getCurrentUser - 获取当前用户');
     const { data, error } = await supabase.auth.getUser();
-    if (error) throw error;
+    if (error) {
+      console.error('authService.getCurrentUser - 获取用户失败:', error);
+      throw error;
+    }
+    console.log('authService.getCurrentUser - 获取用户成功:', data.user?.email);
     return data.user;
   },
 
@@ -51,6 +90,7 @@ export const authService = {
    * @param authId 认证用户ID
    */
   async getAppUser(authId: string): Promise<AppUser | null> {
+    console.log('authService.getAppUser - 获取应用用户信息:', authId);
     const { data, error } = await supabase
       .from('app_users')
       .select('*')
@@ -58,10 +98,11 @@ export const authService = {
       .single();
     
     if (error) {
-      console.error('Error fetching app user:', error);
+      console.error('authService.getAppUser - 获取应用用户信息失败:', error);
       return null;
     }
     
+    console.log('authService.getAppUser - 获取应用用户信息成功:', data);
     return data as AppUser;
   },
 

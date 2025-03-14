@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 
@@ -10,32 +10,62 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, login, isLoading: authLoading, user } = useAuth();
+
+  console.log('LoginPage渲染 - 认证状态:', { 
+    isAuthenticated, 
+    authLoading, 
+    user: user?.email,
+    componentState: { email, error, isLoading }
+  });
+
+  // 监听认证状态变化
+  useEffect(() => {
+    console.log('LoginPage useEffect - 认证状态变化:', { 
+      isAuthenticated, 
+      authLoading, 
+      user: user?.email 
+    });
+  }, [isAuthenticated, authLoading, user]);
 
   // 如果已经登录，重定向到主页
   if (isAuthenticated) {
+    console.log('用户已认证，重定向到首页');
     return <Navigate to="/" replace />;
   }
 
   // 处理登录表单提交
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('登录表单提交 - 开始处理');
     setError('');
     
     if (!email || !password) {
       setError('请输入邮箱和密码');
+      console.log('表单验证失败 - 邮箱或密码为空');
       return;
     }
 
     setIsLoading(true);
+    console.log('开始登录请求:', { email, timestamp: new Date().toISOString() });
     
     try {
+      console.log('调用login函数前', { timestamp: new Date().toISOString() });
       await login(email, password);
+      console.log('登录成功 - login函数执行完毕', { timestamp: new Date().toISOString() });
       // 登录成功后，认证上下文会自动更新状态，触发重定向
     } catch (err: any) {
-      console.error('Login error:', err);
+      console.error('登录失败:', err);
+      console.error('登录失败详情:', { 
+        message: err.message, 
+        code: err.code,
+        status: err.status,
+        details: err.details,
+        timestamp: new Date().toISOString()
+      });
       setError(err.message || '邮箱或密码不正确');
     } finally {
+      console.log('登录流程结束，设置isLoading=false', { timestamp: new Date().toISOString() });
       setIsLoading(false);
     }
   };
@@ -61,7 +91,10 @@ const LoginPage: React.FC = () => {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="邮箱地址"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  console.log('邮箱输入变化:', e.target.value);
+                  setEmail(e.target.value);
+                }}
                 disabled={isLoading}
               />
             </div>
@@ -76,7 +109,10 @@ const LoginPage: React.FC = () => {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="密码"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  console.log('密码输入变化: [长度变化]', e.target.value.length);
+                  setPassword(e.target.value);
+                }}
                 disabled={isLoading}
               />
             </div>
@@ -92,18 +128,18 @@ const LoginPage: React.FC = () => {
             <button
               type="submit"
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading}
+              disabled={isLoading || authLoading}
+              onClick={() => console.log('登录按钮被点击', { timestamp: new Date().toISOString() })}
             >
               {isLoading ? '登录中...' : '登录'}
             </button>
           </div>
           
-          {/* 隐藏测试账号信息
+          {/* 显示测试账号信息 */}
           <div className="text-xs text-center text-gray-500">
             <p>测试账号: admin@example.com</p>
             <p>测试密码: password123</p>
           </div>
-          */}
         </form>
       </div>
     </div>
