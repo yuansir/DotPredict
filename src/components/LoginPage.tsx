@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { handleAuthError } from '../utils/errorMessages';
 
 /**
  * 登录页面组件 - 提供简约的登录界面
@@ -63,7 +64,9 @@ const LoginPage: React.FC = () => {
         details: err.details,
         timestamp: new Date().toISOString()
       });
-      setError(err.message || '邮箱或密码不正确');
+      
+      // 使用错误处理函数获取友好的中文错误消息
+      setError(handleAuthError(err));
     } finally {
       console.log('登录流程结束，设置isLoading=false', { timestamp: new Date().toISOString() });
       setIsLoading(false);
