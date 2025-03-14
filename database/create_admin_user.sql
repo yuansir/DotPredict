@@ -6,8 +6,10 @@
 -- 或者通过Supabase客户端API创建用户
 
 -- 以下是通过SQL直接创建用户的示例（仅供参考，实际应通过API创建）
-/*
+
 INSERT INTO auth.users (
+  id,
+  instance_id,
   email,
   encrypted_password,
   email_confirmed_at,
@@ -16,16 +18,18 @@ INSERT INTO auth.users (
   created_at,
   updated_at
 ) VALUES (
+  uuid_generate_v4(), -- 生成UUID作为用户ID
+  '00000000-0000-0000-0000-000000000000', -- 默认实例ID
   'admin@example.com',
   -- 这里需要加密的密码，不建议直接在SQL中设置
-  crypt('admin_password', gen_salt('bf')),
+  crypt('password123', gen_salt('bf')),
   now(),
   '{"provider": "email", "providers": ["email"]}',
   '{"name": "Admin User"}',
   now(),
   now()
 ) RETURNING id;
-*/
+
 
 -- 2. 确保app_users表中有对应的管理员记录
 -- 假设已通过API或控制台创建了auth用户，并且触发器已自动创建app_users记录
