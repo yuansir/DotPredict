@@ -61,28 +61,58 @@ export const authService = {
    * 获取当前会话
    */
   async getSession() {
-    console.log('authService.getSession - 获取当前会话');
-    const { data, error } = await supabase.auth.getSession();
-    if (error) {
-      console.error('authService.getSession - 获取会话失败:', error);
+    console.log('authService.getSession - 获取当前会话', { timestamp: new Date().toISOString() });
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('authService.getSession - 获取会话失败:', error, { timestamp: new Date().toISOString() });
+        throw error;
+      }
+      
+      console.log('authService.getSession - 获取会话成功:', { 
+        hasSession: !!data.session,
+        sessionDetails: data.session ? {
+          expiresAt: data.session.expires_at ? new Date(data.session.expires_at * 1000).toISOString() : 'unknown',
+          user: data.session.user?.email,
+          token: data.session.access_token.substring(0, 10) + '...'
+        } : null,
+        timestamp: new Date().toISOString()
+      });
+      
+      return data.session;
+    } catch (error) {
+      console.error('authService.getSession - 捕获到异常:', error, { timestamp: new Date().toISOString() });
       throw error;
     }
-    console.log('authService.getSession - 获取会话成功:', data.session ? '有会话' : '无会话');
-    return data.session;
   },
 
   /**
    * 获取当前用户
    */
   async getCurrentUser() {
-    console.log('authService.getCurrentUser - 获取当前用户');
-    const { data, error } = await supabase.auth.getUser();
-    if (error) {
-      console.error('authService.getCurrentUser - 获取用户失败:', error);
+    console.log('authService.getCurrentUser - 获取当前用户', { timestamp: new Date().toISOString() });
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('authService.getCurrentUser - 获取用户失败:', error, { timestamp: new Date().toISOString() });
+        throw error;
+      }
+      
+      console.log('authService.getCurrentUser - 获取用户成功:', { 
+        email: data.user?.email,
+        id: data.user?.id,
+        lastSignInAt: data.user?.last_sign_in_at ? new Date(Number(data.user.last_sign_in_at) * 1000).toISOString() : 'unknown',
+        createdAt: data.user?.created_at ? new Date(data.user.created_at).toISOString() : 'unknown',
+        timestamp: new Date().toISOString()
+      });
+      
+      return data.user;
+    } catch (error) {
+      console.error('authService.getCurrentUser - 捕获到异常:', error, { timestamp: new Date().toISOString() });
       throw error;
     }
-    console.log('authService.getCurrentUser - 获取用户成功:', data.user?.email);
-    return data.user;
   },
 
   /**
@@ -90,20 +120,37 @@ export const authService = {
    * @param authId 认证用户ID
    */
   async getAppUser(authId: string): Promise<AppUser | null> {
-    console.log('authService.getAppUser - 获取应用用户信息:', authId);
-    const { data, error } = await supabase
-      .from('app_users')
-      .select('*')
-      .eq('auth_id', authId)
-      .single();
-    
-    if (error) {
-      console.error('authService.getAppUser - 获取应用用户信息失败:', error);
+    console.log('authService.getAppUser - 获取应用用户信息:', authId, { timestamp: new Date().toISOString() });
+    try {
+      const { data, error } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('auth_id', authId)
+        .single();
+      
+      if (error) {
+        console.error('authService.getAppUser - 获取应用用户信息失败:', error, {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          timestamp: new Date().toISOString()
+        });
+        return null;
+      }
+      
+      console.log('authService.getAppUser - 获取应用用户信息成功:', {
+        id: data.id,
+        role: data.role,
+        displayName: data.display_name,
+        createdAt: data.created_at,
+        timestamp: new Date().toISOString()
+      });
+      return data as AppUser;
+    } catch (error) {
+      console.error('authService.getAppUser - 捕获到异常:', error, { timestamp: new Date().toISOString() });
       return null;
     }
-    
-    console.log('authService.getAppUser - 获取应用用户信息成功:', data);
-    return data as AppUser;
   },
 
   /**
