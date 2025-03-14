@@ -7,6 +7,8 @@ import { AlertProvider } from './contexts/AlertContext';
 import { AuthProvider } from './contexts/AuthContext';
 import LoginPage from './components/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminButton from './components/AdminButton';
+import AdminPage from './pages/AdminPage';
 
 /**
  * App组件 - 应用程序入口
@@ -27,7 +29,13 @@ const App: React.FC = () => {
                   <ProtectedRoute>
                     <div className="container mx-auto py-8 px-4 max-w-7xl">
                       <GameContainer />
+                      <AdminButton />
                     </div>
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminPage />
                   </ProtectedRoute>
                 } />
               </Routes>

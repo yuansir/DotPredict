@@ -9,6 +9,7 @@ const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { isAuthenticated, login } = useAuth();
 
   // 如果已经登录，重定向到主页
@@ -17,7 +18,7 @@ const LoginPage: React.FC = () => {
   }
 
   // 处理登录表单提交
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
@@ -26,9 +27,16 @@ const LoginPage: React.FC = () => {
       return;
     }
 
-    const success = login(email, password);
-    if (!success) {
-      setError('邮箱或密码不正确');
+    setIsLoading(true);
+    
+    try {
+      await login(email, password);
+      // 登录成功后，认证上下文会自动更新状态，触发重定向
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(err.message || '邮箱或密码不正确');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -54,6 +62,7 @@ const LoginPage: React.FC = () => {
                 placeholder="邮箱地址"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
               />
             </div>
             <div>
@@ -68,6 +77,7 @@ const LoginPage: React.FC = () => {
                 placeholder="密码"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
               />
             </div>
           </div>
@@ -81,9 +91,10 @@ const LoginPage: React.FC = () => {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading}
             >
-              登录
+              {isLoading ? '登录中...' : '登录'}
             </button>
           </div>
           
