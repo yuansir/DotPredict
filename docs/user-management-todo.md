@@ -14,14 +14,14 @@
 
 ### 1. 数据库结构扩展
 
-- [ ] 创建自定义用户表 `public.app_users`，关联到 `auth.users`
-- [ ] 为现有业务表添加用户ID外键：
-  - [ ] `public.moves`
-  - [ ] `public.daily_records`
-  - [ ] `public.sequence_patterns`
-  - [ ] `public.sequence_stats`
-- [ ] 创建触发器，在创建auth用户时自动创建app_users记录
-- [ ] 设置行级安全策略(RLS)，确保用户只能访问自己的数据
+- [x] 创建自定义用户表 `public.app_users`，关联到 `auth.users`
+- [x] 为现有业务表添加用户ID外键：
+  - [x] `public.moves`
+  - [x] `public.daily_records`
+  - [x] `public.sequence_patterns`
+  - [x] `public.sequence_stats`
+- [x] 创建触发器，在创建auth用户时自动创建app_users记录
+- [x] 设置行级安全策略(RLS)，确保用户只能访问自己的数据
 
 ### 2. 认证系统实现
 
@@ -60,8 +60,8 @@
 
 ### 7. 初始化和数据迁移
 
-- [ ] 创建初始管理员用户
-- [ ] 为现有数据设置默认用户ID
+- [x] 创建初始管理员用户
+- [x] 为现有数据设置默认用户ID
 - [ ] 测试数据迁移和权限控制
 
 ## 技术方案
