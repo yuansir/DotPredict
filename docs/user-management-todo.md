@@ -4,8 +4,8 @@
 
 基于对项目的分析，我们需要开发一个新的功能模块，将用户信息使用Supabase存储，并实现以下功能：
 
-1. 有一个超级管理员，超级管理员可以添加、删除和修改用户
-2. 有多个用户可以实现登录
+1. 有管理员用户，管理员可以添加、删除和修改用户
+2. 有多个普通用户可以实现登录
 3. 目前数据都存放在表中，表中的数据和用户没有关联，我们要实现每个用户只能查看和修改自己填入的小球矩阵数据
 4. 管理员可以存储历史会话和日期的数据，普通用户只能输入当前数据，不能存储，页面刷新或者终止输入就清空
 5. 不改变已有的布局和样式以及组件
@@ -27,15 +27,15 @@
 
 - [ ] 更新 `AuthContext.tsx`，使用Supabase Auth服务
 - [ ] 实现用户登录、注册和登出功能
-- [ ] 实现用户角色管理（超级管理员、管理员、普通用户）
+- [ ] 实现用户角色管理（管理员、普通用户）
 - [ ] 实现基于角色的权限控制
 
 ### 3. 用户管理功能
 
 - [ ] 创建用户管理页面
-- [ ] 实现超级管理员添加用户功能
-- [ ] 实现超级管理员修改用户功能
-- [ ] 实现超级管理员删除用户功能
+- [ ] 实现管理员添加用户功能
+- [ ] 实现管理员修改用户功能
+- [ ] 实现管理员删除用户功能
 - [ ] 实现用户列表查看功能
 
 ### 4. 数据权限控制
@@ -60,7 +60,7 @@
 
 ### 7. 初始化和数据迁移
 
-- [ ] 创建初始超级管理员用户
+- [ ] 创建初始管理员用户
 - [ ] 为现有数据设置默认用户ID
 - [ ] 测试数据迁移和权限控制
 
@@ -74,7 +74,7 @@ CREATE TABLE public.app_users (
     id uuid DEFAULT uuid_generate_v4() NOT NULL PRIMARY KEY,
     auth_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     display_name text,
-    role text NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'superadmin')),
+    role text NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
@@ -97,7 +97,6 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  isSuperAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   createUser: (email: string, password: string, role: UserRole, displayName?: string) => Promise<void>;
