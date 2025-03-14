@@ -10,6 +10,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminButton from './components/AdminButton';
 import AdminPage from './pages/AdminPage';
 import { testConnection } from './lib/supabase';
+import { useAuth } from './contexts/AuthContext';
 
 /**
  * App组件 - 应用程序入口
@@ -51,6 +52,9 @@ const App: React.FC = () => {
         <GameProvider>
           <Router>
             <div className="min-h-screen bg-gray-100">
+              {/* 调试面板 - 仅在开发环境显示 */}
+              <AuthDebugPanel />
+              
               {/* 连接状态指示器 - 仅在开发环境显示 */}
               {process.env.NODE_ENV === 'development' && (
                 <div className={`fixed bottom-0 right-0 m-4 p-2 text-xs rounded-md z-50 ${
@@ -112,6 +116,33 @@ const App: React.FC = () => {
         </GameProvider>
       </AlertProvider>
     </AuthProvider>
+  );
+};
+
+// 调试组件 - 仅在开发环境中显示
+const AuthDebugPanel = () => {
+  const { isLoading, isAuthenticated } = useAuth();
+  
+  const handleResetAuth = () => {
+    console.log('手动重置认证状态 - 刷新页面', { timestamp: new Date().toISOString() });
+    localStorage.removeItem('sb-tdyriyulhjmpxagvldtx-auth-token');
+    window.location.reload();
+  };
+  
+  if (process.env.NODE_ENV !== 'development') return null;
+  
+  return (
+    <div className="fixed top-0 right-0 m-4 p-2 bg-gray-100 rounded-md shadow-md z-50 text-xs">
+      <div className="mb-1">
+        认证状态: {isLoading ? '加载中' : isAuthenticated ? '已认证' : '未认证'}
+      </div>
+      <button 
+        onClick={handleResetAuth}
+        className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+      >
+        重置认证
+      </button>
+    </div>
   );
 };
 
