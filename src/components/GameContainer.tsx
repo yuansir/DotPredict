@@ -38,7 +38,7 @@ export const GameContainer: React.FC = () => {
   } = useGameContext();
 
   const { showAlert } = useAlert();
-  const { logout } = useAuth(); // 获取退出登录函数
+  const { logout, isAdmin } = useAuth(); // 获取退出登录函数和管理员状态
 
   // 控制规则说明区域显示/隐藏的状态
   const [showRules, setShowRules] = useState(true);
@@ -211,146 +211,148 @@ export const GameContainer: React.FC = () => {
         </p>
       </div>
 
-      {/* 日期选择区域 */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className="flex items-center text-lg font-semibold text-gray-800 mr-4">
-            <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-            </svg>
-            日期选择
-          </span>
+      {/* 日期选择区域 - 仅管理员可见 */}
+      {isAdmin && (
+        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="flex items-center text-lg font-semibold text-gray-800 mr-4">
+              <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              日期选择
+            </span>
 
-          {/* 模式切换按钮 - 增强视觉效果 */}
-          <div className="flex flex-col rounded-md shadow-sm" role="group">
-            <div className="flex">
-              <button
-                type="button"
-                onClick={() => {
-                  // console.log('[DEBUG] 用户点击切换到录入模式');
-                  toggleHistoryMode(false); // 切换到录入模式
-                }}
-                className={`px-4 py-2 text-sm font-medium 
-                  ${!gameState.isViewingHistory
-                    ? 'bg-blue-600 text-white ring-2 ring-blue-300'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                  } 
-                  border border-gray-300 rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white
-                  transition-all duration-200
-                `}
-              >
-                <span className="flex items-center">
-                  {!gameState.isViewingHistory && (
-                    <span className="mr-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                  )}
-                  录入模式
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  // console.log('[DEBUG] 用户点击切换到预览模式');
-                  toggleHistoryMode(true); // 切换到预览模式
-                }}
-                className={`px-4 py-2 text-sm font-medium 
-                  ${gameState.isViewingHistory
-                    ? 'bg-blue-600 text-white ring-2 ring-blue-300'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                  } 
-                  border border-gray-300 rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white
-                  transition-all duration-200
-                `}
-              >
-                <span className="flex items-center">
-                  {gameState.isViewingHistory && (
-                    <span className="mr-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                  )}
-                  预览模式
-                </span>
-              </button>
-            </div>
-
-            {/* 全局模式状态指示器 */}
-            <div className="text-xs text-gray-500 mt-1 text-center">
-              {(() => {
-                const isHistoricalDate = selectedDate !== new Date().toISOString().split('T')[0];
-                return isHistoricalDate && (
-                  <span className="text-xs">
-                    您在查看历史数据 {selectedDate}
+            {/* 模式切换按钮 - 增强视觉效果 */}
+            <div className="flex flex-col rounded-md shadow-sm" role="group">
+              <div className="flex">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // console.log('[DEBUG] 用户点击切换到录入模式');
+                    toggleHistoryMode(false); // 切换到录入模式
+                  }}
+                  className={`px-4 py-2 text-sm font-medium 
+                    ${!gameState.isViewingHistory
+                      ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                    } 
+                    border border-gray-300 rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white
+                    transition-all duration-200
+                  `}
+                >
+                  <span className="flex items-center">
+                    {!gameState.isViewingHistory && (
+                      <span className="mr-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    )}
+                    录入模式
                   </span>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // console.log('[DEBUG] 用户点击切换到预览模式');
+                    toggleHistoryMode(true); // 切换到预览模式
+                  }}
+                  className={`px-4 py-2 text-sm font-medium 
+                    ${gameState.isViewingHistory
+                      ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                    } 
+                    border border-gray-300 rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white
+                    transition-all duration-200
+                  `}
+                >
+                  <span className="flex items-center">
+                    {gameState.isViewingHistory && (
+                      <span className="mr-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    )}
+                    预览模式
+                  </span>
+                </button>
+              </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <button
-            className="w-full sm:w-auto px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-gray-300"
-            onClick={() => {
-              const prevDate = new Date(selectedDate);
-              prevDate.setDate(prevDate.getDate() - 1);
-              setSelectedDate(prevDate.toISOString().split('T')[0]);
-            }}
-          >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
-            </svg>
-            前一天
-          </button>
-
-          <div className="flex-grow w-full sm:w-auto mt-2 sm:mt-0">
-            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-
-              <select
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white mt-2 sm:mt-0"
-                value={currentSessionId}
-                onChange={(e) => handleSessionChange(Number(e.target.value))}
-              >
-                {availableSessions.map((session) => (
-                  <option key={session.id} value={session.id}>
-                    {session.label}
-                  </option>
-                ))}
-              </select>
+              {/* 全局模式状态指示器 */}
+              <div className="text-xs text-gray-500 mt-1 text-center">
+                {(() => {
+                  const isHistoricalDate = selectedDate !== new Date().toISOString().split('T')[0];
+                  return isHistoricalDate && (
+                    <span className="text-xs">
+                      您在查看历史数据 {selectedDate}
+                    </span>
+                  );
+                })()}
+              </div>
             </div>
           </div>
 
-          <button
-            className="w-full sm:w-auto px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors flex items-center justify-center mt-2 sm:mt-0 focus:outline-none focus:ring-2 focus:ring-gray-300"
-            onClick={() => {
-              const nextDate = new Date(selectedDate);
-              nextDate.setDate(nextDate.getDate() + 1);
-              setSelectedDate(nextDate.toISOString().split('T')[0]);
-            }}
-          >
-            后一天
-            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-        </div>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <button
+              className="w-full sm:w-auto px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-gray-300"
+              onClick={() => {
+                const prevDate = new Date(selectedDate);
+                prevDate.setDate(prevDate.getDate() - 1);
+                setSelectedDate(prevDate.toISOString().split('T')[0]);
+              }}
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+              前一天
+            </button>
 
-        <div className="mt-3 text-sm text-gray-500 flex items-center flex-wrap">
-          <span>
-            {new Date(selectedDate).toLocaleDateString('zh-CN', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              weekday: 'long'
-            })}
-          </span>
-          {selectedDate === new Date().toISOString().split('T')[0] && (
-            <span className="ml-2 text-green-500 font-medium text-sm px-2 py-0.5 bg-green-50 rounded-full">今天</span>
-          )}
+            <div className="flex-grow w-full sm:w-auto mt-2 sm:mt-0">
+              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+
+                <select
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white mt-2 sm:mt-0"
+                  value={currentSessionId}
+                  onChange={(e) => handleSessionChange(Number(e.target.value))}
+                >
+                  {availableSessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button
+              className="w-full sm:w-auto px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors flex items-center justify-center mt-2 sm:mt-0 focus:outline-none focus:ring-2 focus:ring-gray-300"
+              onClick={() => {
+                const nextDate = new Date(selectedDate);
+                nextDate.setDate(nextDate.getDate() + 1);
+                setSelectedDate(nextDate.toISOString().split('T')[0]);
+              }}
+            >
+              后一天
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </button>
+          </div>
+
+          <div className="mt-3 text-sm text-gray-500 flex items-center flex-wrap">
+            <span>
+              {new Date(selectedDate).toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long'
+              })}
+            </span>
+            {selectedDate === new Date().toISOString().split('T')[0] && (
+              <span className="ml-2 text-green-500 font-medium text-sm px-2 py-0.5 bg-green-50 rounded-full">今天</span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 连续模式预测区域 */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -396,6 +398,7 @@ export const GameContainer: React.FC = () => {
             onEndSession={safeEndCurrentSession}
             totalMoves={gameState.history ? gameState.history.length : 0}
             isViewingHistory={gameState.isViewingHistory}
+            isAdmin={isAdmin} // 传递管理员状态
           />
         </div>
 
