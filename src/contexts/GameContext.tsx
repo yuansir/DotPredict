@@ -7,6 +7,7 @@ import { useContinuityPrediction } from '../hooks/useContinuityPrediction';
 import { useRulePrediction } from '../hooks/useRulePrediction';
 import { useMatrixPagination } from '../hooks/useMatrixPagination';
 import { useGameActions } from '../hooks/useGameActions';
+import { useAuth } from '../contexts/AuthContext';
 
 // 定义上下文类型
 interface GameContextType {
@@ -110,6 +111,44 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
 
   // 会话终止状态
   const [isSessionEnding, setIsSessionEnding] = useState<boolean>(false);
+
+  // 获取当前用户信息
+  const { currentUser } = useAuth();
+
+  // 添加用户变化引用
+  const userChangeRef = useRef({
+    initialized: false,
+    lastUserId: null as string | null
+  });
+
+  // 监听用户变化，重置游戏状态
+  useEffect(() => {
+    // 仅在用户变化时执行，不在初始渲染时执行
+    if (userChangeRef.current.initialized) {
+      console.log('用户变化，重置游戏状态:', { 
+        previousUser: userChangeRef.current.lastUserId, 
+        currentUser: currentUser?.id 
+      });
+      
+      // 重置游戏状态
+      setGameState({
+        history: [],
+        isViewingHistory: false,
+        totalPredictions: 0,
+        correctPredictions: 0,
+        predictionStats: []
+      });
+      
+      // 重置用户模式覆盖标志
+      setUserModeOverride(false);
+    }
+    
+    // 更新用户引用
+    userChangeRef.current = {
+      initialized: true,
+      lastUserId: currentUser?.id || null
+    };
+  }, [currentUser]);
 
   // 添加调试日志 - 记录模式状态变化
   useEffect(() => {

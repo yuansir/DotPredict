@@ -34,9 +34,53 @@ export function useSessionManagement(selectedDate: string) {
   const initializationRef = useRef({
     initialized: false,
     date: '',
+    userIdInitialized: false,
+    lastUserId: null as string | null,
   });
   
   const loadingSessionRef = useRef<number | null>(null);
+
+  // 监听用户ID变化，当用户变化时重置状态
+  useEffect(() => {
+    // 如果是初始加载，不执行重置
+    if (initializationRef.current.userIdInitialized === false) {
+      initializationRef.current.userIdInitialized = true;
+      initializationRef.current.lastUserId = userId;
+      return;
+    }
+    
+    // 如果用户ID变化了，重置所有状态
+    if (initializationRef.current.lastUserId !== userId) {
+      console.log('用户ID变化，重置状态:', { 
+        previousUserId: initializationRef.current.lastUserId, 
+        currentUserId: userId 
+      });
+      
+      // 重置状态
+      setGameState({
+        history: [],
+        totalPredictions: 0,
+        correctPredictions: 0,
+        predictionStats: [],
+        isViewingHistory: false
+      });
+      
+      // 重置会话相关状态
+      setAvailableSessions([]);
+      setCurrentSessionId(1);
+      
+      // 重置初始化标记
+      initializationRef.current = {
+        ...initializationRef.current,
+        initialized: false,
+        date: '',
+        lastUserId: userId
+      };
+      
+      // 触发重新初始化
+      setIsLoading(true);
+    }
+  }, [userId]);
 
   /**
    * 加载可用会话列表
@@ -306,6 +350,8 @@ export function useSessionManagement(selectedDate: string) {
         initializationRef.current = {
           initialized: true,
           date: selectedDate,
+          userIdInitialized: initializationRef.current.userIdInitialized,
+          lastUserId: initializationRef.current.lastUserId
         };
         
         console.log('日期初始化完成:', selectedDate);
