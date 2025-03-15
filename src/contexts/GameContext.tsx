@@ -46,6 +46,7 @@ interface GameContextType {
   rulePredictions: (DotColor | null)[];
   rulePredictionRow: number | null;
   rulePredictionUpdateId: number;
+  rulePatternType: 'connected' | 'opposite' | null; // 添加规则模式类型
 
   // 操作方法
   handleSessionChange: (sessionId: number) => void;
@@ -310,7 +311,15 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   const continuityResult = useContinuityPrediction(gameState, nextPosition, userModeOverride);
 
   // 计算规则预测
-  const ruleResult = useRulePrediction(gameState, nextPosition, userModeOverride);
+  const { 
+    predictions: rulePredictions, 
+    predictionRowIndex: rulePredictionRow,
+    patternType: rulePatternType 
+  } = useRulePrediction(
+    gameState,
+    nextPosition,
+    userModeOverride
+  );
 
   // 计算矩阵哈希，用于检测真实变化
   const calculateMatrixHash = useCallback(() => {
@@ -364,22 +373,23 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     if (currentMatrixHash !== rulePredictionState.lastMatrixHash) {
       // 更新预测状态，确保创建新的引用
       setRulePredictionState(prev => ({
-        predictions: [...ruleResult.predictions], // 创建新数组
-        predictionRowIndex: ruleResult.predictionRowIndex,
+        predictions: [...rulePredictions], // 创建新数组
+        predictionRowIndex: rulePredictionRow,
         updateId: prev.updateId + 1,
         lastMatrixHash: currentMatrixHash
       }));
 
       // console.log('[DEBUG] GameContext - 规则预测状态已更新:', {
-      //   predictions: ruleResult.predictions,
-      //   predictionRowIndex: ruleResult.predictionRowIndex,
+      //   predictions: rulePredictions,
+      //   predictionRowIndex: rulePredictionRow,
       //   updateId: rulePredictionState.updateId + 1,
       //   gameStateHistory: gameState.history.length,
       //   matrixHashChanged: currentMatrixHash !== rulePredictionState.lastMatrixHash
       // });
     }
   }, [
-    ruleResult,
+    rulePredictions,
+    rulePredictionRow,
     gameState.history,
     calculateMatrixHash,
     rulePredictionState.lastMatrixHash
@@ -570,9 +580,10 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     predictionUpdateId: predictionState.updateId,
 
     // 规则预测状态
-    rulePredictions: rulePredictionState.predictions,
-    rulePredictionRow: rulePredictionState.predictionRowIndex,
+    rulePredictions,
+    rulePredictionRow,
     rulePredictionUpdateId: rulePredictionState.updateId,
+    rulePatternType,
 
     // 操作方法
     handleSessionChange,

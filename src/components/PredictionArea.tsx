@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { DotColor } from '../types';
 import PredictionColumn from './PredictionColumn';
 
@@ -7,6 +7,7 @@ interface PredictionAreaProps {
   rulePredictionColors: (DotColor | null)[];
   currentPredictionRow: number | null;
   predictionUpdateId: number;
+  rulePatternType: 'connected' | 'opposite' | null;
 }
 
 /**
@@ -17,8 +18,32 @@ const PredictionArea: React.FC<PredictionAreaProps> = ({
   continuityPredictionColors,
   rulePredictionColors,
   currentPredictionRow,
-  predictionUpdateId
+  predictionUpdateId,
+  rulePatternType
 }) => {
+  // 存储当前检测到的模式类型
+  const [patternType, setPatternType] = useState<'connected' | 'opposite' | null>(null);
+
+  // 检测模式类型 - 使用传递过来的rulePatternType
+  useEffect(() => {
+    // 直接使用传递过来的模式类型
+    setPatternType(rulePatternType);
+    
+    // 保留原有逻辑作为备选，如果rulePatternType为null且第二个预测位有值，则使用原有逻辑
+    if (rulePatternType === null && rulePredictionColors[1]) {
+      // 检查当前输入的颜色和预测的颜色
+      const lastInputColor = continuityPredictionColors[0]; // 假设连续性预测的第一个值是最后输入的颜色
+      const predictedColor = rulePredictionColors[1];
+      
+      // 如果预测颜色与输入颜色相同，则是相连模式；否则是相反模式
+      if (lastInputColor === predictedColor) {
+        setPatternType('connected');
+      } else {
+        setPatternType('opposite');
+      }
+    }
+  }, [rulePatternType, rulePredictionColors, continuityPredictionColors, predictionUpdateId]);
+
   // 调试日志
   useEffect(() => {
     // console.log('[DEBUG] PredictionArea - 渲染预测区域:', {
@@ -54,6 +79,23 @@ const PredictionArea: React.FC<PredictionAreaProps> = ({
       <div className="absolute -top-6 left-0 right-0 flex justify-around px-3">
         <div className="w-16 text-center text-sm font-medium text-gray-700 whitespace-nowrap">连续性</div>
         <div className="w-16 text-center text-sm font-medium text-gray-700 whitespace-nowrap">规则</div>
+      </div>
+
+      {/* 模式类型显示框 - 移到预测列上方 */}
+      <div className="mb-4 border-2 rounded-lg p-2 flex items-center justify-center h-10 shadow-md"
+        style={{
+          borderColor: patternType === 'connected' ? '#10b981' : (patternType === 'opposite' ? '#8b5cf6' : '#ef4444')
+        }}
+      >
+        {patternType === 'connected' && (
+          <span className="text-lg font-bold text-green-600">连</span>
+        )}
+        {patternType === 'opposite' && (
+          <span className="text-lg font-bold text-purple-600">反</span>
+        )}
+        {!patternType && (
+          <span className="text-sm text-gray-400">...</span>
+        )}
       </div>
 
       {/* 预测列内容 */}
