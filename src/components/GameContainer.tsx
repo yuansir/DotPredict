@@ -175,7 +175,6 @@ export const GameContainer: React.FC = () => {
 
     // 检查列是否完整（有三个球）
     const isCompleteColumn = (colIndex: number): boolean => {
-      const globalColIndex = colIndex + pageStartCol;
       return currentPageMatrix.every(row => 
         row[colIndex] !== null && row[colIndex] !== undefined
       );
@@ -223,7 +222,7 @@ export const GameContainer: React.FC = () => {
     };
 
     // 获取第一个完整列
-    const { colIndex: firstCompleteColumnIndex, patternType: firstCompleteColumnPattern, globalColIndex: firstCompleteGlobalColIndex } = findFirstCompleteColumn();
+    const { colIndex: firstCompleteColumnIndex, patternType: firstCompleteColumnPattern, globalColIndex: _firstCompleteGlobalColIndex } = findFirstCompleteColumn();
 
     // 确定要显示效果的列
     let displayEffectColIndex = -1;
@@ -284,8 +283,6 @@ export const GameContainer: React.FC = () => {
 
           // 检查当前列是否完整
           const isComplete = isCompleteColumn(colIndex);
-          // 获取列的模式类型
-          const patternType = getColumnPatternType(colIndex);
           // 检查是否是第一个完整列
           const isFirstCompleteColumn = colIndex === firstCompleteColumnIndex;
 
@@ -385,21 +382,21 @@ export const GameContainer: React.FC = () => {
     };
 
     // 获取第一个完整列
-    const { colIndex: firstCompleteColumnIndex, patternType: firstCompleteColumnPattern, globalColIndex: firstCompleteGlobalColIndex } = findFirstCompleteColumn();
+    const { colIndex: firstCompleteColumnIndex, patternType: firstCompleteColumnPattern, globalColIndex: _firstCompleteGlobalColIndex } = findFirstCompleteColumn();
 
     // 只有当找到新的完整模式列时，才更新状态
     if (firstCompleteColumnIndex !== -1 && firstCompleteColumnPattern) {
       console.log('[DEBUG] 找到新的完整模式列:', {
         colIndex: firstCompleteColumnIndex,
         patternType: firstCompleteColumnPattern,
-        globalColIndex: firstCompleteGlobalColIndex,
+        globalColIndex: _firstCompleteGlobalColIndex,
         previousLastCompleteColumn: lastCompleteColumn
       });
       
       setLastCompleteColumn({
         colIndex: firstCompleteColumnIndex,
         patternType: firstCompleteColumnPattern,
-        globalColIndex: firstCompleteGlobalColIndex
+        globalColIndex: _firstCompleteGlobalColIndex
       });
     } else {
       console.log('[DEBUG] 未找到完整模式列，当前lastCompleteColumn:', lastCompleteColumn);
