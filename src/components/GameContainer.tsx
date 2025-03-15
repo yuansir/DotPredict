@@ -3,7 +3,7 @@ import { useGameContext } from '../contexts/GameContext';
 import { ControlPanel } from './ControlPanel';
 import { useAlert } from '../contexts/AlertContext';
 import { MatrixPagination } from './MatrixPagination';
-import { Position } from '../types';
+import { Position, DotColor } from '../types';
 import PredictionArea from './PredictionArea'; // 导入预测区域组件
 import { useAuth } from '../contexts/AuthContext'; // 导入认证上下文
 
@@ -33,8 +33,9 @@ export const GameContainer: React.FC = () => {
     continuityPredictions,
     continuityPredictionRow,
     predictionUpdateId,
-    rulePredictions       // 添加规则预测数据
-    // rulePredictionRow  // 未使用变量
+    rulePredictions,      // 规则预测数据
+    // rulePredictionRow, // 未使用变量
+    rulePatternType       // 添加规则模式类型
   } = useGameContext();
 
   const { showAlert } = useAlert();
@@ -42,6 +43,13 @@ export const GameContainer: React.FC = () => {
 
   // 控制规则说明区域显示/隐藏的状态
   const [showRules, setShowRules] = useState(true);
+
+  // 添加状态来记住最后一个找到的完整模式列
+  const [lastCompleteColumn, setLastCompleteColumn] = useState<{
+    colIndex: number;
+    patternType: 'connected' | 'opposite' | null;
+    globalColIndex: number; // 添加全局列索引以处理分页
+  }>({ colIndex: -1, patternType: null, globalColIndex: -1 });
 
   // 处理完成编辑的函数 - 暂时未使用
   // const handleFinishEdit = () => {
@@ -123,9 +131,96 @@ export const GameContainer: React.FC = () => {
       return localPos !== null && localPos.col >= 0 && localPos.col < COLS_PER_PAGE;
     };
 
+    // 检查列是否完整（有三个球）
+    const isCompleteColumn = (colIndex: number): boolean => {
+      const globalColIndex = colIndex + pageStartCol;
+      return currentPageMatrix.every(row => 
+        row[colIndex] !== null && row[colIndex] !== undefined
+      );
+    };
+
+    // 检查列是否匹配模式
+    const getColumnPatternType = (colIndex: number): 'connected' | 'opposite' | null => {
+      if (!isCompleteColumn(colIndex)) return null;
+      
+      const column = [
+        currentPageMatrix[0][colIndex],
+        currentPageMatrix[1][colIndex],
+        currentPageMatrix[2][colIndex]
+      ] as DotColor[];
+      
+      // 检查是否匹配"相连"模式
+      const isRedRedRed = column[0] === 'red' && column[1] === 'red' && column[2] === 'red';
+      const isBlackBlackBlack = column[0] === 'black' && column[1] === 'black' && column[2] === 'black';
+      
+      // 检查是否匹配"相反"模式
+      const isRedBlackRed = column[0] === 'red' && column[1] === 'black' && column[2] === 'red';
+      const isBlackRedBlack = column[0] === 'black' && column[1] === 'red' && column[2] === 'black';
+      
+      if (isRedRedRed || isBlackBlackBlack) {
+        return 'connected'; // 相连模式
+      } else if (isRedBlackRed || isBlackRedBlack) {
+        return 'opposite'; // 相反模式
+      }
+      
+      return null; // 不匹配任何模式
+    };
+
+    // 找到从右向左第一个完整列
+    const findFirstCompleteColumn = (): { colIndex: number, patternType: 'connected' | 'opposite' | null, globalColIndex: number } => {
+      for (let colIndex = currentPageMatrix[0].length - 1; colIndex >= 0; colIndex--) {
+        if (isCompleteColumn(colIndex)) {
+          const patternType = getColumnPatternType(colIndex);
+          if (patternType) {
+            const globalColIndex = colIndex + pageStartCol;
+            return { colIndex, patternType, globalColIndex };
+          }
+        }
+      }
+      return { colIndex: -1, patternType: null, globalColIndex: -1 };
+    };
+
+    // 获取第一个完整列
+    const { colIndex: firstCompleteColumnIndex, patternType: firstCompleteColumnPattern, globalColIndex: firstCompleteGlobalColIndex } = findFirstCompleteColumn();
+
+    // 确定要显示效果的列
+    let displayEffectColIndex = -1;
+    let displayEffectPatternType: 'connected' | 'opposite' | null = null;
+
+    // 如果当前页面找到了完整模式列，使用它
+    if (firstCompleteColumnIndex !== -1 && firstCompleteColumnPattern) {
+      displayEffectColIndex = firstCompleteColumnIndex;
+      displayEffectPatternType = firstCompleteColumnPattern;
+    } 
+    // 否则，检查之前记住的列是否在当前页面范围内
+    else if (lastCompleteColumn.globalColIndex >= pageStartCol && 
+             lastCompleteColumn.globalColIndex < pageStartCol + COLS_PER_PAGE) {
+      displayEffectColIndex = lastCompleteColumn.globalColIndex - pageStartCol;
+      displayEffectPatternType = lastCompleteColumn.patternType;
+    }
+
     // 使用分页后的矩阵数据
     return currentPageMatrix.map((row, rowIndex) => (
-      <div key={`row-${rowIndex}`} className="flex mb-2">
+      <div key={`row-${rowIndex}`} className="flex mb-2 relative">
+        {/* 如果是第一行且有完整列，添加方形边框 */}
+        {rowIndex === 0 && displayEffectColIndex !== -1 && displayEffectPatternType && (
+          <div
+            className={`absolute border-[3px] ${
+              displayEffectPatternType === 'connected'
+                ? 'border-green-500 connected-pattern'
+                : 'border-purple-500 opposite-pattern'
+            } rounded-md z-20 shadow-lg pointer-events-none`}
+            style={{
+              left: `${displayEffectColIndex * 40 - 2}px`, // 调整左侧位置，考虑边框宽度
+              top: '0px', // 稍微上移，确保能覆盖第一行
+              width: '36px', // 增加宽度，确保能完全包围单元格
+              height: '116px', // 调整高度，确保能覆盖所有三行
+              boxShadow: displayEffectPatternType === 'connected' 
+                ? '0 0 10px 4px rgba(34, 197, 94, 0.7)' 
+                : '0 0 10px 4px rgba(168, 85, 247, 0.7)'
+            }}
+          />
+        )}
         {row.map((color, colIndex) => {
           // 页内坐标
           const position = { row: rowIndex, col: colIndex };
@@ -145,6 +240,13 @@ export const GameContainer: React.FC = () => {
             nextPosition.col === globalCol
           );
 
+          // 检查当前列是否完整
+          const isComplete = isCompleteColumn(colIndex);
+          // 获取列的模式类型
+          const patternType = getColumnPatternType(colIndex);
+          // 检查是否是第一个完整列
+          const isFirstCompleteColumn = colIndex === firstCompleteColumnIndex;
+
           // 当找到待输入位置时记录日志
           if (isNext) {
             // console.log('[DEBUG] GameContainer - 在矩阵中找到待输入位置:', { 
@@ -159,8 +261,11 @@ export const GameContainer: React.FC = () => {
           return (
             <div
               key={`cell-${rowIndex}-${colIndex}`}
-              className={`w-8 h-8 rounded-full ${isNext ? 'border-2 border-blue-500' : 'border border-gray-300'} flex items-center justify-center mr-2 ${gameState.isViewingHistory ? 'cursor-not-allowed' : 'cursor-pointer'
-                }`}
+              className={`w-8 h-8 rounded-full 
+                ${isNext ? 'border-2 border-blue-500' : 'border border-gray-300'} 
+                ${isComplete && isFirstCompleteColumn ? 'relative' : ''}
+                flex items-center justify-center mr-2 
+                ${gameState.isViewingHistory ? 'cursor-not-allowed' : 'cursor-pointer'}`}
               onClick={() => handleDotClick(position)}
             >
               {color && (
@@ -173,7 +278,81 @@ export const GameContainer: React.FC = () => {
         })}
       </div>
     ));
-  }, [currentPageMatrix, gameState.isViewingHistory, nextPosition, handleDotClick]);
+  }, [currentPageMatrix, matrixCurrentPage, nextPosition, gameState.isViewingHistory, handleDotClick, lastCompleteColumn]);
+
+  // 更新最后一个完整列状态
+  useEffect(() => {
+    // 如果历史记录为空（清空数据或终止输入后），重置lastCompleteColumn状态
+    if (gameState.history.length === 0) {
+      setLastCompleteColumn({ colIndex: -1, patternType: null, globalColIndex: -1 });
+      return;
+    }
+    
+    // 定义每页列数常量
+    const COLS_PER_PAGE = 24; // 每页显示24列
+    // 计算当前页的起始列
+    const pageStartCol = (matrixCurrentPage - 1) * COLS_PER_PAGE;
+
+    // 检查列是否完整（有三个球）
+    const isCompleteColumn = (colIndex: number): boolean => {
+      return currentPageMatrix.every(row => 
+        row[colIndex] !== null && row[colIndex] !== undefined
+      );
+    };
+
+    // 检查列是否匹配模式
+    const getColumnPatternType = (colIndex: number): 'connected' | 'opposite' | null => {
+      if (!isCompleteColumn(colIndex)) return null;
+      
+      const column = [
+        currentPageMatrix[0][colIndex],
+        currentPageMatrix[1][colIndex],
+        currentPageMatrix[2][colIndex]
+      ] as DotColor[];
+      
+      // 检查是否匹配"相连"模式
+      const isRedRedRed = column[0] === 'red' && column[1] === 'red' && column[2] === 'red';
+      const isBlackBlackBlack = column[0] === 'black' && column[1] === 'black' && column[2] === 'black';
+      
+      // 检查是否匹配"相反"模式
+      const isRedBlackRed = column[0] === 'red' && column[1] === 'black' && column[2] === 'red';
+      const isBlackRedBlack = column[0] === 'black' && column[1] === 'red' && column[2] === 'black';
+      
+      if (isRedRedRed || isBlackBlackBlack) {
+        return 'connected'; // 相连模式
+      } else if (isRedBlackRed || isBlackRedBlack) {
+        return 'opposite'; // 相反模式
+      }
+      
+      return null; // 不匹配任何模式
+    };
+
+    // 找到从右向左第一个完整列
+    const findFirstCompleteColumn = (): { colIndex: number, patternType: 'connected' | 'opposite' | null, globalColIndex: number } => {
+      for (let colIndex = currentPageMatrix[0].length - 1; colIndex >= 0; colIndex--) {
+        if (isCompleteColumn(colIndex)) {
+          const patternType = getColumnPatternType(colIndex);
+          if (patternType) {
+            const globalColIndex = colIndex + pageStartCol;
+            return { colIndex, patternType, globalColIndex };
+          }
+        }
+      }
+      return { colIndex: -1, patternType: null, globalColIndex: -1 };
+    };
+
+    // 获取第一个完整列
+    const { colIndex: firstCompleteColumnIndex, patternType: firstCompleteColumnPattern, globalColIndex: firstCompleteGlobalColIndex } = findFirstCompleteColumn();
+
+    // 只有当找到新的完整模式列时，才更新状态
+    if (firstCompleteColumnIndex !== -1 && firstCompleteColumnPattern) {
+      setLastCompleteColumn({
+        colIndex: firstCompleteColumnIndex,
+        patternType: firstCompleteColumnPattern,
+        globalColIndex: firstCompleteGlobalColIndex
+      });
+    }
+  }, [currentPageMatrix, matrixCurrentPage, gameState.history.length]);
 
   // 日志记录预测数据
   useEffect(() => {
@@ -382,6 +561,7 @@ export const GameContainer: React.FC = () => {
             rulePredictionColors={rulePredictionColors}
             currentPredictionRow={currentPredictionRow}
             predictionUpdateId={predictionUpdateId}
+            rulePatternType={rulePatternType}
           />
         </div>
       </div>
