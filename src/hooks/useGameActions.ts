@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { GameState, DotColor } from '../types';
 import { useAlert } from '../contexts/AlertContext';
 import { debounce } from '../utils/debounce';
@@ -18,10 +18,22 @@ export function useGameActions(
 ) {
   // 使用全局提示系统
   const { showAlert } = useAlert();
+  
+  // 使用 ref 跟踪最新的游戏状态
+  const latestGameStateRef = useRef<GameState>(gameState);
+  
+  // 更新 ref 以跟踪最新的游戏状态
+  useEffect(() => {
+    latestGameStateRef.current = gameState;
+  }, [gameState]);
 
   // 包装保存函数，添加错误提示
   const saveWithErrorHandling = useCallback(async (state: GameState) => {
     try {
+      console.log('[DEBUG] saveWithErrorHandling - 开始保存游戏状态:', {
+        historyLength: state.history.length,
+        time: new Date().toISOString()
+      });
       await saveGameState(state);
     } catch (error) {
       console.error('保存游戏状态出错:', error);
@@ -41,10 +53,10 @@ export function useGameActions(
   const handleColorSelect = useCallback(async (color: DotColor) => {
     if (gameState.isViewingHistory) return;
     
-    // console.log('[DEBUG] handleColorSelect - 放置球前:', {
-    //   historyLength: gameState.history.length,
-    //   color
-    // });
+    console.log('[DEBUG] handleColorSelect - 放置球前:', {
+      historyLength: gameState.history.length,
+      color
+    });
     
     // 添加颜色到矩阵
     addColorToMatrix(color);
@@ -52,14 +64,24 @@ export function useGameActions(
     // 由于addColorToMatrix会调用setGameState更新状态，
     // 我们需要使用延时来确保在状态更新后保存
     setTimeout(() => {
-      // 使用防抖保存最新状态
-      debouncedSave(gameState);
+      // 使用 ref 获取最新的游戏状态
+      const currentGameState = latestGameStateRef.current;
       
-      // console.log('[DEBUG] handleColorSelect - 放置球后:', {
-      //   historyLength: gameState.history.length
-      // });
-    }, 0);
-  }, [addColorToMatrix, debouncedSave, setGameState]);
+      console.log('[DEBUG] handleColorSelect - 放置球后准备保存:', {
+        historyLength: currentGameState.history.length,
+        time: new Date().toISOString()
+      });
+      
+      // 使用防抖保存最新状态
+      if (currentGameState.history.length > 0) {
+        // 直接保存，不使用防抖
+        saveWithErrorHandling(currentGameState);
+        console.log('[DEBUG] handleColorSelect - 已触发保存操作');
+      } else {
+        console.warn('[DEBUG] handleColorSelect - 未触发保存操作，因为历史记录为空');
+      }
+    }, 100); // 增加延时，确保状态已更新
+  }, [addColorToMatrix, saveWithErrorHandling, gameState]);
 
   /**
    * 处理撤销操作
@@ -67,15 +89,28 @@ export function useGameActions(
   const handleUndo = useCallback(async () => {
     if (gameState.isViewingHistory || gameState.history.length === 0) return;
     
+    console.log('[DEBUG] handleUndo - 撤销前:', {
+      historyLength: gameState.history.length
+    });
+    
     // 执行撤销
     undoLastMove();
     
     // 使用延时来确保在状态更新后保存
     setTimeout(() => {
-      // 使用防抖保存最新状态
-      debouncedSave(gameState);
-    }, 0);
-  }, [undoLastMove, debouncedSave, setGameState]);
+      // 使用 ref 获取最新的游戏状态
+      const currentGameState = latestGameStateRef.current;
+      
+      console.log('[DEBUG] handleUndo - 撤销后准备保存:', {
+        historyLength: currentGameState.history.length,
+        time: new Date().toISOString()
+      });
+      
+      // 直接保存，不使用防抖
+      saveWithErrorHandling(currentGameState);
+      console.log('[DEBUG] handleUndo - 已触发保存操作');
+    }, 100); // 增加延时，确保状态已更新
+  }, [undoLastMove, saveWithErrorHandling, gameState]);
 
   /**
    * 处理清空操作

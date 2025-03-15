@@ -149,4 +149,29 @@ BEGIN
     
     RETURN v_user_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER; 
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 6. 为 daily_records 表添加唯一约束
+-- 首先，清理重复数据，保留每个 date 和 user_id 组合的最新记录
+DO $$
+BEGIN
+    -- 创建临时表存储每个 date 和 user_id 组合的最新记录
+    CREATE TEMP TABLE latest_daily_records AS
+    SELECT DISTINCT ON (date, user_id) 
+        id, date, user_id
+    FROM public.daily_records
+    ORDER BY date, user_id, updated_at DESC;
+    
+    -- 删除不在临时表中的记录（即重复记录）
+    DELETE FROM public.daily_records
+    WHERE id NOT IN (SELECT id FROM latest_daily_records);
+    
+    -- 删除临时表
+    DROP TABLE latest_daily_records;
+END $$;
+
+-- 添加唯一约束
+ALTER TABLE public.daily_records ADD CONSTRAINT daily_records_date_user_id_key UNIQUE (date, user_id);
+
+-- 添加注释说明约束的用途
+COMMENT ON CONSTRAINT daily_records_date_user_id_key ON public.daily_records IS '确保每个用户每天只有一条记录，支持 upsert 操作'; 

@@ -67,7 +67,7 @@ export function useMatrixManagement(gameState: GameState, setGameState: (state: 
     const pos = nextPosition;
     const timestamp = Date.now();
     
-    // console.log('[DEBUG] addColorToMatrix - 执行, 当前位置:', pos);
+    console.log('[DEBUG] addColorToMatrix - 执行, 当前位置:', pos, '当前历史长度:', gameState.history.length);
     
     // 更新状态
     setLastPosition(pos);
@@ -86,6 +86,8 @@ export function useMatrixManagement(gameState: GameState, setGameState: (state: 
     
     // 更新游戏状态
     const newHistory = [...gameState.history, newMove];
+    console.log('[DEBUG] addColorToMatrix - 更新游戏状态, 新历史长度:', newHistory.length);
+    
     setGameState({
       ...gameState,
       history: newHistory
@@ -100,18 +102,12 @@ export function useMatrixManagement(gameState: GameState, setGameState: (state: 
     setTimeout(() => {
       // 重新计算下一个位置，双保险
       const newNextPosition = calculateNextPosition(newHistory);
-      // console.log('[DEBUG] addColorToMatrix - 延时计算新的下一个位置:', newNextPosition);
+      console.log('[DEBUG] addColorToMatrix - 延时计算新的下一个位置:', newNextPosition, '当前历史长度:', newHistory.length);
       
       // 强制重置下一个位置状态，即使坐标相同也创建新的引用对象
       setNextPosition(() => {
         return newNextPosition;
       });
-      
-      // console.log('[DEBUG] addColorToMatrix - 强制更新nextPosition完成:', {
-      //   newNextPosition,
-      //   time: new Date().toISOString(),
-      //   forceUpdateValue: Date.now() + 1
-      // });
       
       // 触发特殊事件通知预测更新
       if (typeof window !== 'undefined') {
