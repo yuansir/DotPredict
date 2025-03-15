@@ -22,12 +22,14 @@
     "react-dom": "^18.2.0",
     "react-icons": "^5.4.0",
     "react-router-dom": "^7.3.0",
-    "tailwind-merge": "^2.1.0"
+    "tailwind-merge": "^2.1.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
+    "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
     "@vitejs/plugin-react": "^4.2.1",

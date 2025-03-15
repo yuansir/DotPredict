@@ -11,64 +11,32 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { isAuthenticated, login, isLoading: authLoading, user } = useAuth();
-
-  console.log('LoginPage渲染 - 认证状态:', { 
-    isAuthenticated, 
-    authLoading, 
-    user: user?.email,
-    componentState: { email, error, isLoading }
-  });
-
-  // 监听认证状态变化
-  useEffect(() => {
-    console.log('LoginPage useEffect - 认证状态变化:', { 
-      isAuthenticated, 
-      authLoading, 
-      user: user?.email 
-    });
-  }, [isAuthenticated, authLoading, user]);
+  const { isAuthenticated, login, isLoading: authLoading, currentUser } = useAuth();
 
   // 如果已经登录，重定向到主页
   if (isAuthenticated) {
-    console.log('用户已认证，重定向到首页');
     return <Navigate to="/" replace />;
   }
 
   // 处理登录表单提交
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('登录表单提交 - 开始处理');
     setError('');
     
     if (!email || !password) {
       setError('请输入邮箱和密码');
-      console.log('表单验证失败 - 邮箱或密码为空');
       return;
     }
 
     setIsLoading(true);
-    console.log('开始登录请求:', { email, timestamp: new Date().toISOString() });
     
     try {
-      console.log('调用login函数前', { timestamp: new Date().toISOString() });
       await login(email, password);
-      console.log('登录成功 - login函数执行完毕', { timestamp: new Date().toISOString() });
       // 登录成功后，认证上下文会自动更新状态，触发重定向
     } catch (err: any) {
-      console.error('登录失败:', err);
-      console.error('登录失败详情:', { 
-        message: err.message, 
-        code: err.code,
-        status: err.status,
-        details: err.details,
-        timestamp: new Date().toISOString()
-      });
-      
       // 使用错误处理函数获取友好的中文错误消息
       setError(handleAuthError(err));
     } finally {
-      console.log('登录流程结束，设置isLoading=false', { timestamp: new Date().toISOString() });
       setIsLoading(false);
     }
   };
@@ -95,7 +63,6 @@ const LoginPage: React.FC = () => {
                 placeholder="邮箱地址"
                 value={email}
                 onChange={(e) => {
-                  console.log('邮箱输入变化:', e.target.value);
                   setEmail(e.target.value);
                 }}
                 disabled={isLoading}
@@ -113,7 +80,6 @@ const LoginPage: React.FC = () => {
                 placeholder="密码"
                 value={password}
                 onChange={(e) => {
-                  console.log('密码输入变化: [长度变化]', e.target.value.length);
                   setPassword(e.target.value);
                 }}
                 disabled={isLoading}
@@ -132,7 +98,6 @@ const LoginPage: React.FC = () => {
               type="submit"
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading || authLoading}
-              onClick={() => console.log('登录按钮被点击', { timestamp: new Date().toISOString() })}
             >
               {isLoading ? '登录中...' : '登录'}
             </button>

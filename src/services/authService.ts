@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { AppUser, UserRole } from '../types/auth';
 import { hashPassword, verifyPassword } from '../utils/passwordUtils';
 import { getSessionToken, setSessionToken, clearSessionToken, refreshSessionExpiry } from '../utils/sessionUtils';
+import { v4 as uuidv4 } from 'uuid';
 
 // 用户更新类型，包含密码字段
 interface UserUpdates extends Partial<Omit<AppUser, 'id' | 'created_at' | 'updated_at'>> {
@@ -329,7 +330,51 @@ export const authService = {
   async deleteUser(userId: string): Promise<void> {
     console.log('authService.deleteUser - 开始删除用户:', { userId, timestamp: new Date().toISOString() });
     try {
-      // 删除用户
+      // 1. 先删除用户关联的moves记录
+      const { error: movesError } = await supabase
+        .from('moves')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (movesError) {
+        console.error('authService.deleteUser - 删除用户moves记录失败:', movesError, { timestamp: new Date().toISOString() });
+        throw new Error('删除用户关联记录失败');
+      }
+      
+      // 2. 删除用户关联的sequence_patterns记录
+      const { error: patternsError } = await supabase
+        .from('sequence_patterns')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (patternsError) {
+        console.error('authService.deleteUser - 删除用户sequence_patterns记录失败:', patternsError, { timestamp: new Date().toISOString() });
+        throw new Error('删除用户关联记录失败');
+      }
+      
+      // 3. 删除用户关联的sequence_stats记录
+      const { error: statsError } = await supabase
+        .from('sequence_stats')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (statsError) {
+        console.error('authService.deleteUser - 删除用户sequence_stats记录失败:', statsError, { timestamp: new Date().toISOString() });
+        throw new Error('删除用户关联记录失败');
+      }
+      
+      // 4. 删除用户关联的daily_records记录
+      const { error: recordsError } = await supabase
+        .from('daily_records')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (recordsError) {
+        console.error('authService.deleteUser - 删除用户daily_records记录失败:', recordsError, { timestamp: new Date().toISOString() });
+        throw new Error('删除用户关联记录失败');
+      }
+      
+      // 5. 最后删除用户记录
       const { error } = await supabase
         .from('app_users')
         .delete()

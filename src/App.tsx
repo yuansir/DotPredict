@@ -16,23 +16,17 @@ import { useAuth } from './contexts/AuthContext';
  * App组件 - 应用程序入口
  */
 const App: React.FC = () => {
-  console.log('App组件初始化', { timestamp: new Date().toISOString() });
-  
   // 应用级状态
   const [isLoading, _setIsLoading] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<{success?: boolean; error?: string; duration?: number}>({});
 
   // 测试数据库连接
   useEffect(() => {
-    console.log('App useEffect - 测试数据库连接', { timestamp: new Date().toISOString() });
-    
     const checkConnection = async () => {
       try {
         const result = await testConnection();
-        console.log('数据库连接测试结果:', result);
         setConnectionStatus(result);
       } catch (error) {
-        console.error('数据库连接测试异常:', error);
         setConnectionStatus({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
       }
     };
@@ -40,21 +34,12 @@ const App: React.FC = () => {
     checkConnection();
   }, []);
 
-  console.log('App组件渲染', { 
-    isLoading, 
-    connectionStatus,
-    timestamp: new Date().toISOString() 
-  });
-
   return (
     <AuthProvider>
       <AlertProvider>
         <GameProvider>
           <Router>
             <div className="min-h-screen bg-gray-100">
-              {/* 调试面板 - 仅在开发环境显示 */}
-              <AuthDebugPanel />
-              
               {/* 连接状态指示器 - 仅在开发环境显示 */}
               {process.env.NODE_ENV === 'development' && (
                 <div className={`fixed bottom-0 right-0 m-4 p-2 text-xs rounded-md z-50 ${
@@ -116,33 +101,6 @@ const App: React.FC = () => {
         </GameProvider>
       </AlertProvider>
     </AuthProvider>
-  );
-};
-
-// 调试组件 - 仅在开发环境中显示
-const AuthDebugPanel = () => {
-  const { isLoading, isAuthenticated } = useAuth();
-  
-  const handleResetAuth = () => {
-    console.log('手动重置认证状态 - 刷新页面', { timestamp: new Date().toISOString() });
-    localStorage.removeItem('sb-tdyriyulhjmpxagvldtx-auth-token');
-    window.location.reload();
-  };
-  
-  if (process.env.NODE_ENV !== 'development') return null;
-  
-  return (
-    <div className="fixed top-0 right-0 m-4 p-2 bg-gray-100 rounded-md shadow-md z-50 text-xs">
-      <div className="mb-1">
-        认证状态: {isLoading ? '加载中' : isAuthenticated ? '已认证' : '未认证'}
-      </div>
-      <button 
-        onClick={handleResetAuth}
-        className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
-      >
-        重置认证
-      </button>
-    </div>
   );
 };
 
