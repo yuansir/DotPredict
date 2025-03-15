@@ -8,7 +8,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
  * 用户管理页面 - 仅管理员可访问
  */
 const AdminPage: React.FC = () => {
-  const { isAdmin, getUsers, createUser, updateUser, deleteUser, logout } = useAuth();
+  const { getUsers, createUser, updateUser, deleteUser, logout } = useAuth();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

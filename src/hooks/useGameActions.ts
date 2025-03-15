@@ -1,7 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { GameState, DotColor } from '../types';
 import { useAlert } from '../contexts/AlertContext';
-import { debounce } from '../utils/debounce';
 
 /**
  * useGameActions - 管理游戏操作的自定义钩子
@@ -40,12 +39,6 @@ export function useGameActions(
       showAlert('保存游戏状态失败，请重试', 'error');
     }
   }, [saveGameState, showAlert]);
-
-  // 使用防抖包装保存函数，300ms延迟
-  const debouncedSave = useCallback(
-    debounce((state: GameState) => saveWithErrorHandling(state), 300),
-    [saveWithErrorHandling]
-  );
 
   /**
    * 处理颜色选择
@@ -147,21 +140,34 @@ export function useGameActions(
   const toggleHistoryMode = useCallback((isViewing: boolean, isUserAction: boolean = true) => {
     // 只有当模式确实改变时才更新状态
     if (gameState.isViewingHistory !== isViewing) {
-      console.log(`切换模式: ${gameState.isViewingHistory ? '预览' : '录入'} -> ${isViewing ? '预览' : '录入'}, 用户操作: ${isUserAction}`);
+      console.log(`[DEBUG] 切换模式: ${gameState.isViewingHistory ? '预览' : '录入'} -> ${isViewing ? '预览' : '录入'}, 用户操作: ${isUserAction}, 历史记录长度: ${gameState.history.length}`);
       
       // 如果是用户手动切换模式，更新用户模式覆盖标志
       if (isUserAction && setUserModeOverride) {
         setUserModeOverride(true);
-        console.log('用户手动切换模式，已设置模式覆盖标志');
+        console.log('[DEBUG] 用户手动切换模式，已设置模式覆盖标志');
       }
       
       const updatedState: GameState = {
         ...gameState,
         isViewingHistory: isViewing
       };
+      
+      console.log('[DEBUG] 更新游戏状态前:', {
+        isViewingHistory: gameState.isViewingHistory,
+        historyLength: gameState.history.length
+      });
+      
       setGameState(updatedState);
+      
+      console.log('[DEBUG] 更新游戏状态后:', {
+        isViewingHistory: updatedState.isViewingHistory,
+        historyLength: updatedState.history.length
+      });
+    } else {
+      console.log(`[DEBUG] 模式未变化: ${isViewing ? '预览' : '录入'}, 跳过更新`);
     }
-  }, [setGameState, gameState.isViewingHistory, setUserModeOverride]);
+  }, [setGameState, gameState, setUserModeOverride]);
 
   return {
     handleColorSelect,

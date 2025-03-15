@@ -2,7 +2,6 @@ import { supabase } from '../lib/supabase';
 import { AppUser, UserRole } from '../types/auth';
 import { hashPassword, verifyPassword } from '../utils/passwordUtils';
 import { getSessionToken, setSessionToken, clearSessionToken, refreshSessionExpiry } from '../utils/sessionUtils';
-import { v4 as uuidv4 } from 'uuid';
 
 // 用户更新类型，包含密码字段
 interface UserUpdates extends Partial<Omit<AppUser, 'id' | 'created_at' | 'updated_at'>> {
@@ -210,7 +209,7 @@ export const authService = {
     console.log('authService.createUser - 开始创建用户:', { email, role, timestamp: new Date().toISOString() });
     try {
       // 检查邮箱是否已存在
-      const { data: existingUser, error: checkError } = await supabase
+      const { data: existingUser } = await supabase
         .from('app_users')
         .select('id')
         .eq('email', email)

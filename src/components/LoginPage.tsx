@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { handleAuthError } from '../utils/errorMessages';
@@ -11,7 +11,7 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { isAuthenticated, login, isLoading: authLoading, currentUser } = useAuth();
+  const { isAuthenticated, login, isLoading: authLoading } = useAuth();
 
   // 如果已经登录，重定向到主页
   if (isAuthenticated) {
@@ -105,8 +105,8 @@ const LoginPage: React.FC = () => {
           
           {/* 显示测试账号信息 */}
           <div className="text-xs text-center text-gray-500">
-            <p>测试账号: admin@example.com</p>
-            <p>测试密码: password123</p>
+            {/* <p>测试账号: admin@example.com</p>
+            <p>测试密码: password123</p> */}
           </div>
         </form>
       </div>

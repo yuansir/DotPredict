@@ -123,7 +123,7 @@ export function useSessionManagement(selectedDate: string) {
       
       // 返回下一个会话ID (当前最大ID + 1)
       const nextSessionId = latestId + 1;
-      console.log(`获取到最新会话ID: ${latestId}，下一个会话ID: ${nextSessionId}`);
+      // console.log(`获取到最新会话ID: ${latestId}，下一个会话ID: ${nextSessionId}`);
       return nextSessionId;
     } catch (error) {
       console.error('Error fetching latest session ID:', error);
@@ -158,11 +158,15 @@ export function useSessionManagement(selectedDate: string) {
       const isNewSession = currentSessions.some(s => 
         s.id === actualSessionId && s.label === '新一轮输入中...');
       
-      console.log('加载会话数据:', { 
+      console.log('[DEBUG] 加载会话数据开始:', { 
         selectedDate, 
         sessionId: actualSessionId, 
         isNewSession,
-        userId
+        userId,
+        当前游戏状态: {
+          isViewingHistory: gameState.isViewingHistory,
+          historyLength: gameState.history.length
+        }
       });
       
       // 保存当前的预览模式状态
@@ -174,6 +178,11 @@ export function useSessionManagement(selectedDate: string) {
         userId,
         actualSessionId
       );
+      
+      console.log('[DEBUG] 加载到的游戏状态:', {
+        有数据: !!loadedGameState,
+        historyLength: loadedGameState ? loadedGameState.history.length : 0
+      });
       
       // 使用函数式更新确保操作最新状态
       if (loadedGameState) {
@@ -194,6 +203,12 @@ export function useSessionManagement(selectedDate: string) {
           isViewingHistory: currentViewingHistory
         }));
       }
+      
+      console.log('[DEBUG] 加载会话数据完成:', {
+        sessionId: actualSessionId,
+        isViewingHistory: currentViewingHistory,
+        historyLength: loadedGameState ? loadedGameState.history.length : 0
+      });
       
       return loadedGameState;
     } catch (error) {
@@ -339,7 +354,7 @@ export function useSessionManagement(selectedDate: string) {
     const initializeDate = async () => {
       // 检查是否已经为当前日期初始化过
       if (initializationRef.current.initialized && initializationRef.current.date === selectedDate) {
-        console.log('跳过已初始化的日期:', selectedDate);
+        // console.log('跳过已初始化的日期:', selectedDate);
         setIsLoading(false);
         return;
       }

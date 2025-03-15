@@ -397,22 +397,44 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
 
   // 自定义方法：处理会话变化
   const handleSessionChange = useCallback((sessionId: number) => {
-    // console.log('[DEBUG] 会话切换:', { 从: currentSessionId, 到: sessionId, 用户模式覆盖: userModeOverride });
+    console.log('[DEBUG] 会话切换:', { 
+      从: currentSessionId, 
+      到: sessionId, 
+      用户模式覆盖: userModeOverride,
+      当前游戏状态: {
+        isViewingHistory: gameState.isViewingHistory,
+        historyLength: gameState.history.length
+      }
+    });
     sessionHandleSessionChange(sessionId);
-  }, [sessionHandleSessionChange, currentSessionId, userModeOverride]);
+  }, [sessionHandleSessionChange, currentSessionId, userModeOverride, gameState.isViewingHistory, gameState.history.length]);
 
   // 自定义方法：结束当前会话
   const endCurrentSession = useCallback(async () => {
-    // console.log('[DEBUG] 结束当前会话:', { sessionId: currentSessionId, 模式: gameState.isViewingHistory ? '预览' : '录入' });
+    console.log('[DEBUG] 结束当前会话开始:', { 
+      sessionId: currentSessionId, 
+      模式: gameState.isViewingHistory ? '预览' : '录入',
+      historyLength: gameState.history.length
+    });
+    
     try {
       setIsSessionEnding(true);
       await sessionEndCurrentSession();
+      
+      console.log('[DEBUG] sessionEndCurrentSession执行完成');
+      
       setIsSessionEnding(false);
+      
+      console.log('[DEBUG] 结束当前会话完成后状态:', { 
+        sessionId: currentSessionId, 
+        模式: gameState.isViewingHistory ? '预览' : '录入',
+        historyLength: gameState.history.length
+      });
     } catch (error) {
       console.error('结束会话失败:', error);
       setIsSessionEnding(false);
     }
-  }, [sessionEndCurrentSession, currentSessionId, gameState.isViewingHistory, setIsSessionEnding]);
+  }, [sessionEndCurrentSession, currentSessionId, gameState.isViewingHistory, gameState.history.length, setIsSessionEnding]);
 
   // 添加防循环保护ref
   const processedStateRef = useRef<{

@@ -10,7 +10,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminButton from './components/AdminButton';
 import AdminPage from './pages/AdminPage';
 import { testConnection } from './lib/supabase';
-import { useAuth } from './contexts/AuthContext';
 
 /**
  * App组件 - 应用程序入口

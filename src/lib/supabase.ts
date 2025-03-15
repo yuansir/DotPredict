@@ -35,7 +35,7 @@ export const supabase = createClient(
 export const testConnection = async () => {
   const startTime = Date.now();
   try {
-    const { data, error } = await supabase.from('app_users').select('count()', { count: 'exact', head: true });
+    const { error } = await supabase.from('app_users').select('count()', { count: 'exact', head: true });
     
     if (error) {
       return { success: false, error: error.message, duration: Date.now() - startTime };

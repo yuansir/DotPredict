@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -15,7 +15,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children, 
   requireAdmin = false 
 }) => {
-  const { isAuthenticated, isAdmin, isLoading, currentUser } = useAuth();
+  const { isAuthenticated, isAdmin, isLoading } = useAuth();
 
   // 如果正在加载认证状态，显示加载中
   if (isLoading) {

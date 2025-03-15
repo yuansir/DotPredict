@@ -73,7 +73,49 @@ export const GameContainer: React.FC = () => {
   const safeHandleColorSelect = withPreviewCheck(handleColorSelect, '颜色选择');
   const safeHandleUndo = withPreviewCheck(handleUndo, '撤销');
   const safeHandleClear = withPreviewCheck(handleClear, '清空数据');
-  const safeEndCurrentSession = withPreviewCheck(endCurrentSession, '终止输入');
+  const safeEndCurrentSession = withPreviewCheck(async () => {
+    console.log('[DEBUG] 终止输入按钮被点击 - 开始执行');
+    console.log('[DEBUG] 终止输入前状态:', {
+      isViewingHistory: gameState.isViewingHistory,
+      historyLength: gameState.history.length,
+      lastCompleteColumn,
+      currentSessionId,
+      matrixCurrentPage
+    });
+    
+    await endCurrentSession();
+    
+    // 不调用safeHandleClear，因为它会删除数据库数据
+    
+    // 直接修改游戏状态，清空矩阵显示
+    // 通过设置isViewingHistory为true来暂时隐藏矩阵数据
+    // 然后在下一次会话加载时，它会自动切换回false
+    toggleHistoryMode(true);
+    
+    // 手动重置lastCompleteColumn状态，确保完整模式列的视觉效果被清除
+    setLastCompleteColumn({ colIndex: -1, patternType: null, globalColIndex: -1 });
+    
+    // 查找"新一轮输入中"的会话ID
+    const newSessionId = availableSessions.find(session => session.label === '新一轮输入中...')?.id;
+    
+    // 如果找到新会话ID，切换到新会话；否则使用当前会话ID
+    if (newSessionId) {
+      console.log('[DEBUG] 终止输入后切换到新会话:', newSessionId);
+      handleSessionChange(newSessionId);
+    } else {
+      // 如果没有找到新会话，刷新当前会话
+      console.log('[DEBUG] 未找到新会话，刷新当前会话:', currentSessionId);
+      handleSessionChange(currentSessionId);
+    }
+    
+    console.log('[DEBUG] endCurrentSession执行完成后状态:', {
+      isViewingHistory: gameState.isViewingHistory,
+      historyLength: gameState.history.length,
+      lastCompleteColumn,
+      currentSessionId,
+      matrixCurrentPage
+    });
+  }, '终止输入');
 
   // 处理点击矩阵中的点的函数
   const handleDotClick = useCallback((position: { row: number, col: number }) => {
@@ -284,6 +326,7 @@ export const GameContainer: React.FC = () => {
   useEffect(() => {
     // 如果历史记录为空（清空数据或终止输入后），重置lastCompleteColumn状态
     if (gameState.history.length === 0) {
+      console.log('[DEBUG] 历史记录为空，重置lastCompleteColumn状态');
       setLastCompleteColumn({ colIndex: -1, patternType: null, globalColIndex: -1 });
       return;
     }
@@ -346,11 +389,20 @@ export const GameContainer: React.FC = () => {
 
     // 只有当找到新的完整模式列时，才更新状态
     if (firstCompleteColumnIndex !== -1 && firstCompleteColumnPattern) {
+      console.log('[DEBUG] 找到新的完整模式列:', {
+        colIndex: firstCompleteColumnIndex,
+        patternType: firstCompleteColumnPattern,
+        globalColIndex: firstCompleteGlobalColIndex,
+        previousLastCompleteColumn: lastCompleteColumn
+      });
+      
       setLastCompleteColumn({
         colIndex: firstCompleteColumnIndex,
         patternType: firstCompleteColumnPattern,
         globalColIndex: firstCompleteGlobalColIndex
       });
+    } else {
+      console.log('[DEBUG] 未找到完整模式列，当前lastCompleteColumn:', lastCompleteColumn);
     }
   }, [currentPageMatrix, matrixCurrentPage, gameState.history.length]);
 
