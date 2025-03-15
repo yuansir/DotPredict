@@ -125,10 +125,13 @@ export function useGameActions(
       // 本地UI更新（在clearCurrentSessionData内部已处理）
       clearAllData();
       
+      // 如果是管理员且操作成功，显示成功消息
+      // 如果是普通用户，不显示错误消息，因为本地UI已经清空
       if (success) {
         showAlert('数据已成功清空', 'info');
       } else {
-        showAlert('清空数据时发生错误', 'error');
+        // 不显示错误消息，因为对于普通用户来说，本地UI已经清空
+        // 这是预期行为，不是错误
       }
     } catch (error) {
       console.error('清空操作失败:', error);

@@ -102,25 +102,31 @@ export class GameService {
         return;
       }
 
-      // 1. 保存或更新日期记录
+      // 1. 删除现有的日期记录
+      const { error: deleteRecordError } = await supabase
+        .from('daily_records')
+        .delete()
+        .eq('date', date)
+        .eq('user_id', userId);
+
+      if (deleteRecordError) throw deleteRecordError;
+
+      // 2. 插入新的日期记录
       const { error: recordError } = await supabase
         .from('daily_records')
-        .upsert(
+        .insert(
           {
             date,
             total_predictions: state.totalPredictions,
             correct_predictions: state.correctPredictions,
             updated_at: new Date().toISOString(),
             user_id: userId // 添加用户ID
-          },
-          {
-            onConflict: 'date,user_id', // 指定冲突条件，包含用户ID
           }
         );
 
       if (recordError) throw recordError;
 
-      // 2. 准备移动记录
+      // 3. 准备移动记录
       const moves = state.history.map((move, index) => {
         // 确保时间戳是有效的
         let createdAt;
@@ -143,7 +149,7 @@ export class GameService {
         };
       });
 
-      // 3. 删除当前会话的所有记录，然后重新插入
+      // 4. 删除当前会话的所有记录，然后重新插入
       const { error: deleteError } = await supabase
         .from('moves')
         .delete()
@@ -153,7 +159,7 @@ export class GameService {
 
       if (deleteError) throw deleteError;
 
-      // 4. 插入新记录
+      // 5. 插入新记录
       if (moves.length > 0) {
         console.log('保存游戏状态，使用会话ID:', sessionId, '用户ID:', userId, '总记录数:', moves.length);
 
@@ -316,9 +322,19 @@ export class GameService {
         return false;
       }
 
+      // 1. 删除现有的日期记录
+      const { error: deleteError } = await supabase
+        .from('daily_records')
+        .delete()
+        .eq('date', date)
+        .eq('user_id', userId);
+
+      if (deleteError) throw deleteError;
+
+      // 2. 插入新的日期记录
       const { error } = await supabase
         .from('daily_records')
-        .upsert(
+        .insert(
           {
             date,
             latest_session_id: initialSessionId,
@@ -327,9 +343,6 @@ export class GameService {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             user_id: userId // 添加用户ID
-          },
-          {
-            onConflict: 'date,user_id', // 指定冲突条件，包含用户ID
           }
         );
 
@@ -395,21 +408,29 @@ export class GameService {
 
       if (movesError) throw movesError;
 
-      // 2. 更新daily_records表中的计数
-      // 注意：我们不删除daily_records记录，只是将计数归零
-      const { error: recordError } = await supabase
+      // 2. 先删除daily_records表中的现有记录，然后插入新记录
+      // 删除现有记录
+      const { error: deleteRecordError } = await supabase
         .from('daily_records')
-        .upsert({
+        .delete()
+        .eq('date', date)
+        .eq('user_id', userId);
+        
+      if (deleteRecordError) throw deleteRecordError;
+      
+      // 插入新记录
+      const { error: insertRecordError } = await supabase
+        .from('daily_records')
+        .insert({
           date,
           total_predictions: 0,
           correct_predictions: 0,
+          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           user_id: userId // 添加用户ID
-        }, {
-          onConflict: 'date,user_id' // 指定冲突条件，包含用户ID
         });
 
-      if (recordError) throw recordError;
+      if (insertRecordError) throw insertRecordError;
 
       // 3. 获取当前最大会话ID以生成新的会话ID
       let sessionQuery = supabase
@@ -461,19 +482,29 @@ export class GameService {
       
       console.log('正在终止会话:', { date, sessionId, userId });
 
-      // 更新daily_records表，设置latest_session_id
-      const { error: recordError } = await supabase
+      // 先删除daily_records表中的现有记录
+      const { error: deleteRecordError } = await supabase
         .from('daily_records')
-        .upsert({
+        .delete()
+        .eq('date', date)
+        .eq('user_id', userId);
+        
+      if (deleteRecordError) throw deleteRecordError;
+      
+      // 插入新记录，设置latest_session_id
+      const { error: insertRecordError } = await supabase
+        .from('daily_records')
+        .insert({
           date,
           latest_session_id: sessionId,
+          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          user_id: userId
-        }, {
-          onConflict: 'date,user_id'
+          user_id: userId,
+          total_predictions: 0,
+          correct_predictions: 0
         });
 
-      if (recordError) throw recordError;
+      if (insertRecordError) throw insertRecordError;
 
       console.log('会话终止成功:', { date, sessionId, userId });
     } catch (error) {

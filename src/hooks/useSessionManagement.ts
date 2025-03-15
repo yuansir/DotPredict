@@ -241,9 +241,19 @@ export function useSessionManagement(selectedDate: string) {
   const clearCurrentSessionData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // 如果是普通用户，不清除数据
+      // 如果是普通用户，不清除服务端数据，但仍然清除本地UI状态
       if (!isAdmin) {
-        console.log('普通用户不清除数据');
+        console.log('普通用户不清除服务端数据，仅清除本地UI状态');
+        
+        // 清空本地状态
+        setGameState({
+          history: [],
+          totalPredictions: 0,
+          correctPredictions: 0,
+          predictionStats: [],
+          isViewingHistory: false
+        });
+        
         setIsLoading(false);
         return false;
       }
