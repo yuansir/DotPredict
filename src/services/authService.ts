@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { AppUser, UserRole } from '../types/auth';
 import { hashPassword, verifyPassword } from '../utils/passwordUtils';
 import { getSessionToken, setSessionToken, clearSessionToken, refreshSessionExpiry } from '../utils/sessionUtils';
+import { v4 as uuidv4 } from 'uuid';
 
 // 用户更新类型，包含密码字段
 interface UserUpdates extends Partial<Omit<AppUser, 'id' | 'created_at' | 'updated_at'>> {
@@ -50,8 +51,8 @@ export const authService = {
         throw new Error('账户或者密码错误');
       }
       
-      // 3. 生成会话令牌
-      const sessionToken = crypto.randomUUID();
+      // 3. 生成会话令牌 - 使用uuid库替代crypto.randomUUID()
+      const sessionToken = uuidv4();
       
       // 4. 更新用户的会话令牌和最后登录时间
       const { error: updateError } = await supabase
