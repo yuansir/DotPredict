@@ -11,6 +11,7 @@ interface ControlPanelProps {
   onEndSession?: () => void;
   isViewingHistory?: boolean;
   totalMoves?: number;
+  isAdmin?: boolean;
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({
@@ -20,7 +21,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onClear,
   onEndSession,
   isViewingHistory = false,
-  totalMoves = 0
+  totalMoves = 0,
+  isAdmin = false
 }) => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
@@ -79,22 +81,24 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           {isViewingHistory && <span className="text-xs ml-1">(预览中)</span>}
         </button>
         
-        <button
-          onClick={onEndSession}
-          disabled={isViewingHistory || totalMoves === 0}
-          className={`w-full py-3 px-4 rounded-lg ${
-            isViewingHistory 
-              ? 'bg-yellow-300 cursor-not-allowed' 
-              : totalMoves === 0 
+        {isAdmin && (
+          <button
+            onClick={onEndSession}
+            disabled={isViewingHistory || totalMoves === 0}
+            className={`w-full py-3 px-4 rounded-lg ${
+              isViewingHistory 
                 ? 'bg-yellow-300 cursor-not-allowed' 
-                : 'bg-yellow-500 hover:bg-yellow-600'
-          } text-white flex items-center justify-center space-x-2 transition-colors`}
-          title={isViewingHistory ? "预览模式下不可用" : totalMoves === 0 ? "没有数据可终止" : "终止当前输入"}
-        >
-          <FiStopCircle className="w-5 h-5" />
-          <span>终止输入</span>
-          {isViewingHistory && <span className="text-xs ml-1">(预览中)</span>}
-        </button>
+                : totalMoves === 0 
+                  ? 'bg-yellow-300 cursor-not-allowed' 
+                  : 'bg-yellow-500 hover:bg-yellow-600'
+            } text-white flex items-center justify-center space-x-2 transition-colors`}
+            title={isViewingHistory ? "预览模式下不可用" : totalMoves === 0 ? "没有数据可终止" : "终止当前输入"}
+          >
+            <FiStopCircle className="w-5 h-5" />
+            <span>终止输入</span>
+            {isViewingHistory && <span className="text-xs ml-1">(预览中)</span>}
+          </button>
+        )}
         
         <button
           onClick={() => !isViewingHistory && totalMoves > 0 && setShowClearConfirm(true)}

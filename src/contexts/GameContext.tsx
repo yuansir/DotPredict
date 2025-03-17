@@ -7,6 +7,7 @@ import { useContinuityPrediction } from '../hooks/useContinuityPrediction';
 import { useRulePrediction } from '../hooks/useRulePrediction';
 import { useMatrixPagination } from '../hooks/useMatrixPagination';
 import { useGameActions } from '../hooks/useGameActions';
+import { useAuth } from '../contexts/AuthContext';
 
 // 定义上下文类型
 interface GameContextType {
@@ -45,6 +46,7 @@ interface GameContextType {
   rulePredictions: (DotColor | null)[];
   rulePredictionRow: number | null;
   rulePredictionUpdateId: number;
+  rulePatternType: 'connected' | 'opposite' | null; // 添加规则模式类型
 
   // 操作方法
   handleSessionChange: (sessionId: number) => void;
@@ -110,6 +112,44 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
 
   // 会话终止状态
   const [isSessionEnding, setIsSessionEnding] = useState<boolean>(false);
+
+  // 获取当前用户信息
+  const { currentUser } = useAuth();
+
+  // 添加用户变化引用
+  const userChangeRef = useRef({
+    initialized: false,
+    lastUserId: null as string | null
+  });
+
+  // 监听用户变化，重置游戏状态
+  useEffect(() => {
+    // 仅在用户变化时执行，不在初始渲染时执行
+    if (userChangeRef.current.initialized) {
+      console.log('用户变化，重置游戏状态:', { 
+        previousUser: userChangeRef.current.lastUserId, 
+        currentUser: currentUser?.id 
+      });
+      
+      // 重置游戏状态
+      setGameState({
+        history: [],
+        isViewingHistory: false,
+        totalPredictions: 0,
+        correctPredictions: 0,
+        predictionStats: []
+      });
+      
+      // 重置用户模式覆盖标志
+      setUserModeOverride(false);
+    }
+    
+    // 更新用户引用
+    userChangeRef.current = {
+      initialized: true,
+      lastUserId: currentUser?.id || null
+    };
+  }, [currentUser]);
 
   // 添加调试日志 - 记录模式状态变化
   useEffect(() => {
@@ -271,7 +311,15 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   const continuityResult = useContinuityPrediction(gameState, nextPosition, userModeOverride);
 
   // 计算规则预测
-  const ruleResult = useRulePrediction(gameState, nextPosition, userModeOverride);
+  const { 
+    predictions: rulePredictions, 
+    predictionRowIndex: rulePredictionRow,
+    patternType: rulePatternType 
+  } = useRulePrediction(
+    gameState,
+    nextPosition,
+    userModeOverride
+  );
 
   // 计算矩阵哈希，用于检测真实变化
   const calculateMatrixHash = useCallback(() => {
@@ -325,22 +373,23 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     if (currentMatrixHash !== rulePredictionState.lastMatrixHash) {
       // 更新预测状态，确保创建新的引用
       setRulePredictionState(prev => ({
-        predictions: [...ruleResult.predictions], // 创建新数组
-        predictionRowIndex: ruleResult.predictionRowIndex,
+        predictions: [...rulePredictions], // 创建新数组
+        predictionRowIndex: rulePredictionRow,
         updateId: prev.updateId + 1,
         lastMatrixHash: currentMatrixHash
       }));
 
       // console.log('[DEBUG] GameContext - 规则预测状态已更新:', {
-      //   predictions: ruleResult.predictions,
-      //   predictionRowIndex: ruleResult.predictionRowIndex,
+      //   predictions: rulePredictions,
+      //   predictionRowIndex: rulePredictionRow,
       //   updateId: rulePredictionState.updateId + 1,
       //   gameStateHistory: gameState.history.length,
       //   matrixHashChanged: currentMatrixHash !== rulePredictionState.lastMatrixHash
       // });
     }
   }, [
-    ruleResult,
+    rulePredictions,
+    rulePredictionRow,
     gameState.history,
     calculateMatrixHash,
     rulePredictionState.lastMatrixHash
@@ -348,22 +397,44 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
 
   // 自定义方法：处理会话变化
   const handleSessionChange = useCallback((sessionId: number) => {
-    // console.log('[DEBUG] 会话切换:', { 从: currentSessionId, 到: sessionId, 用户模式覆盖: userModeOverride });
+    console.log('[DEBUG] 会话切换:', { 
+      从: currentSessionId, 
+      到: sessionId, 
+      用户模式覆盖: userModeOverride,
+      当前游戏状态: {
+        isViewingHistory: gameState.isViewingHistory,
+        historyLength: gameState.history.length
+      }
+    });
     sessionHandleSessionChange(sessionId);
-  }, [sessionHandleSessionChange, currentSessionId, userModeOverride]);
+  }, [sessionHandleSessionChange, currentSessionId, userModeOverride, gameState.isViewingHistory, gameState.history.length]);
 
   // 自定义方法：结束当前会话
   const endCurrentSession = useCallback(async () => {
-    // console.log('[DEBUG] 结束当前会话:', { sessionId: currentSessionId, 模式: gameState.isViewingHistory ? '预览' : '录入' });
+    console.log('[DEBUG] 结束当前会话开始:', { 
+      sessionId: currentSessionId, 
+      模式: gameState.isViewingHistory ? '预览' : '录入',
+      historyLength: gameState.history.length
+    });
+    
     try {
       setIsSessionEnding(true);
       await sessionEndCurrentSession();
+      
+      console.log('[DEBUG] sessionEndCurrentSession执行完成');
+      
       setIsSessionEnding(false);
+      
+      console.log('[DEBUG] 结束当前会话完成后状态:', { 
+        sessionId: currentSessionId, 
+        模式: gameState.isViewingHistory ? '预览' : '录入',
+        historyLength: gameState.history.length
+      });
     } catch (error) {
       console.error('结束会话失败:', error);
       setIsSessionEnding(false);
     }
-  }, [sessionEndCurrentSession, currentSessionId, gameState.isViewingHistory, setIsSessionEnding]);
+  }, [sessionEndCurrentSession, currentSessionId, gameState.isViewingHistory, gameState.history.length, setIsSessionEnding]);
 
   // 添加防循环保护ref
   const processedStateRef = useRef<{
@@ -531,9 +602,10 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     predictionUpdateId: predictionState.updateId,
 
     // 规则预测状态
-    rulePredictions: rulePredictionState.predictions,
-    rulePredictionRow: rulePredictionState.predictionRowIndex,
+    rulePredictions,
+    rulePredictionRow,
     rulePredictionUpdateId: rulePredictionState.updateId,
+    rulePatternType,
 
     // 操作方法
     handleSessionChange,

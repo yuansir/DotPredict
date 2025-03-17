@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { GameProvider } from './contexts/GameContext';
 import { GameContainer } from './components/GameContainer';
@@ -7,6 +7,9 @@ import { AlertProvider } from './contexts/AlertContext';
 import { AuthProvider } from './contexts/AuthContext';
 import LoginPage from './components/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminButton from './components/AdminButton';
+import AdminPage from './pages/AdminPage';
+import { testConnection } from './lib/supabase';
 
 /**
  * App组件 - 应用程序入口
@@ -14,6 +17,21 @@ import ProtectedRoute from './components/ProtectedRoute';
 const App: React.FC = () => {
   // 应用级状态
   const [isLoading, _setIsLoading] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{success?: boolean; error?: string; duration?: number}>({});
+
+  // 测试数据库连接
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const result = await testConnection();
+        setConnectionStatus(result);
+      } catch (error) {
+        setConnectionStatus({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+      }
+    };
+    
+    checkConnection();
+  }, []);
 
   return (
     <AuthProvider>
@@ -21,13 +39,30 @@ const App: React.FC = () => {
         <GameProvider>
           <Router>
             <div className="min-h-screen bg-gray-100">
+              {/* 连接状态指示器 - 仅在开发环境显示 */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className={`fixed bottom-0 right-0 m-4 p-2 text-xs rounded-md z-50 ${
+                  connectionStatus.success ? 'bg-green-100 text-green-800' : 
+                  connectionStatus.success === false ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                }`}>
+                  DB: {connectionStatus.success ? `✓ ${connectionStatus.duration}ms` : 
+                       connectionStatus.success === false ? `✗ ${connectionStatus.error}` : '...'} 
+                </div>
+              )}
+              
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/" element={
                   <ProtectedRoute>
                     <div className="container mx-auto py-8 px-4 max-w-7xl">
                       <GameContainer />
+                      <AdminButton />
                     </div>
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminPage />
                   </ProtectedRoute>
                 } />
               </Routes>

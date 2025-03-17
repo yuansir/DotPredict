@@ -1,61 +1,52 @@
 import { createClient } from '@supabase/supabase-js';
 
-// @ts-ignore
+// Type declaration for Vite's import.meta.env
+declare global {
+  interface ImportMeta {
+    env: {
+      VITE_SUPABASE_URL: string;
+      VITE_SUPABASE_ANON_KEY: string;
+      [key: string]: string;
+    };
+  }
+}
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-// @ts-ignore
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-  global: {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  },
-});
+// 创建Supabase客户端
+export const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY,
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    }
+  }
+);
 
 // 测试数据库连接
 export const testConnection = async () => {
+  const startTime = Date.now();
   try {
-    console.log('Testing Supabase connection...');
-    console.log('URL:', supabaseUrl);
-    
-    const start = Date.now();
-    const { data, error } = await supabase
-      .from('daily_records')
-      .select('date')
-      .limit(1);
-    
-    const duration = Date.now() - start;
-    console.log(`Connection test completed in ${duration}ms`);
+    const { error } = await supabase.from('app_users').select('count()', { count: 'exact', head: true });
     
     if (error) {
-      console.error('Connection test failed:', error);
-      return {
-        success: false,
-        error: error.message,
-        duration
-      };
+      return { success: false, error: error.message, duration: Date.now() - startTime };
     }
     
-    return {
-      success: true,
-      duration,
-      data
-    };
+    return { success: true, duration: Date.now() - startTime };
   } catch (error) {
-    console.error('Connection test failed with exception:', error);
-    return {
-      success: false,
+    return { 
+      success: false, 
       error: error instanceof Error ? error.message : 'Unknown error',
-      duration: -1
+      duration: Date.now() - startTime 
     };
   }
 };

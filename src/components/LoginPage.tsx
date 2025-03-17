@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { handleAuthError } from '../utils/errorMessages';
 
 /**
  * 登录页面组件 - 提供简约的登录界面
@@ -9,7 +10,8 @@ const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { isAuthenticated, login } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const { isAuthenticated, login, isLoading: authLoading } = useAuth();
 
   // 如果已经登录，重定向到主页
   if (isAuthenticated) {
@@ -17,7 +19,7 @@ const LoginPage: React.FC = () => {
   }
 
   // 处理登录表单提交
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
@@ -26,9 +28,16 @@ const LoginPage: React.FC = () => {
       return;
     }
 
-    const success = login(email, password);
-    if (!success) {
-      setError('邮箱或密码不正确');
+    setIsLoading(true);
+    
+    try {
+      await login(email, password);
+      // 登录成功后，认证上下文会自动更新状态，触发重定向
+    } catch (err: any) {
+      // 使用错误处理函数获取友好的中文错误消息
+      setError(handleAuthError(err));
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -53,7 +62,10 @@ const LoginPage: React.FC = () => {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="邮箱地址"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                }}
+                disabled={isLoading}
               />
             </div>
             <div>
@@ -67,7 +79,10 @@ const LoginPage: React.FC = () => {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="密码"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                }}
+                disabled={isLoading}
               />
             </div>
           </div>
@@ -81,18 +96,18 @@ const LoginPage: React.FC = () => {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading || authLoading}
             >
-              登录
+              {isLoading ? '登录中...' : '登录'}
             </button>
           </div>
           
-          {/* 隐藏测试账号信息
+          {/* 显示测试账号信息 */}
           <div className="text-xs text-center text-gray-500">
-            <p>测试账号: admin@example.com</p>
-            <p>测试密码: password123</p>
+            {/* <p>测试账号: admin@example.com</p>
+            <p>测试密码: password123</p> */}
           </div>
-          */}
         </form>
       </div>
     </div>

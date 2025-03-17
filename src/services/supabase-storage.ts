@@ -5,24 +5,29 @@ import { GameState, Move, DotColor, Position } from '../types';
 export class SupabaseStorageService {
   async saveGameStateByDate(state: GameState, date: string, sessionId: number): Promise<void> {
     try {
-      // 1. 保存或更新日期记录
+      // 1. 删除现有的日期记录
+      const { error: deleteRecordError } = await supabase
+        .from('daily_records')
+        .delete()
+        .eq('date', date);
+
+      if (deleteRecordError) throw deleteRecordError;
+
+      // 2. 插入新的日期记录
       const { error: recordError } = await supabase
         .from('daily_records')
-        .upsert(
+        .insert(
           {
             date,
             total_predictions: state.totalPredictions,
             correct_predictions: state.correctPredictions,
             updated_at: new Date().toISOString()
-          },
-          {
-            onConflict: 'date',  // 指定在 date 字段冲突时更新记录
           }
         );
 
       if (recordError) throw recordError;
 
-      // 2. 保存移动记录
+      // 3. 保存移动记录
       const moves = state.history.map((move, index) => {
         // 确保时间戳是有效的
         let createdAt;
@@ -64,7 +69,7 @@ export class SupabaseStorageService {
         if (movesError) throw movesError;
       }
 
-      // 3. 更新序列模式（用于预测）
+      // 4. 更新序列模式（用于预测）
       if (moves.length >= 2) {
         for (let i = 0; i < moves.length - 1; i++) {
           const patternLength = Math.min(5, i + 1); // 最多取5个作为模式
@@ -72,17 +77,25 @@ export class SupabaseStorageService {
             .map(m => m.color);
           const nextColor = moves[i + 1].color;
 
+          // 1. 删除现有的模式记录
+          const { error: deletePatternError } = await supabase
+            .from('sequence_patterns')
+            .delete()
+            .eq('pattern', pattern)
+            .eq('pattern_length', pattern.length)
+            .eq('next_color', nextColor);
+
+          if (deletePatternError) throw deletePatternError;
+
+          // 2. 插入新的模式记录
           const { error: patternError } = await supabase
             .from('sequence_patterns')
-            .upsert(
+            .insert(
               {
                 pattern,
                 pattern_length: pattern.length,
                 next_color: nextColor,
                 last_seen_at: new Date().toISOString()
-              },
-              {
-                onConflict: 'pattern,pattern_length,next_color'
               }
             );
 

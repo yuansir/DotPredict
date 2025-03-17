@@ -3,7 +3,7 @@ import { useGameContext } from '../contexts/GameContext';
 import { ControlPanel } from './ControlPanel';
 import { useAlert } from '../contexts/AlertContext';
 import { MatrixPagination } from './MatrixPagination';
-import { Position } from '../types';
+import { Position, DotColor } from '../types';
 import PredictionArea from './PredictionArea'; // 导入预测区域组件
 import { useAuth } from '../contexts/AuthContext'; // 导入认证上下文
 
@@ -33,15 +33,23 @@ export const GameContainer: React.FC = () => {
     continuityPredictions,
     continuityPredictionRow,
     predictionUpdateId,
-    rulePredictions       // 添加规则预测数据
-    // rulePredictionRow  // 未使用变量
+    rulePredictions,      // 规则预测数据
+    // rulePredictionRow, // 未使用变量
+    rulePatternType       // 添加规则模式类型
   } = useGameContext();
 
   const { showAlert } = useAlert();
-  const { logout } = useAuth(); // 获取退出登录函数
+  const { logout, isAdmin } = useAuth(); // 获取退出登录函数和管理员状态
 
   // 控制规则说明区域显示/隐藏的状态
   const [showRules, setShowRules] = useState(true);
+
+  // 添加状态来记住最后一个找到的完整模式列
+  const [lastCompleteColumn, setLastCompleteColumn] = useState<{
+    colIndex: number;
+    patternType: 'connected' | 'opposite' | null;
+    globalColIndex: number; // 添加全局列索引以处理分页
+  }>({ colIndex: -1, patternType: null, globalColIndex: -1 });
 
   // 处理完成编辑的函数 - 暂时未使用
   // const handleFinishEdit = () => {
@@ -65,7 +73,49 @@ export const GameContainer: React.FC = () => {
   const safeHandleColorSelect = withPreviewCheck(handleColorSelect, '颜色选择');
   const safeHandleUndo = withPreviewCheck(handleUndo, '撤销');
   const safeHandleClear = withPreviewCheck(handleClear, '清空数据');
-  const safeEndCurrentSession = withPreviewCheck(endCurrentSession, '终止输入');
+  const safeEndCurrentSession = withPreviewCheck(async () => {
+    console.log('[DEBUG] 终止输入按钮被点击 - 开始执行');
+    console.log('[DEBUG] 终止输入前状态:', {
+      isViewingHistory: gameState.isViewingHistory,
+      historyLength: gameState.history.length,
+      lastCompleteColumn,
+      currentSessionId,
+      matrixCurrentPage
+    });
+    
+    await endCurrentSession();
+    
+    // 不调用safeHandleClear，因为它会删除数据库数据
+    
+    // 直接修改游戏状态，清空矩阵显示
+    // 通过设置isViewingHistory为true来暂时隐藏矩阵数据
+    // 然后在下一次会话加载时，它会自动切换回false
+    toggleHistoryMode(true);
+    
+    // 手动重置lastCompleteColumn状态，确保完整模式列的视觉效果被清除
+    setLastCompleteColumn({ colIndex: -1, patternType: null, globalColIndex: -1 });
+    
+    // 查找"新一轮输入中"的会话ID
+    const newSessionId = availableSessions.find(session => session.label === '新一轮输入中...')?.id;
+    
+    // 如果找到新会话ID，切换到新会话；否则使用当前会话ID
+    if (newSessionId) {
+      console.log('[DEBUG] 终止输入后切换到新会话:', newSessionId);
+      handleSessionChange(newSessionId);
+    } else {
+      // 如果没有找到新会话，刷新当前会话
+      console.log('[DEBUG] 未找到新会话，刷新当前会话:', currentSessionId);
+      handleSessionChange(currentSessionId);
+    }
+    
+    console.log('[DEBUG] endCurrentSession执行完成后状态:', {
+      isViewingHistory: gameState.isViewingHistory,
+      historyLength: gameState.history.length,
+      lastCompleteColumn,
+      currentSessionId,
+      matrixCurrentPage
+    });
+  }, '终止输入');
 
   // 处理点击矩阵中的点的函数
   const handleDotClick = useCallback((position: { row: number, col: number }) => {
@@ -123,9 +173,95 @@ export const GameContainer: React.FC = () => {
       return localPos !== null && localPos.col >= 0 && localPos.col < COLS_PER_PAGE;
     };
 
+    // 检查列是否完整（有三个球）
+    const isCompleteColumn = (colIndex: number): boolean => {
+      return currentPageMatrix.every(row => 
+        row[colIndex] !== null && row[colIndex] !== undefined
+      );
+    };
+
+    // 检查列是否匹配模式
+    const getColumnPatternType = (colIndex: number): 'connected' | 'opposite' | null => {
+      if (!isCompleteColumn(colIndex)) return null;
+      
+      const column = [
+        currentPageMatrix[0][colIndex],
+        currentPageMatrix[1][colIndex],
+        currentPageMatrix[2][colIndex]
+      ] as DotColor[];
+      
+      // 检查是否匹配"相连"模式
+      const isRedRedRed = column[0] === 'red' && column[1] === 'red' && column[2] === 'red';
+      const isBlackBlackBlack = column[0] === 'black' && column[1] === 'black' && column[2] === 'black';
+      
+      // 检查是否匹配"相反"模式
+      const isRedBlackRed = column[0] === 'red' && column[1] === 'black' && column[2] === 'red';
+      const isBlackRedBlack = column[0] === 'black' && column[1] === 'red' && column[2] === 'black';
+      
+      if (isRedRedRed || isBlackBlackBlack) {
+        return 'connected'; // 相连模式
+      } else if (isRedBlackRed || isBlackRedBlack) {
+        return 'opposite'; // 相反模式
+      }
+      
+      return null; // 不匹配任何模式
+    };
+
+    // 找到从右向左第一个完整列
+    const findFirstCompleteColumn = (): { colIndex: number, patternType: 'connected' | 'opposite' | null, globalColIndex: number } => {
+      for (let colIndex = currentPageMatrix[0].length - 1; colIndex >= 0; colIndex--) {
+        if (isCompleteColumn(colIndex)) {
+          const patternType = getColumnPatternType(colIndex);
+          if (patternType) {
+            const globalColIndex = colIndex + pageStartCol;
+            return { colIndex, patternType, globalColIndex };
+          }
+        }
+      }
+      return { colIndex: -1, patternType: null, globalColIndex: -1 };
+    };
+
+    // 获取第一个完整列
+    const { colIndex: firstCompleteColumnIndex, patternType: firstCompleteColumnPattern, globalColIndex: _firstCompleteGlobalColIndex } = findFirstCompleteColumn();
+
+    // 确定要显示效果的列
+    let displayEffectColIndex = -1;
+    let displayEffectPatternType: 'connected' | 'opposite' | null = null;
+
+    // 如果当前页面找到了完整模式列，使用它
+    if (firstCompleteColumnIndex !== -1 && firstCompleteColumnPattern) {
+      displayEffectColIndex = firstCompleteColumnIndex;
+      displayEffectPatternType = firstCompleteColumnPattern;
+    } 
+    // 否则，检查之前记住的列是否在当前页面范围内
+    else if (lastCompleteColumn.globalColIndex >= pageStartCol && 
+             lastCompleteColumn.globalColIndex < pageStartCol + COLS_PER_PAGE) {
+      displayEffectColIndex = lastCompleteColumn.globalColIndex - pageStartCol;
+      displayEffectPatternType = lastCompleteColumn.patternType;
+    }
+
     // 使用分页后的矩阵数据
     return currentPageMatrix.map((row, rowIndex) => (
-      <div key={`row-${rowIndex}`} className="flex mb-2">
+      <div key={`row-${rowIndex}`} className="flex mb-2 relative">
+        {/* 如果是第一行且有完整列，添加方形边框 */}
+        {rowIndex === 0 && displayEffectColIndex !== -1 && displayEffectPatternType && (
+          <div
+            className={`absolute border-[3px] ${
+              displayEffectPatternType === 'connected'
+                ? 'border-green-500 connected-pattern'
+                : 'border-purple-500 opposite-pattern'
+            } rounded-md z-20 shadow-lg pointer-events-none`}
+            style={{
+              left: `${displayEffectColIndex * 40 - 2}px`, // 调整左侧位置，考虑边框宽度
+              top: '0px', // 稍微上移，确保能覆盖第一行
+              width: '36px', // 增加宽度，确保能完全包围单元格
+              height: '116px', // 调整高度，确保能覆盖所有三行
+              boxShadow: displayEffectPatternType === 'connected' 
+                ? '0 0 10px 4px rgba(34, 197, 94, 0.7)' 
+                : '0 0 10px 4px rgba(168, 85, 247, 0.7)'
+            }}
+          />
+        )}
         {row.map((color, colIndex) => {
           // 页内坐标
           const position = { row: rowIndex, col: colIndex };
@@ -145,6 +281,11 @@ export const GameContainer: React.FC = () => {
             nextPosition.col === globalCol
           );
 
+          // 检查当前列是否完整
+          const isComplete = isCompleteColumn(colIndex);
+          // 检查是否是第一个完整列
+          const isFirstCompleteColumn = colIndex === firstCompleteColumnIndex;
+
           // 当找到待输入位置时记录日志
           if (isNext) {
             // console.log('[DEBUG] GameContainer - 在矩阵中找到待输入位置:', { 
@@ -159,8 +300,11 @@ export const GameContainer: React.FC = () => {
           return (
             <div
               key={`cell-${rowIndex}-${colIndex}`}
-              className={`w-8 h-8 rounded-full ${isNext ? 'border-2 border-blue-500' : 'border border-gray-300'} flex items-center justify-center mr-2 ${gameState.isViewingHistory ? 'cursor-not-allowed' : 'cursor-pointer'
-                }`}
+              className={`w-8 h-8 rounded-full 
+                ${isNext ? 'border-2 border-blue-500' : 'border border-gray-300'} 
+                ${isComplete && isFirstCompleteColumn ? 'relative' : ''}
+                flex items-center justify-center mr-2 
+                ${gameState.isViewingHistory ? 'cursor-not-allowed' : 'cursor-pointer'}`}
               onClick={() => handleDotClick(position)}
             >
               {color && (
@@ -173,7 +317,91 @@ export const GameContainer: React.FC = () => {
         })}
       </div>
     ));
-  }, [currentPageMatrix, gameState.isViewingHistory, nextPosition, handleDotClick]);
+  }, [currentPageMatrix, matrixCurrentPage, nextPosition, gameState.isViewingHistory, handleDotClick, lastCompleteColumn]);
+
+  // 更新最后一个完整列状态
+  useEffect(() => {
+    // 如果历史记录为空（清空数据或终止输入后），重置lastCompleteColumn状态
+    if (gameState.history.length === 0) {
+      console.log('[DEBUG] 历史记录为空，重置lastCompleteColumn状态');
+      setLastCompleteColumn({ colIndex: -1, patternType: null, globalColIndex: -1 });
+      return;
+    }
+    
+    // 定义每页列数常量
+    const COLS_PER_PAGE = 24; // 每页显示24列
+    // 计算当前页的起始列
+    const pageStartCol = (matrixCurrentPage - 1) * COLS_PER_PAGE;
+
+    // 检查列是否完整（有三个球）
+    const isCompleteColumn = (colIndex: number): boolean => {
+      return currentPageMatrix.every(row => 
+        row[colIndex] !== null && row[colIndex] !== undefined
+      );
+    };
+
+    // 检查列是否匹配模式
+    const getColumnPatternType = (colIndex: number): 'connected' | 'opposite' | null => {
+      if (!isCompleteColumn(colIndex)) return null;
+      
+      const column = [
+        currentPageMatrix[0][colIndex],
+        currentPageMatrix[1][colIndex],
+        currentPageMatrix[2][colIndex]
+      ] as DotColor[];
+      
+      // 检查是否匹配"相连"模式
+      const isRedRedRed = column[0] === 'red' && column[1] === 'red' && column[2] === 'red';
+      const isBlackBlackBlack = column[0] === 'black' && column[1] === 'black' && column[2] === 'black';
+      
+      // 检查是否匹配"相反"模式
+      const isRedBlackRed = column[0] === 'red' && column[1] === 'black' && column[2] === 'red';
+      const isBlackRedBlack = column[0] === 'black' && column[1] === 'red' && column[2] === 'black';
+      
+      if (isRedRedRed || isBlackBlackBlack) {
+        return 'connected'; // 相连模式
+      } else if (isRedBlackRed || isBlackRedBlack) {
+        return 'opposite'; // 相反模式
+      }
+      
+      return null; // 不匹配任何模式
+    };
+
+    // 找到从右向左第一个完整列
+    const findFirstCompleteColumn = (): { colIndex: number, patternType: 'connected' | 'opposite' | null, globalColIndex: number } => {
+      for (let colIndex = currentPageMatrix[0].length - 1; colIndex >= 0; colIndex--) {
+        if (isCompleteColumn(colIndex)) {
+          const patternType = getColumnPatternType(colIndex);
+          if (patternType) {
+            const globalColIndex = colIndex + pageStartCol;
+            return { colIndex, patternType, globalColIndex };
+          }
+        }
+      }
+      return { colIndex: -1, patternType: null, globalColIndex: -1 };
+    };
+
+    // 获取第一个完整列
+    const { colIndex: firstCompleteColumnIndex, patternType: firstCompleteColumnPattern, globalColIndex: _firstCompleteGlobalColIndex } = findFirstCompleteColumn();
+
+    // 只有当找到新的完整模式列时，才更新状态
+    if (firstCompleteColumnIndex !== -1 && firstCompleteColumnPattern) {
+      console.log('[DEBUG] 找到新的完整模式列:', {
+        colIndex: firstCompleteColumnIndex,
+        patternType: firstCompleteColumnPattern,
+        globalColIndex: _firstCompleteGlobalColIndex,
+        previousLastCompleteColumn: lastCompleteColumn
+      });
+      
+      setLastCompleteColumn({
+        colIndex: firstCompleteColumnIndex,
+        patternType: firstCompleteColumnPattern,
+        globalColIndex: _firstCompleteGlobalColIndex
+      });
+    } else {
+      console.log('[DEBUG] 未找到完整模式列，当前lastCompleteColumn:', lastCompleteColumn);
+    }
+  }, [currentPageMatrix, matrixCurrentPage, gameState.history.length]);
 
   // 日志记录预测数据
   useEffect(() => {
@@ -211,146 +439,148 @@ export const GameContainer: React.FC = () => {
         </p>
       </div>
 
-      {/* 日期选择区域 */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className="flex items-center text-lg font-semibold text-gray-800 mr-4">
-            <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-            </svg>
-            日期选择
-          </span>
+      {/* 日期选择区域 - 仅管理员可见 */}
+      {isAdmin && (
+        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="flex items-center text-lg font-semibold text-gray-800 mr-4">
+              <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              日期选择
+            </span>
 
-          {/* 模式切换按钮 - 增强视觉效果 */}
-          <div className="flex flex-col rounded-md shadow-sm" role="group">
-            <div className="flex">
-              <button
-                type="button"
-                onClick={() => {
-                  // console.log('[DEBUG] 用户点击切换到录入模式');
-                  toggleHistoryMode(false); // 切换到录入模式
-                }}
-                className={`px-4 py-2 text-sm font-medium 
-                  ${!gameState.isViewingHistory
-                    ? 'bg-blue-600 text-white ring-2 ring-blue-300'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                  } 
-                  border border-gray-300 rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white
-                  transition-all duration-200
-                `}
-              >
-                <span className="flex items-center">
-                  {!gameState.isViewingHistory && (
-                    <span className="mr-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                  )}
-                  录入模式
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  // console.log('[DEBUG] 用户点击切换到预览模式');
-                  toggleHistoryMode(true); // 切换到预览模式
-                }}
-                className={`px-4 py-2 text-sm font-medium 
-                  ${gameState.isViewingHistory
-                    ? 'bg-blue-600 text-white ring-2 ring-blue-300'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                  } 
-                  border border-gray-300 rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white
-                  transition-all duration-200
-                `}
-              >
-                <span className="flex items-center">
-                  {gameState.isViewingHistory && (
-                    <span className="mr-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                  )}
-                  预览模式
-                </span>
-              </button>
-            </div>
-
-            {/* 全局模式状态指示器 */}
-            <div className="text-xs text-gray-500 mt-1 text-center">
-              {(() => {
-                const isHistoricalDate = selectedDate !== new Date().toISOString().split('T')[0];
-                return isHistoricalDate && (
-                  <span className="text-xs">
-                    您在查看历史数据 {selectedDate}
+            {/* 模式切换按钮 - 增强视觉效果 */}
+            <div className="flex flex-col rounded-md shadow-sm" role="group">
+              <div className="flex">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // console.log('[DEBUG] 用户点击切换到录入模式');
+                    toggleHistoryMode(false); // 切换到录入模式
+                  }}
+                  className={`px-4 py-2 text-sm font-medium 
+                    ${!gameState.isViewingHistory
+                      ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                    } 
+                    border border-gray-300 rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white
+                    transition-all duration-200
+                  `}
+                >
+                  <span className="flex items-center">
+                    {!gameState.isViewingHistory && (
+                      <span className="mr-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    )}
+                    录入模式
                   </span>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // console.log('[DEBUG] 用户点击切换到预览模式');
+                    toggleHistoryMode(true); // 切换到预览模式
+                  }}
+                  className={`px-4 py-2 text-sm font-medium 
+                    ${gameState.isViewingHistory
+                      ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                    } 
+                    border border-gray-300 rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500 focus:text-white
+                    transition-all duration-200
+                  `}
+                >
+                  <span className="flex items-center">
+                    {gameState.isViewingHistory && (
+                      <span className="mr-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    )}
+                    预览模式
+                  </span>
+                </button>
+              </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <button
-            className="w-full sm:w-auto px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-gray-300"
-            onClick={() => {
-              const prevDate = new Date(selectedDate);
-              prevDate.setDate(prevDate.getDate() - 1);
-              setSelectedDate(prevDate.toISOString().split('T')[0]);
-            }}
-          >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
-            </svg>
-            前一天
-          </button>
-
-          <div className="flex-grow w-full sm:w-auto mt-2 sm:mt-0">
-            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-
-              <select
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white mt-2 sm:mt-0"
-                value={currentSessionId}
-                onChange={(e) => handleSessionChange(Number(e.target.value))}
-              >
-                {availableSessions.map((session) => (
-                  <option key={session.id} value={session.id}>
-                    {session.label}
-                  </option>
-                ))}
-              </select>
+              {/* 全局模式状态指示器 */}
+              <div className="text-xs text-gray-500 mt-1 text-center">
+                {(() => {
+                  const isHistoricalDate = selectedDate !== new Date().toISOString().split('T')[0];
+                  return isHistoricalDate && (
+                    <span className="text-xs">
+                      您在查看历史数据 {selectedDate}
+                    </span>
+                  );
+                })()}
+              </div>
             </div>
           </div>
 
-          <button
-            className="w-full sm:w-auto px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors flex items-center justify-center mt-2 sm:mt-0 focus:outline-none focus:ring-2 focus:ring-gray-300"
-            onClick={() => {
-              const nextDate = new Date(selectedDate);
-              nextDate.setDate(nextDate.getDate() + 1);
-              setSelectedDate(nextDate.toISOString().split('T')[0]);
-            }}
-          >
-            后一天
-            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-        </div>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <button
+              className="w-full sm:w-auto px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-gray-300"
+              onClick={() => {
+                const prevDate = new Date(selectedDate);
+                prevDate.setDate(prevDate.getDate() - 1);
+                setSelectedDate(prevDate.toISOString().split('T')[0]);
+              }}
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+              前一天
+            </button>
 
-        <div className="mt-3 text-sm text-gray-500 flex items-center flex-wrap">
-          <span>
-            {new Date(selectedDate).toLocaleDateString('zh-CN', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              weekday: 'long'
-            })}
-          </span>
-          {selectedDate === new Date().toISOString().split('T')[0] && (
-            <span className="ml-2 text-green-500 font-medium text-sm px-2 py-0.5 bg-green-50 rounded-full">今天</span>
-          )}
+            <div className="flex-grow w-full sm:w-auto mt-2 sm:mt-0">
+              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+
+                <select
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white mt-2 sm:mt-0"
+                  value={currentSessionId}
+                  onChange={(e) => handleSessionChange(Number(e.target.value))}
+                >
+                  {availableSessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button
+              className="w-full sm:w-auto px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors flex items-center justify-center mt-2 sm:mt-0 focus:outline-none focus:ring-2 focus:ring-gray-300"
+              onClick={() => {
+                const nextDate = new Date(selectedDate);
+                nextDate.setDate(nextDate.getDate() + 1);
+                setSelectedDate(nextDate.toISOString().split('T')[0]);
+              }}
+            >
+              后一天
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </button>
+          </div>
+
+          <div className="mt-3 text-sm text-gray-500 flex items-center flex-wrap">
+            <span>
+              {new Date(selectedDate).toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long'
+              })}
+            </span>
+            {selectedDate === new Date().toISOString().split('T')[0] && (
+              <span className="ml-2 text-green-500 font-medium text-sm px-2 py-0.5 bg-green-50 rounded-full">今天</span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 连续模式预测区域 */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -380,6 +610,7 @@ export const GameContainer: React.FC = () => {
             rulePredictionColors={rulePredictionColors}
             currentPredictionRow={currentPredictionRow}
             predictionUpdateId={predictionUpdateId}
+            rulePatternType={rulePatternType}
           />
         </div>
       </div>
@@ -396,6 +627,7 @@ export const GameContainer: React.FC = () => {
             onEndSession={safeEndCurrentSession}
             totalMoves={gameState.history ? gameState.history.length : 0}
             isViewingHistory={gameState.isViewingHistory}
+            isAdmin={isAdmin} // 传递管理员状态
           />
         </div>
 

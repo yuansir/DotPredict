@@ -4,6 +4,7 @@ import { DotColor, GameState, Position } from '../types';
 interface RulePredictionResult {
   predictions: (DotColor | null)[];
   predictionRowIndex: number | null;
+  patternType: 'connected' | 'opposite' | null;
 }
 
 /**
@@ -18,6 +19,7 @@ export const useRulePrediction = (
     // 初始化预测数组 - 只有第一个位置可能有预测值
     const predictions: (DotColor | null)[] = [null, null, null];
     let predictionRowIndex: number | null = 0; // 始终是第一行
+    let patternType: 'connected' | 'opposite' | null = null; // 初始化模式类型
 
     try {
       // 如果没有历史记录或在查看历史模式(除非用户手动覆盖)，则不进行预测
@@ -32,7 +34,7 @@ export const useRulePrediction = (
       if (!gameState?.history ||
         (gameState.isViewingHistory && !userModeOverride) ||
         gameState.history.length === 0) {
-        return { predictions, predictionRowIndex: null };
+        return { predictions, predictionRowIndex: null, patternType: null };
       }
 
       // console.log('[DEBUG] useRulePrediction - 开始计算第一行规则预测');
@@ -101,7 +103,7 @@ export const useRulePrediction = (
       }
 
       // 添加第二个预测位功能 - 基于新的预测逻辑
-      const secondPredictionColor = findColumnMatchingPattern(
+      const { secondPredictionColor, foundPatternType } = findColumnMatchingPattern(
         fullMatrix, 
         currentInputPosition, 
         currentInputColor
@@ -109,6 +111,7 @@ export const useRulePrediction = (
       
       if (secondPredictionColor) {
         predictions[1] = secondPredictionColor;
+        patternType = foundPatternType; // 记录找到的模式类型
         // console.log('[DEBUG] useRulePrediction - 设置第二个预测位颜色:', secondPredictionColor);
       }
 
@@ -171,7 +174,7 @@ export const useRulePrediction = (
 
     // console.log('[DEBUG] useRulePrediction - 最终预测结果:', predictions);
 
-    return { predictions, predictionRowIndex };
+    return { predictions, predictionRowIndex, patternType };
   }, [gameState]);
 };
 
@@ -180,17 +183,17 @@ export const useRulePrediction = (
  * @param fullMatrix 完整矩阵数据
  * @param currentInputPosition 当前输入位置
  * @param currentInputColor 当前输入的球的颜色
- * @returns 预测的下一个球的颜色，如果无法预测则返回null
+ * @returns 预测的下一个球的颜色和找到的模式类型
  */
 function findColumnMatchingPattern(
   fullMatrix: (DotColor | null)[][],
   currentInputPosition: Position | null,
   currentInputColor: DotColor | null
-): DotColor | null {
+): { secondPredictionColor: DotColor | null; foundPatternType: 'connected' | 'opposite' | null } {
   // 如果没有输入位置或颜色，无法预测
   if (!currentInputPosition || !currentInputColor) {
     console.log('[DEBUG] 无法预测: 没有输入位置或颜色');
-    return null;
+    return { secondPredictionColor: null, foundPatternType: null };
   }
   
   // 判断当前输入的是第几个球（基于行号）
@@ -198,7 +201,7 @@ function findColumnMatchingPattern(
   const inputRow = currentInputPosition.row;
   if (inputRow !== 0 && inputRow !== 1) {
     console.log('[DEBUG] 无法预测: 输入行号不符合条件', inputRow);
-    return null;
+    return { secondPredictionColor: null, foundPatternType: null };
   }
   
   console.log('[DEBUG] 当前输入位置和颜色:', {
@@ -284,11 +287,11 @@ function findColumnMatchingPattern(
       prediction,
       rule: foundPatternType === 'connected' ? '相连模式: 预测与输入相同' : '相反模式: 预测与输入相反'
     });
-    return prediction;
+    return { secondPredictionColor: prediction, foundPatternType };
   }
   
   console.log('[DEBUG] 没有找到匹配的模式');
-  return null; // 没有找到匹配的模式
+  return { secondPredictionColor: null, foundPatternType: null }; // 没有找到匹配的模式
 }
 
 /**
